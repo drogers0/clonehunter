@@ -1,6 +1,6 @@
 [project]
 name = "clonehunter"
-version = "1.0.0"
+version = "1.0.1"
 description = "Find duplicate code in mixed-language repositories using semantic and lexical similarity"
 readme = "README.md"
 license = "MIT"

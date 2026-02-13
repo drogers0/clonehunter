@@ -4,7 +4,7 @@ CloneHunter finds duplicate code across mixed-language repositories. It uses fun
 
 Under the hood, CloneHunter combines snippet generation (function/window/call-expansion), transformer-based code embeddings (CodeBERT), vector similarity search (brute-force or FAISS), and lexical scoring before rolling matches up into findings and HTML/JSON/SARIF reports. This is intentionally not a lightweight grep-style checker: it runs a semantic retrieval pipeline with model inference and indexing to catch harder, non-trivial duplicate patterns.
 
-![CloneHunter HTML report screenshot](assets/clonehunter-report-demo.png)
+![CloneHunter HTML report screenshot](https://raw.githubusercontent.com/drogers0/clonehunter/v1.0.1/assets/clonehunter-report-demo.png)
 
 ## Quickstart
 
@@ -20,7 +20,7 @@ uv pip install git+https://github.com/drogers0/clonehunter
 ### Install from a release tag
 
 ```bash
-uv pip install git+https://github.com/drogers0/clonehunter@v1.0.0
+uv pip install git+https://github.com/drogers0/clonehunter@v1.0.1
 ```
 
 ### Install with venv + pip
