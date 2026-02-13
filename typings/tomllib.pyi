@@ -1,0 +1,3 @@
+from typing import Any
+
+def loads(s: str, /, *, parse_float: Any = ...) -> dict[str, Any]: ...

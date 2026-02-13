@@ -1,0 +1,144 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CloneHunter Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; padding: 24px; }
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    details { border: 1px solid #ddd; border-radius: 6px; padding: 8px; width: 100%; }
+    details > summary { cursor: pointer; list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 90px 130px;
+      gap: 12px; align-items: start; }
+    .summary-grid > div { min-width: 0; }
+    .path { color: #555; font-size: 0.9em; word-break: break-all; }
+    .meta { color: #444; font-size: 0.9em; }
+    .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .controls label { font-size: 0.9em; color: #333; }
+    .controls select { padding: 4px 6px; }
+    .compare-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; }
+    .diff-wrap { overflow-x: auto; max-width: 100%; }
+    table.diff { width: 100%; border-collapse: collapse; font-family: monospace;
+      font-size: 12px; table-layout: fixed; }
+    table.diff th, table.diff td { padding: 4px 6px; vertical-align: top;
+      border: 1px solid #e5e5e5; }
+    table.diff th { background: #f3f3f3; text-align: left; }
+    td.line-no { width: 3.5em; text-align: right; color: #666; }
+    td.code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .code-box { background: #fafafa; border: 1px solid #eee; padding: 8px;
+      white-space: pre-wrap; overflow-x: auto; font-family: monospace; }
+    .diff_header { background: #f3f3f3; }
+    .diff_add { background: #e6ffed; }
+    .diff_chg { background: #fff5b1; }
+    .diff_sub { background: #ffeef0; }
+  </style>
+</head>
+<body>
+  <h1>CloneHunter Report</h1>
+  <p>Schema: 1.0.0</p>
+  <p>Findings: 2</p>
+  <div class="controls">
+    <label for="sort-findings">Sort findings:</label>
+    <select id="sort-findings">
+      <option value="lines_desc">Duplicated lines (high to low)</option>
+      <option value="score_desc">Match score (high to low)</option>
+      <option value="path_asc">File path (A/B, A to Z)</option>
+    </select>
+  </div>
+  <div class="list">
+    
+<details
+  data-path-min="src/clonehunter/reporting/html_reporter.py"
+  data-score="0.9619782452779875"
+  data-lines="5"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_select_compare</div>
+        <div class="path">
+          src/clonehunter/reporting/html_reporter.py:147-151
+        </div>
+      </div>
+      <div>
+        <div>_select_compare</div>
+        <div class="path">
+          src/clonehunter/reporting/json_reporter.py:65-69
+        </div>
+      </div>
+      <div>0.962</div>
+      <div>5 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">147</td><td class="code">def _select_compare(matches: list[CandidateMatch]) -&gt; dict[str, object] | None:</td><td class="line-no">65</td><td class="code">def _select_compare(matches: list[CandidateMatch]) -&gt; dict[str, object] | None:</td></tr><tr><td class="line-no">148</td><td class="code">    compare = select_compare(matches)</td><td class="line-no">66</td><td class="code">    compare = select_compare(matches)</td></tr><tr><td class="line-no">149</td><td class="code">    if compare is None:</td><td class="line-no">67</td><td class="code">    if compare is None:</td></tr><tr><td class="line-no">150</td><td class="code">        return None</td><td class="line-no">68</td><td class="code">        return None</td></tr><tr><td class="line-no diff_chg">151</td><td class="code diff_chg">    return _compare_payload(compare, matches)</td><td class="line-no diff_chg">69</td><td class="code diff_chg">    return _serialize_evidence(compare)</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="src/clonehunter/reporting/html_reporter.py"
+  data-score="0.9211043177265966"
+  data-lines="11"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_merge_spans</div>
+        <div class="path">
+          src/clonehunter/reporting/html_reporter.py:339-350
+        </div>
+      </div>
+      <div>
+        <div>_covered_lines</div>
+        <div class="path">
+          src/clonehunter/similarity/rollup.py:152-162
+        </div>
+      </div>
+      <div>0.921</div>
+      <div>11 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">339</td><td class="code diff_chg">def _merge_spans(spans: list[tuple[int, int]]) -&gt; list[tuple[int, int]]:</td><td class="line-no diff_chg">152</td><td class="code diff_chg">def _covered_lines(spans: list[tuple[int, int]]) -&gt; int:</td></tr><tr><td class="line-no">340</td><td class="code">    if not spans:</td><td class="line-no">153</td><td class="code">    if not spans:</td></tr><tr><td class="line-no diff_chg">341</td><td class="code diff_chg">        return []</td><td class="line-no diff_chg">154</td><td class="code diff_chg">        return 0</td></tr><tr><td class="line-no diff_chg">342</td><td class="code diff_chg">    merged: list[tuple[int, int]] = []</td><td class="line-no diff_chg">155</td><td class="code diff_chg">    merged: list[list[int]] = []</td></tr><tr><td class="line-no">343</td><td class="code">    for start, end in sorted(spans):</td><td class="line-no">156</td><td class="code">    for start, end in sorted(spans):</td></tr><tr><td class="line-no">344</td><td class="code">        if not merged or start &gt; merged[-1][1] + 1:</td><td class="line-no">157</td><td class="code">        if not merged or start &gt; merged[-1][1] + 1:</td></tr><tr><td class="line-no diff_chg">345</td><td class="code diff_chg">            merged.append((start, end))</td><td class="line-no diff_chg">158</td><td class="code diff_chg">            merged.append([start, end])</td></tr><tr><td class="line-no">346</td><td class="code">            continue</td><td class="line-no">159</td><td class="code">            continue</td></tr><tr><td class="line-no diff_chg">347</td><td class="code diff_chg">        prev_start, prev_end = merged[-1]</td><td class="line-no diff_chg">160</td><td class="code diff_chg">        if end &gt; merged[-1][1]:</td></tr><tr><td class="line-no diff_chg">348</td><td class="code diff_chg">        if end &gt; prev_end:</td><td class="line-no diff_chg">161</td><td class="code diff_chg">            merged[-1][1] = end</td></tr><tr><td class="line-no diff_chg">349</td><td class="code diff_chg">            merged[-1] = (prev_start, end)</td><td class="line-no diff_chg">162</td><td class="code diff_chg">    return sum((end - start + 1 for start, end in merged))</td></tr><tr><td class="line-no diff_chg">350</td><td class="code diff_chg">    return merged</td><td class="line-no diff_chg"></td><td class="code diff_chg"></td></tr></tbody></table></div>
+</details>
+
+  </div>
+  <script>
+    (() => {
+      const list = document.querySelector(".list");
+      const sortSelect = document.getElementById("sort-findings");
+      if (!list || !sortSelect) return;
+
+      const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+
+      const sortFindings = () => {
+        const items = Array.from(list.querySelectorAll("details"));
+        items.sort((a, b) => {
+          const mode = sortSelect.value;
+          if (mode === "path_asc") {
+            const aPath = a.dataset.pathMin || "";
+            const bPath = b.dataset.pathMin || "";
+            return collator.compare(aPath, bPath);
+          }
+          if (mode === "lines_desc") {
+            const aLines = Number(a.dataset.lines || "0");
+            const bLines = Number(b.dataset.lines || "0");
+            return bLines - aLines;
+          }
+          const aScore = Number(a.dataset.score || "0");
+          const bScore = Number(b.dataset.score || "0");
+          return bScore - aScore;
+        });
+        for (const item of items) {
+          list.appendChild(item);
+        }
+      };
+
+      sortSelect.addEventListener("change", sortFindings);
+      sortFindings();
+    })();
+  </script>
+</body>
+</html>

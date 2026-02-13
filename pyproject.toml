@@ -1,0 +1,74 @@
+[project]
+name = "clonehunter"
+version = "1.0.0"
+description = "Find duplicate code in mixed-language repositories using semantic and lexical similarity"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["code-clone", "duplicate-code", "static-analysis", "developer-tools", "refactoring"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "numpy>=2.0.0",
+  "torch>=2.2.0",
+  "transformers>=4.40.0",
+  "tqdm>=4.66.0",
+  "tomli>=2.0.1; python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/drogers0/clonehunter"
+Source = "https://github.com/drogers0/clonehunter"
+Issues = "https://github.com/drogers0/clonehunter/issues"
+
+[project.optional-dependencies]
+faiss = ["faiss-cpu>=1.7.4"]
+dev = [
+  "pytest>=8.4.0",
+  "ruff>=0.15.0",
+  "pyright>=1.1.380",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[project.scripts]
+clonehunter = "clonehunter.cli.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportUnknownParameterType = true
+reportUnknownArgumentType = true
+reportUnknownLambdaType = true
+reportUnknownMemberType = true
+reportUnknownVariableType = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore"]

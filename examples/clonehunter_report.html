@@ -1,0 +1,738 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CloneHunter Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; padding: 24px; }
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    details { border: 1px solid #ddd; border-radius: 6px; padding: 8px; width: 100%; }
+    details > summary { cursor: pointer; list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 90px 130px;
+      gap: 12px; align-items: start; }
+    .summary-grid > div { min-width: 0; }
+    .path { color: #555; font-size: 0.9em; word-break: break-all; }
+    .meta { color: #444; font-size: 0.9em; }
+    .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .controls label { font-size: 0.9em; color: #333; }
+    .controls select { padding: 4px 6px; }
+    .compare-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; }
+    .diff-wrap { overflow-x: auto; max-width: 100%; }
+    table.diff { width: 100%; border-collapse: collapse; font-family: monospace;
+      font-size: 12px; table-layout: fixed; }
+    table.diff th, table.diff td { padding: 4px 6px; vertical-align: top;
+      border: 1px solid #e5e5e5; }
+    table.diff th { background: #f3f3f3; text-align: left; }
+    td.line-no { width: 3.5em; text-align: right; color: #666; }
+    td.code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .code-box { background: #fafafa; border: 1px solid #eee; padding: 8px;
+      white-space: pre-wrap; overflow-x: auto; font-family: monospace; }
+    .diff_header { background: #f3f3f3; }
+    .diff_add { background: #e6ffed; }
+    .diff_chg { background: #fff5b1; }
+    .diff_sub { background: #ffeef0; }
+  </style>
+</head>
+<body>
+  <h1>CloneHunter Report</h1>
+  <p>Schema: 1.0.0</p>
+  <p>Findings: 24</p>
+  <div class="controls">
+    <label for="sort-findings">Sort findings:</label>
+    <select id="sort-findings">
+      <option value="lines_desc">Duplicated lines (high to low)</option>
+      <option value="score_desc">Match score (high to low)</option>
+      <option value="path_asc">File path (A/B, A to Z)</option>
+    </select>
+  </div>
+  <div class="list">
+    
+<details
+  data-path-min="src/clonehunter/reporting/html_reporter.py"
+  data-score="0.9619782452779875"
+  data-lines="5"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_select_compare</div>
+        <div class="path">
+          src/clonehunter/reporting/html_reporter.py:147-151
+        </div>
+      </div>
+      <div>
+        <div>_select_compare</div>
+        <div class="path">
+          src/clonehunter/reporting/json_reporter.py:65-69
+        </div>
+      </div>
+      <div>0.962</div>
+      <div>5 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">147</td><td class="code">def _select_compare(matches: list[CandidateMatch]) -&gt; dict[str, object] | None:</td><td class="line-no">65</td><td class="code">def _select_compare(matches: list[CandidateMatch]) -&gt; dict[str, object] | None:</td></tr><tr><td class="line-no">148</td><td class="code">    compare = select_compare(matches)</td><td class="line-no">66</td><td class="code">    compare = select_compare(matches)</td></tr><tr><td class="line-no">149</td><td class="code">    if compare is None:</td><td class="line-no">67</td><td class="code">    if compare is None:</td></tr><tr><td class="line-no">150</td><td class="code">        return None</td><td class="line-no">68</td><td class="code">        return None</td></tr><tr><td class="line-no diff_chg">151</td><td class="code diff_chg">    return _compare_payload(compare, matches)</td><td class="line-no diff_chg">69</td><td class="code diff_chg">    return _serialize_evidence(compare)</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="src/clonehunter/reporting/html_reporter.py"
+  data-score="0.9211043177265966"
+  data-lines="11"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_merge_spans</div>
+        <div class="path">
+          src/clonehunter/reporting/html_reporter.py:339-350
+        </div>
+      </div>
+      <div>
+        <div>_covered_lines</div>
+        <div class="path">
+          src/clonehunter/similarity/rollup.py:152-162
+        </div>
+      </div>
+      <div>0.921</div>
+      <div>11 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">339</td><td class="code diff_chg">def _merge_spans(spans: list[tuple[int, int]]) -&gt; list[tuple[int, int]]:</td><td class="line-no diff_chg">152</td><td class="code diff_chg">def _covered_lines(spans: list[tuple[int, int]]) -&gt; int:</td></tr><tr><td class="line-no">340</td><td class="code">    if not spans:</td><td class="line-no">153</td><td class="code">    if not spans:</td></tr><tr><td class="line-no diff_chg">341</td><td class="code diff_chg">        return []</td><td class="line-no diff_chg">154</td><td class="code diff_chg">        return 0</td></tr><tr><td class="line-no diff_chg">342</td><td class="code diff_chg">    merged: list[tuple[int, int]] = []</td><td class="line-no diff_chg">155</td><td class="code diff_chg">    merged: list[list[int]] = []</td></tr><tr><td class="line-no">343</td><td class="code">    for start, end in sorted(spans):</td><td class="line-no">156</td><td class="code">    for start, end in sorted(spans):</td></tr><tr><td class="line-no">344</td><td class="code">        if not merged or start &gt; merged[-1][1] + 1:</td><td class="line-no">157</td><td class="code">        if not merged or start &gt; merged[-1][1] + 1:</td></tr><tr><td class="line-no diff_chg">345</td><td class="code diff_chg">            merged.append((start, end))</td><td class="line-no diff_chg">158</td><td class="code diff_chg">            merged.append([start, end])</td></tr><tr><td class="line-no">346</td><td class="code">            continue</td><td class="line-no">159</td><td class="code">            continue</td></tr><tr><td class="line-no diff_chg">347</td><td class="code diff_chg">        prev_start, prev_end = merged[-1]</td><td class="line-no diff_chg">160</td><td class="code diff_chg">        if end &gt; merged[-1][1]:</td></tr><tr><td class="line-no diff_chg">348</td><td class="code diff_chg">        if end &gt; prev_end:</td><td class="line-no diff_chg">161</td><td class="code diff_chg">            merged[-1][1] = end</td></tr><tr><td class="line-no diff_chg">349</td><td class="code diff_chg">            merged[-1] = (prev_start, end)</td><td class="line-no diff_chg">162</td><td class="code diff_chg">    return sum((end - start + 1 for start, end in merged))</td></tr><tr><td class="line-no diff_chg">350</td><td class="code diff_chg">    return merged</td><td class="line-no diff_chg"></td><td class="code diff_chg"></td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="src/clonehunter/core/pipeline.py"
+  data-score="0.9999999999999998"
+  data-lines="1"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_Embedder.embed</div>
+        <div class="path">
+          src/clonehunter/core/pipeline.py:32-32
+        </div>
+      </div>
+      <div>
+        <div>Embedder.embed</div>
+        <div class="path">
+          src/clonehunter/model/interfaces.py:39-39
+        </div>
+      </div>
+      <div>1.000</div>
+      <div>1 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">32</td><td class="code">    def embed(self, snippets: list[SnippetRef]) -&gt; list[Embedding]: ...</td><td class="line-no">39</td><td class="code">    def embed(self, snippets: list[SnippetRef]) -&gt; list[Embedding]: ...</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="src/clonehunter/core/pipeline.py"
+  data-score="1.0"
+  data-lines="1"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_Embedder.dim</div>
+        <div class="path">
+          src/clonehunter/core/pipeline.py:35-35
+        </div>
+      </div>
+      <div>
+        <div>Embedder.dim</div>
+        <div class="path">
+          src/clonehunter/model/interfaces.py:36-36
+        </div>
+      </div>
+      <div>1.000</div>
+      <div>1 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">35</td><td class="code">    def dim(self) -&gt; int: ...</td><td class="line-no">36</td><td class="code">    def dim(self) -&gt; int: ...</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_threshold_edges.py"
+  data-score="0.9426938801286318"
+  data-lines="6"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_func_threshold_edge</div>
+        <div class="path">
+          tests/test_threshold_edges.py:43-48
+        </div>
+      </div>
+      <div>
+        <div>test_exp_threshold_edge</div>
+        <div class="path">
+          tests/test_threshold_edges.py:90-95
+        </div>
+      </div>
+      <div>0.943</div>
+      <div>6 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">43</td><td class="code diff_chg">def test_func_threshold_edge():</td><td class="line-no diff_chg">90</td><td class="code diff_chg">def test_exp_threshold_edge():</td></tr><tr><td class="line-no">44</td><td class="code">    thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)</td><td class="line-no">91</td><td class="code">    thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)</td></tr><tr><td class="line-no diff_chg">45</td><td class="code diff_chg">    at = rollup_findings([_match(&#x27;FUNC&#x27;, 0.95)], thresholds)</td><td class="line-no diff_chg">92</td><td class="code diff_chg">    at = rollup_findings([_match(&#x27;EXP&#x27;, 0.9)], thresholds)</td></tr><tr><td class="line-no diff_chg">46</td><td class="code diff_chg">    below = rollup_findings([_match(&#x27;FUNC&#x27;, 0.9499)], thresholds)</td><td class="line-no diff_chg">93</td><td class="code diff_chg">    below = rollup_findings([_match(&#x27;EXP&#x27;, 0.8999)], thresholds)</td></tr><tr><td class="line-no">47</td><td class="code">    assert at</td><td class="line-no">94</td><td class="code">    assert at</td></tr><tr><td class="line-no">48</td><td class="code">    assert not below</td><td class="line-no">95</td><td class="code">    assert not below</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_threshold_edges.py"
+  data-score="0.9628723168159918"
+  data-lines="25"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_win_threshold_edge</div>
+        <div class="path">
+          tests/test_threshold_edges.py:51-87
+        </div>
+      </div>
+      <div>
+        <div>test_min_window_hits_edge</div>
+        <div class="path">
+          tests/test_threshold_edges.py:98-122
+        </div>
+      </div>
+      <div>0.963</div>
+      <div>25 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">51</td><td class="code diff_chg">def test_win_threshold_edge():</td><td class="line-no diff_chg">98</td><td class="code diff_chg">def test_min_window_hits_edge():</td></tr><tr><td class="line-no">52</td><td class="code">    thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)</td><td class="line-no">99</td><td class="code">    thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)</td></tr><tr><td class="line-no">53</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">100</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no">54</td><td class="code">    fn_a = FunctionRef(file=file, qualified_name=&#x27;a&#x27;, start_line=1, end_line=20, code=&#x27;pass&#x27;, code_hash=&#x27;a&#x27;)</td><td class="line-no">101</td><td class="code">    fn_a = FunctionRef(file=file, qualified_name=&#x27;a&#x27;, start_line=1, end_line=20, code=&#x27;pass&#x27;, code_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no">55</td><td class="code">    fn_b = FunctionRef(file=file, qualified_name=&#x27;b&#x27;, start_line=30, end_line=50, code=&#x27;pass&#x27;, code_hash=&#x27;b&#x27;)</td><td class="line-no">102</td><td class="code">    fn_b = FunctionRef(file=file, qualified_name=&#x27;b&#x27;, start_line=30, end_line=50, code=&#x27;pass&#x27;, code_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no">56</td><td class="code">    a1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=1, end_line=3, text=&#x27;a1&#x27;, snippet_hash=&#x27;a1&#x27;)</td><td class="line-no">103</td><td class="code">    a1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=1, end_line=3, text=&#x27;a1&#x27;, snippet_hash=&#x27;a1&#x27;)</td></tr><tr><td class="line-no">57</td><td class="code">    b1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=30, end_line=32, text=&#x27;b1&#x27;, snippet_hash=&#x27;b1&#x27;)</td><td class="line-no">104</td><td class="code">    b1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=30, end_line=32, text=&#x27;b1&#x27;, snippet_hash=&#x27;b1&#x27;)</td></tr><tr><td class="line-no">58</td><td class="code">    a2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=4, end_line=6, text=&#x27;a2&#x27;, snippet_hash=&#x27;a2&#x27;)</td><td class="line-no">105</td><td class="code">    a2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=4, end_line=6, text=&#x27;a2&#x27;, snippet_hash=&#x27;a2&#x27;)</td></tr><tr><td class="line-no">59</td><td class="code">    b2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=33, end_line=35, text=&#x27;b2&#x27;, snippet_hash=&#x27;b2&#x27;)</td><td class="line-no">106</td><td class="code">    b2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=33, end_line=35, text=&#x27;b2&#x27;, snippet_hash=&#x27;b2&#x27;)</td></tr><tr><td class="line-no diff_chg">60</td><td class="code diff_chg">    at = rollup_findings([CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.9, evidence=&#x27;&#x27;), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.9, evidence=&#x27;&#x27;)], thresholds)</td><td class="line-no diff_chg">107</td><td class="code diff_chg">    m1 = CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.95, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no diff_chg">61</td><td class="code diff_chg">    below = rollup_findings([CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.8999, evidence=&#x27;&#x27;), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.8999, evidence=&#x27;&#x27;)], thresholds)</td><td class="line-no diff_chg">108</td><td class="code diff_chg">    m2 = CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.95, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no diff_chg">62</td><td class="code diff_chg">    assert at</td><td class="line-no diff_chg">109</td><td class="code diff_chg">    findings = rollup_findings([m1, m2], thresholds)</td></tr><tr><td class="line-no diff_chg">63</td><td class="code diff_chg">    assert below</td><td class="line-no diff_chg">110</td><td class="code diff_chg">    assert findings</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_expansion.py"
+  data-score="0.9241675493184038"
+  data-lines="5"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_expansion_generates_snippet</div>
+        <div class="path">
+          tests/test_expansion.py:6-10
+        </div>
+      </div>
+      <div>
+        <div>test_expansion_respects_max_chars</div>
+        <div class="path">
+          tests/test_expansion.py:22-26
+        </div>
+      </div>
+      <div>0.924</div>
+      <div>5 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">6</td><td class="code diff_chg">def test_expansion_generates_snippet():</td><td class="line-no diff_chg">22</td><td class="code diff_chg">def test_expansion_respects_max_chars():</td></tr><tr><td class="line-no">7</td><td class="code">    files = collect_files([&#x27;fixtures/tiny_repo&#x27;], [&#x27;**/*.py&#x27;], [])</td><td class="line-no">23</td><td class="code">    files = collect_files([&#x27;fixtures/tiny_repo&#x27;], [&#x27;**/*.py&#x27;], [])</td></tr><tr><td class="line-no">8</td><td class="code">    functions = [fn for file in files for fn in extract_functions(file)]</td><td class="line-no">24</td><td class="code">    functions = [fn for file in files for fn in extract_functions(file)]</td></tr><tr><td class="line-no diff_chg">9</td><td class="code diff_chg">    snippets = expand_calls(functions, ExpansionParams(enabled=True, depth=1, max_chars=10000))</td><td class="line-no diff_chg">25</td><td class="code diff_chg">    snippets = expand_calls(functions, ExpansionParams(enabled=True, depth=1, max_chars=1))</td></tr><tr><td class="line-no diff_chg">10</td><td class="code diff_chg">    assert any((snippet.kind == &#x27;EXP&#x27; for snippet in snippets))</td><td class="line-no diff_chg">26</td><td class="code diff_chg">    assert snippets == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_cli_entrypoints.py"
+  data-score="0.9621340147986004"
+  data-lines="52"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_diff_end_to_end</div>
+        <div class="path">
+          tests/test_diff_e2e.py:8-83
+        </div>
+      </div>
+      <div>
+        <div>test_cli_diff_command</div>
+        <div class="path">
+          tests/test_cli_entrypoints.py:31-82
+        </div>
+      </div>
+      <div>0.962</div>
+      <div>52 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no"></td><td class="meta">&lt;23 lines not shown&gt;</td><td class="line-no"></td><td class="meta">&lt;1 lines not shown&gt;</td></tr><tr><td class="line-no diff_chg">31</td><td class="code diff_chg">def test_cli_diff_command(tmp_path: Path):</td><td class="line-no diff_chg">32</td><td class="code diff_chg">    )</td></tr><tr><td class="line-no diff_chg">32</td><td class="code diff_chg">    repo = tmp_path / &#x27;repo&#x27;</td><td class="line-no diff_chg">33</td><td class="code diff_chg">    subprocess.check_call([&quot;git&quot;, &quot;init&quot;], cwd=repo)</td></tr><tr><td class="line-no diff_chg">33</td><td class="code diff_chg">    repo.mkdir()</td><td class="line-no diff_chg">34</td><td class="code diff_chg">    subprocess.check_call([&quot;git&quot;, &quot;config&quot;, &quot;user.email&quot;, &quot;test@example.com&quot;], cwd=repo)</td></tr><tr><td class="line-no diff_chg">34</td><td class="code diff_chg">    (repo / &#x27;a.py&#x27;).write_text(&#x27;\n\ndef add(nums):\n    total = 0\n    for n in nums:\n        total += n\n    return total\n&#x27;, encoding=&#x27;utf-8&#x27;)</td><td class="line-no diff_chg">35</td><td class="code diff_chg">    subprocess.check_call([&quot;git&quot;, &quot;config&quot;, &quot;user.name&quot;, &quot;Test User&quot;], cwd=repo)</td></tr><tr><td class="line-no diff_chg">35</td><td class="code diff_chg">    subprocess.check_call([&#x27;git&#x27;, &#x27;init&#x27;], cwd=repo)</td><td class="line-no diff_chg">36</td><td class="code diff_chg">    subprocess.check_call([&quot;git&quot;, &quot;add&quot;, &quot;a.py&quot;, &quot;b.py&quot;], cwd=repo)</td></tr><tr><td class="line-no diff_chg">36</td><td class="code diff_chg">    subprocess.check_call([&#x27;git&#x27;, &#x27;config&#x27;, &#x27;user.email&#x27;, &#x27;test@example.com&#x27;], cwd=repo)</td><td class="line-no diff_chg">37</td><td class="code diff_chg">    subprocess.check_call([&quot;git&quot;, &quot;commit&quot;, &quot;-m&quot;, &quot;init&quot;], cwd=repo)</td></tr><tr><td class="line-no diff_chg">37</td><td class="code diff_chg">    subprocess.check_call([&#x27;git&#x27;, &#x27;config&#x27;, &#x27;user.name&#x27;, &#x27;Test User&#x27;], cwd=repo)</td><td class="line-no diff_chg">38</td><td class="code diff_chg">    (repo / &quot;a.py&quot;).write_text(</td></tr><tr><td class="line-no diff_chg">38</td><td class="code diff_chg">    subprocess.check_call([&#x27;git&#x27;, &#x27;add&#x27;, &#x27;a.py&#x27;], cwd=repo)</td><td class="line-no diff_chg">39</td><td class="code diff_chg">        &quot;&quot;&quot;</td></tr><tr><td class="line-no diff_chg">39</td><td class="code diff_chg">    subprocess.check_call([&#x27;git&#x27;, &#x27;commit&#x27;, &#x27;-m&#x27;, &#x27;init&#x27;], cwd=repo)</td><td class="line-no diff_chg">40</td><td class="code diff_chg">def add(nums):</td></tr><tr><td class="line-no diff_chg">40</td><td class="code diff_chg">    (repo / &#x27;a.py&#x27;).write_text(&#x27;\n\ndef add(nums):\n    total = 0\n    for n in nums:\n        total += n\n    return total\n\n\ndef add_copy(values):\n    total = 0\n    for n in values:\n        total += n\n    return total\n&#x27;, encoding=&#x27;utf-8&#x27;)</td><td class="line-no diff_chg">41</td><td class="code diff_chg">    total = 0</td></tr><tr><td class="line-no diff_chg">41</td><td class="code diff_chg">    out = tmp_path / &#x27;diff.json&#x27;</td><td class="line-no diff_chg">42</td><td class="code diff_chg">    for n in nums:</td></tr><tr><td class="line-no diff_chg">42</td><td class="code diff_chg">    cmd = [sys.executable, &#x27;-m&#x27;, &#x27;clonehunter&#x27;, &#x27;diff&#x27;, &#x27;--base&#x27;, &#x27;HEAD&#x27;, &#x27;--format&#x27;, &#x27;json&#x27;, &#x27;--out&#x27;, str(out)]</td><td class="line-no diff_chg">43</td><td class="code diff_chg">        total += n</td></tr><tr><td class="line-no diff_chg">43</td><td class="code diff_chg">    subprocess.check_call(cmd, cwd=repo, env=_env())</td><td class="line-no diff_chg">44</td><td class="code diff_chg">    return total</td></tr><tr><td class="line-no diff_chg">44</td><td class="code diff_chg">    assert out.exists()</td><td class="line-no diff_chg">45</td><td class="code diff_chg">def add_copy(values):</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">46</td><td class="code diff_chg">    total = 0</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">47</td><td class="code diff_chg">    for n in values:</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">48</td><td class="code diff_chg">        total += n</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">49</td><td class="code diff_chg">    return total</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">50</td><td class="code diff_chg">&quot;&quot;&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">51</td><td class="code diff_chg">        encoding=&quot;utf-8&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">52</td><td class="code diff_chg">    )</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">53</td><td class="code diff_chg">    out = tmp_path / &quot;diff.json&quot;</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">54</td><td class="code diff_chg">    env = os.environ.copy()</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">55</td><td class="code diff_chg">    env[&quot;PYTHONPATH&quot;] = str(Path(__file__).resolve().parents[1] / &quot;src&quot;)</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">56</td><td class="code diff_chg">    env[&quot;CLONEHUNTER_EMBEDDER&quot;] = &quot;stub&quot;</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">57</td><td class="code diff_chg">    cmd = [</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">58</td><td class="code diff_chg">        sys.executable,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">59</td><td class="code diff_chg">        &quot;-m&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">60</td><td class="code diff_chg">        &quot;clonehunter&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">61</td><td class="code diff_chg">        &quot;diff&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">62</td><td class="code diff_chg">        &quot;--base&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">63</td><td class="code diff_chg">        &quot;HEAD&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">64</td><td class="code diff_chg">        &quot;--format&quot;,</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">65</td><td class="code diff_chg">        &quot;json&quot;,</td></tr><tr><td class="line-no"></td><td class="meta"></td><td class="line-no"></td><td class="meta">&lt;11 lines not shown&gt;</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_pipeline_smoke.py"
+  data-score="0.9490174380842854"
+  data-lines="26"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_pipeline_non_python_implicit_windows_only</div>
+        <div class="path">
+          tests/test_pipeline_smoke.py:15-44
+        </div>
+      </div>
+      <div>
+        <div>test_pipeline_non_python_allows_cross_file_types</div>
+        <div class="path">
+          tests/test_pipeline_smoke.py:47-72
+        </div>
+      </div>
+      <div>0.949</div>
+      <div>26 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">15</td><td class="code diff_chg">def test_pipeline_non_python_implicit_windows_only(tmp_path: Path) -&gt; None:</td><td class="line-no diff_chg">47</td><td class="code diff_chg">def test_pipeline_non_python_allows_cross_file_types(tmp_path: Path) -&gt; None:</td></tr><tr><td class="line-no">16</td><td class="code">    repo = tmp_path / &#x27;repo&#x27;</td><td class="line-no">48</td><td class="code">    repo = tmp_path / &#x27;repo&#x27;</td></tr><tr><td class="line-no">17</td><td class="code">    repo.mkdir()</td><td class="line-no">49</td><td class="code">    repo.mkdir()</td></tr><tr><td class="line-no">18</td><td class="code">    code = &#x27;function add(a, b) {\n  return a + b;\n}\n&#x27;</td><td class="line-no">50</td><td class="code">    code = &#x27;function add(a, b) {\n  return a + b;\n}\n&#x27;</td></tr><tr><td class="line-no">19</td><td class="code">    (repo / &#x27;a.js&#x27;).write_text(code, encoding=&#x27;utf-8&#x27;)</td><td class="line-no">51</td><td class="code">    (repo / &#x27;a.js&#x27;).write_text(code, encoding=&#x27;utf-8&#x27;)</td></tr><tr><td class="line-no diff_chg">20</td><td class="code diff_chg">    (repo / &#x27;b.js&#x27;).write_text(code, encoding=&#x27;utf-8&#x27;)</td><td class="line-no diff_chg">52</td><td class="code diff_chg">    (repo / &#x27;b.ts&#x27;).write_text(code, encoding=&#x27;utf-8&#x27;)</td></tr><tr><td class="line-no diff_chg">21</td><td class="code diff_chg">    result = run_pipeline([str(repo)], CloneHunterConfig(include_globs=[&#x27;**/*.js&#x27;], exclude_globs=[], embedder=EmbedderConfig(name=&#x27;stub&#x27;), windows=WindowConfig(window_lines=3, stride_lines=1, min_nonempty=1), thresholds=Thresholds(func=0.99, win=0.8, exp=0.99, min_window_hits=1, lexical_min_ratio=0.0, lexical_weight=0.3)))</td><td class="line-no diff_chg">53</td><td class="code diff_chg">    result = run_pipeline([str(repo)], CloneHunterConfig(include_globs=[&#x27;**/*.js&#x27;, &#x27;**/*.ts&#x27;], exclude_globs=[], embedder=EmbedderConfig(name=&#x27;stub&#x27;), windows=WindowConfig(window_lines=3, stride_lines=1, min_nonempty=1), thresholds=Thresholds(func=0.99, win=0.8, exp=0.99, min_window_hits=1, lexical_min_ratio=0.0, lexical_weight=0.3)))</td></tr><tr><td class="line-no">22</td><td class="code">    assert result.stats.file_count == 2</td><td class="line-no">54</td><td class="code">    assert result.stats.file_count == 2</td></tr><tr><td class="line-no diff_sub">23</td><td class="code diff_sub">    assert result.stats.function_count == 0</td><td class="line-no diff_sub"></td><td class="code diff_sub"></td></tr><tr><td class="line-no">24</td><td class="code">    assert result.stats.finding_count &gt;= 1</td><td class="line-no">55</td><td class="code">    assert result.stats.finding_count &gt;= 1</td></tr><tr><td class="line-no diff_sub">25</td><td class="code diff_sub">    finding = result.findings[0]</td><td class="line-no diff_sub"></td><td class="code diff_sub"></td></tr><tr><td class="line-no diff_sub">26</td><td class="code diff_sub">    assert finding.function_a.qualified_name != &#x27;&lt;file&gt;&#x27;</td><td class="line-no diff_sub"></td><td class="code diff_sub"></td></tr><tr><td class="line-no diff_sub">27</td><td class="code diff_sub">    assert finding.function_b.qualified_name != &#x27;&lt;file&gt;&#x27;</td><td class="line-no diff_sub"></td><td class="code diff_sub"></td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9269662980287967"
+  data-lines="29"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_min_window_hits</div>
+        <div class="path">
+          tests/test_rollup.py:6-34
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_applies_lexical_filter</div>
+        <div class="path">
+          tests/test_rollup.py:109-144
+        </div>
+      </div>
+      <div>0.927</div>
+      <div>29 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">6</td><td class="code diff_chg">def test_rollup_min_window_hits():</td><td class="line-no diff_chg">109</td><td class="code diff_chg">def test_rollup_applies_lexical_filter() -&gt; None:</td></tr><tr><td class="line-no">7</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">110</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no">8</td><td class="code">    fn_a = FunctionRef(file=file, qualified_name=&#x27;a&#x27;, start_line=1, end_line=5, code=&#x27;pass&#x27;, code_hash=&#x27;a&#x27;)</td><td class="line-no">111</td><td class="code">    fn_a = FunctionRef(file=file, qualified_name=&#x27;a&#x27;, start_line=1, end_line=5, code=&#x27;pass&#x27;, code_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no">9</td><td class="code">    fn_b = FunctionRef(file=file, qualified_name=&#x27;b&#x27;, start_line=10, end_line=14, code=&#x27;pass&#x27;, code_hash=&#x27;b&#x27;)</td><td class="line-no">112</td><td class="code">    fn_b = FunctionRef(file=file, qualified_name=&#x27;b&#x27;, start_line=10, end_line=14, code=&#x27;pass&#x27;, code_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no diff_chg">10</td><td class="code diff_chg">    a1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=1, end_line=3, text=&#x27;a1&#x27;, snippet_hash=&#x27;a1&#x27;)</td><td class="line-no diff_chg">113</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=1, end_line=3, text=&#x27;def alpha():\n    return 1&#x27;, snippet_hash=&#x27;a1&#x27;)</td></tr><tr><td class="line-no diff_chg">11</td><td class="code diff_chg">    b1 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=10, end_line=12, text=&#x27;b1&#x27;, snippet_hash=&#x27;b1&#x27;)</td><td class="line-no diff_chg">114</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=10, end_line=12, text=&#x27;def beta():\n    return 2&#x27;, snippet_hash=&#x27;b1&#x27;)</td></tr><tr><td class="line-no diff_chg">12</td><td class="code diff_chg">    a2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_a, start_line=2, end_line=4, text=&#x27;a2&#x27;, snippet_hash=&#x27;a2&#x27;)</td><td class="line-no diff_chg">115</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=0.99, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no diff_chg">13</td><td class="code diff_chg">    b2 = SnippetRef(kind=&#x27;WIN&#x27;, function=fn_b, start_line=11, end_line=13, text=&#x27;b2&#x27;, snippet_hash=&#x27;b2&#x27;)</td><td class="line-no diff_chg">116</td><td class="code diff_chg">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.6))</td></tr><tr><td class="line-no diff_chg">14</td><td class="code diff_chg">    matches = [CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.5, evidence=&#x27;&#x27;), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.5, evidence=&#x27;&#x27;)]</td><td class="line-no diff_chg">117</td><td class="code diff_chg">    assert findings == []</td></tr><tr><td class="line-no diff_chg">15</td><td class="code diff_chg">    findings = rollup_findings(matches, Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0))</td><td class="line-no diff_chg"></td><td class="code diff_chg"></td></tr><tr><td class="line-no diff_chg">16</td><td class="code diff_chg">    assert findings</td><td class="line-no diff_chg"></td><td class="code diff_chg"></td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9612719528379781"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_filters_overlapping_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:37-46
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_identical_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:49-58
+        </div>
+      </div>
+      <div>0.961</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">37</td><td class="code diff_chg">def test_rollup_filters_overlapping_windows_same_function():</td><td class="line-no diff_chg">49</td><td class="code diff_chg">def test_rollup_drops_identical_windows_same_function() -&gt; None:</td></tr><tr><td class="line-no">38</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">50</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">39</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no diff_chg">51</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">40</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=1, end_line=5, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">52</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no diff_chg">41</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=4, end_line=8, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">53</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no">42</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no">54</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">43</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">55</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">44</td><td class="code">    assert findings == []</td><td class="line-no">56</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9699284803257625"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_filters_overlapping_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:37-46
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_identical_func_self_match</div>
+        <div class="path">
+          tests/test_rollup.py:61-70
+        </div>
+      </div>
+      <div>0.970</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">37</td><td class="code diff_chg">def test_rollup_filters_overlapping_windows_same_function():</td><td class="line-no diff_chg">61</td><td class="code diff_chg">def test_rollup_drops_identical_func_self_match() -&gt; None:</td></tr><tr><td class="line-no">38</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">62</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no">39</td><td class="code">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no">63</td><td class="code">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">40</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=1, end_line=5, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">64</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no diff_chg">41</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=4, end_line=8, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">65</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no">42</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no">66</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">43</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">67</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">44</td><td class="code">    assert findings == []</td><td class="line-no">68</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9380237453962632"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_filters_overlapping_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:37-46
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_overlapping_func_win_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:73-84
+        </div>
+      </div>
+      <div>0.938</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">37</td><td class="code diff_chg">def test_rollup_filters_overlapping_windows_same_function():</td><td class="line-no diff_chg">73</td><td class="code diff_chg">def test_rollup_drops_overlapping_func_win_same_function() -&gt; None:</td></tr><tr><td class="line-no">38</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">74</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">39</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no diff_chg">75</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">40</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=1, end_line=5, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">76</td><td class="code diff_chg">    func = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=30, text=&#x27;f&#x27;, snippet_hash=&#x27;f&#x27;)</td></tr><tr><td class="line-no diff_chg">41</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=4, end_line=8, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">77</td><td class="code diff_chg">    win = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;w&#x27;, snippet_hash=&#x27;w&#x27;)</td></tr><tr><td class="line-no diff_chg">42</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no diff_chg">78</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">43</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">79</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">44</td><td class="code">    assert findings == []</td><td class="line-no">80</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9699254373225056"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_drops_identical_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:49-58
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_identical_func_self_match</div>
+        <div class="path">
+          tests/test_rollup.py:61-70
+        </div>
+      </div>
+      <div>0.970</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">49</td><td class="code diff_chg">def test_rollup_drops_identical_windows_same_function() -&gt; None:</td><td class="line-no diff_chg">61</td><td class="code diff_chg">def test_rollup_drops_identical_func_self_match() -&gt; None:</td></tr><tr><td class="line-no">50</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">62</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">51</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no diff_chg">63</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">52</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">64</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no diff_chg">53</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">65</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no">54</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no">66</td><td class="code">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">55</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">67</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">56</td><td class="code">    assert findings == []</td><td class="line-no">68</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9698768262425053"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_drops_identical_windows_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:49-58
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_overlapping_func_win_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:73-84
+        </div>
+      </div>
+      <div>0.970</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">49</td><td class="code diff_chg">def test_rollup_drops_identical_windows_same_function() -&gt; None:</td><td class="line-no diff_chg">73</td><td class="code diff_chg">def test_rollup_drops_overlapping_func_win_same_function() -&gt; None:</td></tr><tr><td class="line-no">50</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">74</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no">51</td><td class="code">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no">75</td><td class="code">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">52</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">76</td><td class="code diff_chg">    func = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=30, text=&#x27;f&#x27;, snippet_hash=&#x27;f&#x27;)</td></tr><tr><td class="line-no diff_chg">53</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">77</td><td class="code diff_chg">    win = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;w&#x27;, snippet_hash=&#x27;w&#x27;)</td></tr><tr><td class="line-no diff_chg">54</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no diff_chg">78</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">55</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">79</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">56</td><td class="code">    assert findings == []</td><td class="line-no">80</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.9473319539588376"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_drops_identical_func_self_match</div>
+        <div class="path">
+          tests/test_rollup.py:61-70
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_overlapping_func_win_same_function</div>
+        <div class="path">
+          tests/test_rollup.py:73-84
+        </div>
+      </div>
+      <div>0.947</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">61</td><td class="code diff_chg">def test_rollup_drops_identical_func_self_match() -&gt; None:</td><td class="line-no diff_chg">73</td><td class="code diff_chg">def test_rollup_drops_overlapping_func_win_same_function() -&gt; None:</td></tr><tr><td class="line-no">62</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">74</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">63</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no diff_chg">75</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=30, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td></tr><tr><td class="line-no diff_chg">64</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">76</td><td class="code diff_chg">    func = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=30, text=&#x27;f&#x27;, snippet_hash=&#x27;f&#x27;)</td></tr><tr><td class="line-no diff_chg">65</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">77</td><td class="code diff_chg">    win = SnippetRef(kind=&#x27;WIN&#x27;, function=fn, start_line=5, end_line=24, text=&#x27;w&#x27;, snippet_hash=&#x27;w&#x27;)</td></tr><tr><td class="line-no diff_chg">66</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no diff_chg">78</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no">67</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no">79</td><td class="code">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td></tr><tr><td class="line-no">68</td><td class="code">    assert findings == []</td><td class="line-no">80</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_rollup.py"
+  data-score="0.914657001614171"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>test_rollup_drops_identical_func_self_match</div>
+        <div class="path">
+          tests/test_rollup.py:61-70
+        </div>
+      </div>
+      <div>
+        <div>test_rollup_drops_overlapping_functions_same_file</div>
+        <div class="path">
+          tests/test_rollup.py:87-106
+        </div>
+      </div>
+      <div>0.915</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">61</td><td class="code diff_chg">def test_rollup_drops_identical_func_self_match() -&gt; None:</td><td class="line-no diff_chg">87</td><td class="code diff_chg">def test_rollup_drops_overlapping_functions_same_file() -&gt; None:</td></tr><tr><td class="line-no">62</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no">88</td><td class="code">    file = FileRef(path=&#x27;x.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">63</td><td class="code diff_chg">    fn = FunctionRef(file=file, qualified_name=&#x27;f&#x27;, start_line=1, end_line=10, code=&#x27;pass&#x27;, code_hash=&#x27;c&#x27;)</td><td class="line-no diff_chg">89</td><td class="code diff_chg">    fn_outer = FunctionRef(file=file, qualified_name=&#x27;outer&#x27;, start_line=1, end_line=40, code=&#x27;pass&#x27;, code_hash=&#x27;o&#x27;)</td></tr><tr><td class="line-no diff_chg">64</td><td class="code diff_chg">    a = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;a&#x27;, snippet_hash=&#x27;a&#x27;)</td><td class="line-no diff_chg">90</td><td class="code diff_chg">    fn_inner = FunctionRef(file=file, qualified_name=&#x27;inner&#x27;, start_line=10, end_line=20, code=&#x27;pass&#x27;, code_hash=&#x27;i&#x27;)</td></tr><tr><td class="line-no diff_chg">65</td><td class="code diff_chg">    b = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn, start_line=1, end_line=10, text=&#x27;b&#x27;, snippet_hash=&#x27;b&#x27;)</td><td class="line-no diff_chg">91</td><td class="code diff_chg">    outer = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn_outer, start_line=1, end_line=40, text=&#x27;o&#x27;, snippet_hash=&#x27;o&#x27;)</td></tr><tr><td class="line-no diff_chg">66</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no diff_chg">92</td><td class="code diff_chg">    inner = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn_inner, start_line=10, end_line=20, text=&#x27;i&#x27;, snippet_hash=&#x27;i&#x27;)</td></tr><tr><td class="line-no diff_chg">67</td><td class="code diff_chg">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))</td><td class="line-no diff_chg">93</td><td class="code diff_chg">    match = CandidateMatch(snippet_a=outer, snippet_b=inner, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">94</td><td class="code diff_chg">    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0))</td></tr><tr><td class="line-no">68</td><td class="code">    assert findings == []</td><td class="line-no">95</td><td class="code">    assert findings == []</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="tests/test_clustering.py"
+  data-score="0.9342067988642904"
+  data-lines="22"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>_finding</div>
+        <div class="path">
+          tests/test_clustering.py:5-26
+        </div>
+      </div>
+      <div>
+        <div>_sample_result</div>
+        <div class="path">
+          tests/test_reporters_html_sarif.py:17-44
+        </div>
+      </div>
+      <div>0.934</div>
+      <div>22 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">5</td><td class="code diff_chg">def _finding(a: str, b: str) -&gt; Finding:</td><td class="line-no diff_chg">17</td><td class="code diff_chg">def _sample_result() -&gt; ScanResult:</td></tr><tr><td class="line-no diff_chg">6</td><td class="code diff_chg">    file_a = FileRef(path=f&#x27;{a}.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no diff_chg">18</td><td class="code diff_chg">    file_a = FileRef(path=&#x27;fixtures/tiny_repo/a.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">7</td><td class="code diff_chg">    file_b = FileRef(path=f&#x27;{b}.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td><td class="line-no diff_chg">19</td><td class="code diff_chg">    file_b = FileRef(path=&#x27;fixtures/tiny_repo/b.py&#x27;, content_hash=&#x27;h&#x27;, language=&#x27;python&#x27;)</td></tr><tr><td class="line-no diff_chg">8</td><td class="code diff_chg">    fn_a = FunctionRef(file=file_a, qualified_name=a, start_line=1, end_line=2, code=&#x27;pass&#x27;, code_hash=a)</td><td class="line-no diff_chg">20</td><td class="code diff_chg">    fn_a = FunctionRef(file=file_a, qualified_name=&#x27;a&#x27;, start_line=1, end_line=2, code=&#x27;pass&#x27;, code_hash=&#x27;a&#x27;)</td></tr><tr><td class="line-no diff_chg">9</td><td class="code diff_chg">    fn_b = FunctionRef(file=file_b, qualified_name=b, start_line=1, end_line=2, code=&#x27;pass&#x27;, code_hash=b)</td><td class="line-no diff_chg">21</td><td class="code diff_chg">    fn_b = FunctionRef(file=file_b, qualified_name=&#x27;b&#x27;, start_line=10, end_line=12, code=&#x27;pass&#x27;, code_hash=&#x27;b&#x27;)</td></tr><tr><td class="line-no diff_chg">10</td><td class="code diff_chg">    snip = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn_a, start_line=1, end_line=2, text=&#x27;pass&#x27;, snippet_hash=a)</td><td class="line-no diff_chg">22</td><td class="code diff_chg">    snip = SnippetRef(kind=&#x27;FUNC&#x27;, function=fn_a, start_line=1, end_line=2, text=&#x27;pass&#x27;, snippet_hash=&#x27;s&#x27;)</td></tr><tr><td class="line-no">11</td><td class="code">    match = CandidateMatch(snippet_a=snip, snippet_b=snip, similarity=1.0, evidence=&#x27;&#x27;)</td><td class="line-no">23</td><td class="code">    match = CandidateMatch(snippet_a=snip, snippet_b=snip, similarity=1.0, evidence=&#x27;&#x27;)</td></tr><tr><td class="line-no diff_chg">12</td><td class="code diff_chg">    return Finding(function_a=fn_a, function_b=fn_b, score=1.0, duplicated_lines=2, evidence=[match], reasons=[&#x27;func&#x27;], metadata={})</td><td class="line-no diff_chg">24</td><td class="code diff_chg">    finding = Finding(function_a=fn_a, function_b=fn_b, score=1.0, duplicated_lines=2, evidence=[match], reasons=[&#x27;func&#x27;], metadata={})</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">25</td><td class="code diff_chg">    return ScanResult(findings=[finding], stats=ScanStats(0, 0, 0, 0, 1, 0, 0), config_snapshot={}, timing={})</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/demo_monorepo/invoices_pipeline.py"
+  data-score="0.9596680213399746"
+  data-lines="3"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>normalize_customer_name</div>
+        <div class="path">
+          fixtures/demo_monorepo/orders_pipeline.py:14-16
+        </div>
+      </div>
+      <div>
+        <div>normalize_client_name</div>
+        <div class="path">
+          fixtures/demo_monorepo/invoices_pipeline.py:14-16
+        </div>
+      </div>
+      <div>0.960</div>
+      <div>3 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">14</td><td class="code diff_chg">def normalize_customer_name(raw: str) -&gt; str:</td><td class="line-no diff_chg">14</td><td class="code diff_chg">def normalize_client_name(raw: str) -&gt; str:</td></tr><tr><td class="line-no">15</td><td class="code">    cleaned = &#x27; &#x27;.join((part for part in raw.strip().split(&#x27; &#x27;) if part))</td><td class="line-no">15</td><td class="code">    cleaned = &#x27; &#x27;.join((part for part in raw.strip().split(&#x27; &#x27;) if part))</td></tr><tr><td class="line-no">16</td><td class="code">    return cleaned.title()</td><td class="line-no">16</td><td class="code">    return cleaned.title()</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/demo_monorepo/invoices_pipeline.py"
+  data-score="0.9662876942183141"
+  data-lines="10"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>summarize_totals</div>
+        <div class="path">
+          fixtures/demo_monorepo/orders_pipeline.py:76-85
+        </div>
+      </div>
+      <div>
+        <div>summarize_totals</div>
+        <div class="path">
+          fixtures/demo_monorepo/invoices_pipeline.py:76-85
+        </div>
+      </div>
+      <div>0.966</div>
+      <div>10 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">76</td><td class="code">def summarize_totals(payload: dict[str, object]) -&gt; str:</td><td class="line-no">76</td><td class="code">def summarize_totals(payload: dict[str, object]) -&gt; str:</td></tr><tr><td class="line-no">77</td><td class="code">    subtotal = float(payload.get(&#x27;subtotal&#x27;, 0.0))</td><td class="line-no">77</td><td class="code">    subtotal = float(payload.get(&#x27;subtotal&#x27;, 0.0))</td></tr><tr><td class="line-no">78</td><td class="code">    discount = float(payload.get(&#x27;discount&#x27;, 0.0))</td><td class="line-no">78</td><td class="code">    discount = float(payload.get(&#x27;discount&#x27;, 0.0))</td></tr><tr><td class="line-no">79</td><td class="code">    tax = float(payload.get(&#x27;tax&#x27;, 0.0))</td><td class="line-no">79</td><td class="code">    tax = float(payload.get(&#x27;tax&#x27;, 0.0))</td></tr><tr><td class="line-no diff_chg">80</td><td class="code diff_chg">    shipping = float(payload.get(&#x27;shipping&#x27;, 0.0))</td><td class="line-no diff_chg">80</td><td class="code diff_chg">    service_fee = float(payload.get(&#x27;service_fee&#x27;, 0.0))</td></tr><tr><td class="line-no">81</td><td class="code">    total = float(payload.get(&#x27;total&#x27;, 0.0))</td><td class="line-no">81</td><td class="code">    total = float(payload.get(&#x27;total&#x27;, 0.0))</td></tr><tr><td class="line-no diff_chg">82</td><td class="code diff_chg">    return f&#x27;subtotal=${subtotal:,.2f}; discount=${discount:,.2f}; tax=${tax:,.2f}; shipping=${shipping:,.2f}; total=${total:,.2f}&#x27;</td><td class="line-no diff_chg">82</td><td class="code diff_chg">    return f&#x27;subtotal=${subtotal:,.2f}; discount=${discount:,.2f}; tax=${tax:,.2f}; service_fee=${service_fee:,.2f}; total=${total:,.2f}&#x27;</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/demo_monorepo/invoices_pipeline.py"
+  data-score="0.9352588014919346"
+  data-lines="37"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>build_monthly_breakdown</div>
+        <div class="path">
+          fixtures/demo_monorepo/orders_pipeline.py:88-124
+        </div>
+      </div>
+      <div>
+        <div>build_monthly_breakdown</div>
+        <div class="path">
+          fixtures/demo_monorepo/invoices_pipeline.py:88-129
+        </div>
+      </div>
+      <div>0.935</div>
+      <div>37 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">88</td><td class="code">def build_monthly_breakdown(daily_totals: list[float], weekly_marketing_spend: list[float], fixed_cost: float) -&gt; dict[str, object]:</td><td class="line-no">88</td><td class="code">def build_monthly_breakdown(daily_totals: list[float], weekly_marketing_spend: list[float], fixed_cost: float) -&gt; dict[str, object]:</td></tr><tr><td class="line-no">89</td><td class="code">    weeks: list[dict[str, object]] = []</td><td class="line-no">89</td><td class="code">    weeks: list[dict[str, object]] = []</td></tr><tr><td class="line-no">90</td><td class="code">    monthly_revenue = 0.0</td><td class="line-no">90</td><td class="code">    monthly_revenue = 0.0</td></tr><tr><td class="line-no">91</td><td class="code">    monthly_cost = 0.0</td><td class="line-no">91</td><td class="code">    monthly_cost = 0.0</td></tr><tr><td class="line-no">92</td><td class="code">    for idx in range(4):</td><td class="line-no">92</td><td class="code">    for idx in range(4):</td></tr><tr><td class="line-no">93</td><td class="code">        start = idx * 7</td><td class="line-no">93</td><td class="code">        start = idx * 7</td></tr><tr><td class="line-no">94</td><td class="code">        end = min(start + 7, len(daily_totals))</td><td class="line-no">94</td><td class="code">        end = min(start + 7, len(daily_totals))</td></tr><tr><td class="line-no">95</td><td class="code">        revenue = round(sum(daily_totals[start:end]), 2)</td><td class="line-no">95</td><td class="code">        revenue = round(sum(daily_totals[start:end]), 2)</td></tr><tr><td class="line-no diff_chg">96</td><td class="code diff_chg">        marketing = round(weekly_marketing_spend[idx] if idx &lt; len(weekly_marketing_spend) else 0.0, 2)</td><td class="line-no diff_chg">96</td><td class="code diff_chg">        outreach = round(weekly_marketing_spend[idx] if idx &lt; len(weekly_marketing_spend) else 0.0, 2)</td></tr><tr><td class="line-no">97</td><td class="code">        fixed = round(fixed_cost, 2)</td><td class="line-no">97</td><td class="code">        fixed = round(fixed_cost, 2)</td></tr><tr><td class="line-no diff_chg">98</td><td class="code diff_chg">        cost = round(marketing + fixed, 2)</td><td class="line-no diff_chg">98</td><td class="code diff_chg">        support_overhead = 15.0 if idx == 3 else 0.0</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">99</td><td class="code diff_chg">        cost = round(outreach + fixed + support_overhead, 2)</td></tr><tr><td class="line-no">99</td><td class="code">        margin = round(revenue - cost, 2)</td><td class="line-no">100</td><td class="code">        margin = round(revenue - cost, 2)</td></tr><tr><td class="line-no">100</td><td class="code">        margin_pct = round(margin / revenue * 100, 2) if revenue &gt; 0 else 0.0</td><td class="line-no">101</td><td class="code">        margin_pct = round(margin / revenue * 100, 2) if revenue &gt; 0 else 0.0</td></tr><tr><td class="line-no diff_add"></td><td class="code diff_add"></td><td class="line-no diff_add">102</td><td class="code diff_add">        margin_pct = min(margin_pct, 95.0)</td></tr><tr><td class="line-no">101</td><td class="code">        monthly_revenue += revenue</td><td class="line-no">103</td><td class="code">        monthly_revenue += revenue</td></tr><tr><td class="line-no">102</td><td class="code">        monthly_cost += cost</td><td class="line-no">104</td><td class="code">        monthly_cost += cost</td></tr><tr><td class="line-no diff_chg">103</td><td class="code diff_chg">        weeks.append({&#x27;week&#x27;: idx + 1, &#x27;revenue&#x27;: revenue, &#x27;cost&#x27;: cost, &#x27;margin&#x27;: margin, &#x27;margin_pct&#x27;: margin_pct})</td><td class="line-no diff_chg">105</td><td class="code diff_chg">        weeks.append({&#x27;week&#x27;: idx + 1, &#x27;revenue&#x27;: revenue, &#x27;cost&#x27;: cost, &#x27;margin&#x27;: margin, &#x27;margin_pct&#x27;: margin_pct, &#x27;warning&#x27;: &#x27;low_margin&#x27; if margin_pct &lt; 20 else &#x27;&#x27;})</td></tr><tr><td class="line-no">104</td><td class="code">    monthly_margin = round(monthly_revenue - monthly_cost, 2)</td><td class="line-no">106</td><td class="code">    monthly_margin = round(monthly_revenue - monthly_cost, 2)</td></tr><tr><td class="line-no diff_chg">105</td><td class="code diff_chg">    return {&#x27;weeks&#x27;: weeks, &#x27;monthly_revenue&#x27;: round(monthly_revenue, 2), &#x27;monthly_cost&#x27;: round(monthly_cost, 2), &#x27;monthly_margin&#x27;: monthly_margin, &#x27;profitable&#x27;: monthly_margin &gt; 0}</td><td class="line-no diff_chg">107</td><td class="code diff_chg">    return {&#x27;weeks&#x27;: weeks, &#x27;monthly_revenue&#x27;: round(monthly_revenue, 2), &#x27;monthly_cost&#x27;: round(monthly_cost, 2), &#x27;monthly_margin&#x27;: monthly_margin, &#x27;net_positive&#x27;: monthly_margin &gt; 0}</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/demo_monorepo/invoices_pipeline.py"
+  data-score="0.9936170212765957"
+  data-lines="37"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>compile_weekly_metrics</div>
+        <div class="path">
+          fixtures/demo_monorepo/orders_pipeline.py:127-163
+        </div>
+      </div>
+      <div>
+        <div>compile_weekly_metrics</div>
+        <div class="path">
+          fixtures/demo_monorepo/invoices_pipeline.py:132-170
+        </div>
+      </div>
+      <div>0.994</div>
+      <div>37 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no">127</td><td class="code">def compile_weekly_metrics(daily_orders: list[int], daily_revenue: list[float], refund_counts: list[int]) -&gt; dict[str, object]:</td><td class="line-no">132</td><td class="code">def compile_weekly_metrics(daily_orders: list[int], daily_revenue: list[float], refund_counts: list[int]) -&gt; dict[str, object]:</td></tr><tr><td class="line-no">128</td><td class="code">    weeks: list[dict[str, object]] = []</td><td class="line-no">133</td><td class="code">    weeks: list[dict[str, object]] = []</td></tr><tr><td class="line-no">129</td><td class="code">    for idx in range(4):</td><td class="line-no">134</td><td class="code">    for idx in range(4):</td></tr><tr><td class="line-no">130</td><td class="code">        start = idx * 7</td><td class="line-no">135</td><td class="code">        start = idx * 7</td></tr><tr><td class="line-no">131</td><td class="code">        end = min(start + 7, len(daily_orders))</td><td class="line-no">136</td><td class="code">        end = min(start + 7, len(daily_orders))</td></tr><tr><td class="line-no">132</td><td class="code">        order_count = sum(daily_orders[start:end])</td><td class="line-no">137</td><td class="code">        order_count = sum(daily_orders[start:end])</td></tr><tr><td class="line-no">133</td><td class="code">        revenue = round(sum(daily_revenue[start:end]), 2)</td><td class="line-no">138</td><td class="code">        revenue = round(sum(daily_revenue[start:end]), 2)</td></tr><tr><td class="line-no">134</td><td class="code">        refunds = sum(refund_counts[start:end])</td><td class="line-no">139</td><td class="code">        refunds = sum(refund_counts[start:end])</td></tr><tr><td class="line-no">135</td><td class="code">        fulfillment_rate = round((order_count - refunds) / order_count * 100, 2) if order_count else 0.0</td><td class="line-no">140</td><td class="code">        fulfillment_rate = round((order_count - refunds) / order_count * 100, 2) if order_count else 0.0</td></tr><tr><td class="line-no">136</td><td class="code">        avg_order_value = round(revenue / order_count, 2) if order_count else 0.0</td><td class="line-no">141</td><td class="code">        avg_order_value = round(revenue / order_count, 2) if order_count else 0.0</td></tr><tr><td class="line-no">137</td><td class="code">        weeks.append({&#x27;week&#x27;: idx + 1, &#x27;orders&#x27;: int(order_count), &#x27;revenue&#x27;: revenue, &#x27;refunds&#x27;: int(refunds), &#x27;fulfillment_rate&#x27;: fulfillment_rate, &#x27;avg_order_value&#x27;: avg_order_value})</td><td class="line-no">142</td><td class="code">        weeks.append({&#x27;week&#x27;: idx + 1, &#x27;orders&#x27;: int(order_count), &#x27;revenue&#x27;: revenue, &#x27;refunds&#x27;: int(refunds), &#x27;fulfillment_rate&#x27;: fulfillment_rate, &#x27;avg_order_value&#x27;: avg_order_value})</td></tr><tr><td class="line-no">138</td><td class="code">    total_orders = sum((int(row[&#x27;orders&#x27;]) for row in weeks))</td><td class="line-no">143</td><td class="code">    total_orders = sum((int(row[&#x27;orders&#x27;]) for row in weeks))</td></tr><tr><td class="line-no">139</td><td class="code">    total_revenue = round(sum((float(row[&#x27;revenue&#x27;]) for row in weeks)), 2)</td><td class="line-no">144</td><td class="code">    total_revenue = round(sum((float(row[&#x27;revenue&#x27;]) for row in weeks)), 2)</td></tr><tr><td class="line-no">140</td><td class="code">    total_refunds = sum((int(row[&#x27;refunds&#x27;]) for row in weeks))</td><td class="line-no">145</td><td class="code">    total_refunds = sum((int(row[&#x27;refunds&#x27;]) for row in weeks))</td></tr><tr><td class="line-no">141</td><td class="code">    net_orders = max(0, total_orders - total_refunds)</td><td class="line-no">146</td><td class="code">    net_orders = max(0, total_orders - total_refunds)</td></tr><tr><td class="line-no diff_chg">142</td><td class="code diff_chg">    return {&#x27;weeks&#x27;: weeks, &#x27;totals&#x27;: {&#x27;orders&#x27;: total_orders, &#x27;revenue&#x27;: total_revenue, &#x27;refunds&#x27;: total_refunds, &#x27;net_orders&#x27;: net_orders}}</td><td class="line-no diff_chg">147</td><td class="code diff_chg">    adjusted_net = max(0, net_orders - 1)</td></tr><tr><td class="line-no diff_chg"></td><td class="code diff_chg"></td><td class="line-no diff_chg">148</td><td class="code diff_chg">    return {&#x27;weeks&#x27;: weeks, &#x27;totals&#x27;: {&#x27;orders&#x27;: total_orders, &#x27;revenue&#x27;: total_revenue, &#x27;refunds&#x27;: total_refunds, &#x27;net_orders&#x27;: adjusted_net}}</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/tiny_repo/classes.py"
+  data-score="0.9328993846463113"
+  data-lines="5"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>Accumulator.total</div>
+        <div class="path">
+          fixtures/tiny_repo/classes.py:2-6
+        </div>
+      </div>
+      <div>
+        <div>helper_sum</div>
+        <div class="path">
+          fixtures/tiny_repo/helpers.py:1-5
+        </div>
+      </div>
+      <div>0.933</div>
+      <div>5 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no diff_chg">2</td><td class="code diff_chg">    def total(self, items):</td><td class="line-no diff_chg">1</td><td class="code diff_chg">def helper_sum(items):</td></tr><tr><td class="line-no diff_chg">3</td><td class="code diff_chg">        total = 0</td><td class="line-no diff_chg">2</td><td class="code diff_chg">    total = 0</td></tr><tr><td class="line-no diff_chg">4</td><td class="code diff_chg">        for item in items:</td><td class="line-no diff_chg">3</td><td class="code diff_chg">    for item in items:</td></tr><tr><td class="line-no diff_chg">5</td><td class="code diff_chg">            total += item</td><td class="line-no diff_chg">4</td><td class="code diff_chg">        total += item</td></tr><tr><td class="line-no diff_chg">6</td><td class="code diff_chg">        return total</td><td class="line-no diff_chg">5</td><td class="code diff_chg">    return total</td></tr></tbody></table></div>
+</details>
+
+
+<details
+  data-path-min="fixtures/demo_monorepo/invoice_form_helpers.ts"
+  data-score="1.0"
+  data-lines="64"
+>
+  <summary>
+    <div class="summary-grid">
+      <div>
+        <div>order_form_helpers.ts</div>
+        <div class="path">
+          fixtures/demo_monorepo/order_form_helpers.ts:1-64
+        </div>
+      </div>
+      <div>
+        <div>invoice_form_helpers.ts</div>
+        <div class="path">
+          fixtures/demo_monorepo/invoice_form_helpers.ts:1-64
+        </div>
+      </div>
+      <div>1.000</div>
+      <div>64 duplicated lines</div>
+    </div>
+  </summary>
+  <div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /><col style="width:3.5em" /><col style="width:calc((100% - 7em) / 2)" /></colgroup><thead><tr><th class="line-no"></th><th>Function A</th><th class="line-no"></th><th>Function B</th></tr></thead><tbody><tr><td class="line-no"></td><td class="meta">&lt;18 lines not shown&gt;</td><td class="line-no"></td><td class="meta">&lt;18 lines not shown&gt;</td></tr><tr><td class="line-no">19</td><td class="code">  const trimmedEmail = email.trim();</td><td class="line-no">19</td><td class="code">  const trimmedEmail = email.trim();</td></tr><tr><td class="line-no">20</td><td class="code">  const trimmedPostal = postalCode.trim();</td><td class="line-no">20</td><td class="code">  const trimmedPostal = postalCode.trim();</td></tr><tr><td class="line-no">21</td><td class="code">  if (!trimmedName) {</td><td class="line-no">21</td><td class="code">  if (!trimmedName) {</td></tr><tr><td class="line-no">22</td><td class="code">    return { ok: false, message: &quot;Name is required&quot; };</td><td class="line-no">22</td><td class="code">    return { ok: false, message: &quot;Name is required&quot; };</td></tr><tr><td class="line-no">23</td><td class="code">  }</td><td class="line-no">23</td><td class="code">  }</td></tr><tr><td class="line-no">24</td><td class="code">  if (trimmedName.length &lt; 2) {</td><td class="line-no">24</td><td class="code">  if (trimmedName.length &lt; 2) {</td></tr><tr><td class="line-no">25</td><td class="code">    return { ok: false, message: &quot;Name must be at least 2 characters&quot; };</td><td class="line-no">25</td><td class="code">    return { ok: false, message: &quot;Name must be at least 2 characters&quot; };</td></tr><tr><td class="line-no">26</td><td class="code">  }</td><td class="line-no">26</td><td class="code">  }</td></tr><tr><td class="line-no">27</td><td class="code">  if (!trimmedEmail) {</td><td class="line-no">27</td><td class="code">  if (!trimmedEmail) {</td></tr><tr><td class="line-no">28</td><td class="code">    return { ok: false, message: &quot;Email is required&quot; };</td><td class="line-no">28</td><td class="code">    return { ok: false, message: &quot;Email is required&quot; };</td></tr><tr><td class="line-no">29</td><td class="code">  }</td><td class="line-no">29</td><td class="code">  }</td></tr><tr><td class="line-no">30</td><td class="code">  if (!trimmedEmail.includes(&quot;@&quot;) || !trimmedEmail.includes(&quot;.&quot;)) {</td><td class="line-no">30</td><td class="code">  if (!trimmedEmail.includes(&quot;@&quot;) || !trimmedEmail.includes(&quot;.&quot;)) {</td></tr><tr><td class="line-no">31</td><td class="code">    return { ok: false, message: &quot;Email format is invalid&quot; };</td><td class="line-no">31</td><td class="code">    return { ok: false, message: &quot;Email format is invalid&quot; };</td></tr><tr><td class="line-no">32</td><td class="code">  }</td><td class="line-no">32</td><td class="code">  }</td></tr><tr><td class="line-no">33</td><td class="code">  if (!/^\d{5}$/.test(trimmedPostal)) {</td><td class="line-no">33</td><td class="code">  if (!/^\d{5}$/.test(trimmedPostal)) {</td></tr><tr><td class="line-no">34</td><td class="code">    return { ok: false, message: &quot;Postal code must be 5 digits&quot; };</td><td class="line-no">34</td><td class="code">    return { ok: false, message: &quot;Postal code must be 5 digits&quot; };</td></tr><tr><td class="line-no">35</td><td class="code">  }</td><td class="line-no">35</td><td class="code">  }</td></tr><tr><td class="line-no">36</td><td class="code">  return { ok: true, message: &quot;&quot; };</td><td class="line-no">36</td><td class="code">  return { ok: true, message: &quot;&quot; };</td></tr><tr><td class="line-no">37</td><td class="code">}</td><td class="line-no">37</td><td class="code">}</td></tr><tr><td class="line-no diff_chg">38</td><td class="code diff_chg">export function buildFormTotals(items: FormItem[], discountPct: number): {</td><td class="line-no diff_chg">38</td><td class="code diff_chg">export function buildChargeTotals(charges: FormCharge[], discountPct: number): {</td></tr><tr><td class="line-no">39</td><td class="code">  subtotal: number;</td><td class="line-no">39</td><td class="code">  subtotal: number;</td></tr><tr><td class="line-no">40</td><td class="code">  discount: number;</td><td class="line-no">40</td><td class="code">  discount: number;</td></tr><tr><td class="line-no">41</td><td class="code">  tax: number;</td><td class="line-no">41</td><td class="code">  tax: number;</td></tr><tr><td class="line-no">42</td><td class="code">  total: number;</td><td class="line-no">42</td><td class="code">  total: number;</td></tr><tr><td class="line-no">43</td><td class="code">} {</td><td class="line-no">43</td><td class="code">} {</td></tr><tr><td class="line-no">44</td><td class="code">  let subtotal = 0;</td><td class="line-no">44</td><td class="code">  let subtotal = 0;</td></tr><tr><td class="line-no diff_chg">45</td><td class="code diff_chg">  for (const item of items) {</td><td class="line-no diff_chg">45</td><td class="code diff_chg">  for (const charge of charges) {</td></tr><tr><td class="line-no diff_chg">46</td><td class="code diff_chg">    subtotal += item.quantity * item.unitPrice;</td><td class="line-no diff_chg">46</td><td class="code diff_chg">    subtotal += charge.units * charge.rate;</td></tr><tr><td class="line-no">47</td><td class="code">  }</td><td class="line-no">47</td><td class="code">  }</td></tr><tr><td class="line-no">48</td><td class="code">  const normalizedSubtotal = Math.round(subtotal * 100) / 100;</td><td class="line-no">48</td><td class="code">  const normalizedSubtotal = Math.round(subtotal * 100) / 100;</td></tr><tr><td class="line-no">49</td><td class="code">  const appliedDiscount = Math.round(normalizedSubtotal * Math.max(0, discountPct) * 100) / 100;</td><td class="line-no">49</td><td class="code">  const appliedDiscount = Math.round(normalizedSubtotal * Math.max(0, discountPct) * 100) / 100;</td></tr><tr><td class="line-no">50</td><td class="code">  const discountedSubtotal = Math.max(0, normalizedSubtotal - appliedDiscount);</td><td class="line-no">50</td><td class="code">  const discountedSubtotal = Math.max(0, normalizedSubtotal - appliedDiscount);</td></tr><tr><td class="line-no">51</td><td class="code">  const tax = Math.round(discountedSubtotal * 0.0825 * 100) / 100;</td><td class="line-no">51</td><td class="code">  const tax = Math.round(discountedSubtotal * 0.0825 * 100) / 100;</td></tr><tr><td class="line-no">52</td><td class="code">  const total = Math.round((discountedSubtotal + tax) * 100) / 100;</td><td class="line-no">52</td><td class="code">  const total = Math.round((discountedSubtotal + tax) * 100) / 100;</td></tr><tr><td class="line-no">53</td><td class="code">  return {</td><td class="line-no">53</td><td class="code">  return {</td></tr><tr><td class="line-no"></td><td class="meta">&lt;6 lines not shown&gt;</td><td class="line-no"></td><td class="meta">&lt;6 lines not shown&gt;</td></tr></tbody></table></div>
+</details>
+
+  </div>
+  <script>
+    (() => {
+      const list = document.querySelector(".list");
+      const sortSelect = document.getElementById("sort-findings");
+      if (!list || !sortSelect) return;
+
+      const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+
+      const sortFindings = () => {
+        const items = Array.from(list.querySelectorAll("details"));
+        items.sort((a, b) => {
+          const mode = sortSelect.value;
+          if (mode === "path_asc") {
+            const aPath = a.dataset.pathMin || "";
+            const bPath = b.dataset.pathMin || "";
+            return collator.compare(aPath, bPath);
+          }
+          if (mode === "lines_desc") {
+            const aLines = Number(a.dataset.lines || "0");
+            const bLines = Number(b.dataset.lines || "0");
+            return bLines - aLines;
+          }
+          const aScore = Number(a.dataset.score || "0");
+          const bScore = Number(b.dataset.score || "0");
+          return bScore - aScore;
+        });
+        for (const item of items) {
+          list.appendChild(item);
+        }
+      };
+
+      sortSelect.addEventListener("change", sortFindings);
+      sortFindings();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0.0",
+  "findings": [
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/reporting/html_reporter.py",
+          "content_hash": "754e80b29620599f356ec9e533e15d0996a57e614b4388620e6c53440d1a2164",
+          "language": "python"
+        },
+        "qualified_name": "_select_compare",
+        "start_line": 147,
+        "end_line": 151,
+        "code_hash": "68939e2cef98849b38b2c0b80ca6f3025b6d0ef3e550c53afcdfc48b83a6b814"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/reporting/json_reporter.py",
+          "content_hash": "a44cae11cce29b3d0ed30b95b0f81ca886d358a25bee7934bc57c88179f28fd9",
+          "language": "python"
+        },
+        "qualified_name": "_select_compare",
+        "start_line": 65,
+        "end_line": 69,
+        "code_hash": "249bc300b134cf58bfef1cde6dc6a8113a19283b8f7a59fda64ba7daa380ab25"
+      },
+      "score": 0.9619782452779875,
+      "duplicated_lines": 5,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 147,
+          "end_line": 151
+        },
+        "span_b": {
+          "start_line": 65,
+          "end_line": 69
+        },
+        "similarity": 0.9619782452779875,
+        "diff": "--- \n+++ \n@@ -2,4 +2,4 @@\n     compare = select_compare(matches)\n     if compare is None:\n         return None\n-    return _compare_payload(compare, matches)\n+    return _serialize_evidence(compare)"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/reporting/html_reporter.py",
+          "content_hash": "754e80b29620599f356ec9e533e15d0996a57e614b4388620e6c53440d1a2164",
+          "language": "python"
+        },
+        "qualified_name": "_merge_spans",
+        "start_line": 339,
+        "end_line": 350,
+        "code_hash": "c8fd6f3a37b2b76735230cb0a0eeecb239c167f9ef889da1c9eff45c723de046"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/similarity/rollup.py",
+          "content_hash": "4b04e4587a6712aeb0633b9bf81137f32332e06fee97b34fd4e1c0d36888c130",
+          "language": "python"
+        },
+        "qualified_name": "_covered_lines",
+        "start_line": 152,
+        "end_line": 162,
+        "code_hash": "12123916b1586177c8d79c2c8d684616d838a3dced27eb25a411615022364c4c"
+      },
+      "score": 0.9211043177265966,
+      "duplicated_lines": 11,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 339,
+          "end_line": 350
+        },
+        "span_b": {
+          "start_line": 152,
+          "end_line": 162
+        },
+        "similarity": 0.9211043177265966,
+        "diff": "--- \n+++ \n@@ -1,12 +1,11 @@\n-def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:\n+def _covered_lines(spans: list[tuple[int, int]]) -> int:\n     if not spans:\n-        return []\n-    merged: list[tuple[int, int]] = []\n+        return 0\n+    merged: list[list[int]] = []\n     for start, end in sorted(spans):\n         if not merged or start > merged[-1][1] + 1:\n-            merged.append((start, end))\n+            merged.append([start, end])\n             continue\n-        prev_start, prev_end = merged[-1]\n-        if end > prev_end:\n-            merged[-1] = (prev_start, end)\n-    return merged\n+        if end > merged[-1][1]:\n+            merged[-1][1] = end\n+    return sum((end - start + 1 for start, end in merged))"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    }
+  ],
+  "stats": {
+    "file_count": 83,
+    "function_count": 256,
+    "snippet_count": 886,
+    "candidate_count": 1268,
+    "finding_count": 2,
+    "cache_hits": 886,
+    "cache_misses": 0
+  },
+  "config": {
+    "engine": "semantic"
+  },
+  "timing": {
+    "collect_files": 0.039527708999230526,
+    "extract_functions": 0.03558491700096056,
+    "generate_snippets": 0.10963258300034795,
+    "embed": 2.590705499998876,
+    "similarity": 6.573691042001883
+  }
+}

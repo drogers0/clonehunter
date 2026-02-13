@@ -1,0 +1,1085 @@
+{
+  "schema_version": "1.0.0",
+  "findings": [
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/model/interfaces.py",
+          "content_hash": "84443c672cbf275e2699306db86bdbf5b826eeb8172a0813db033405c3207e97",
+          "language": "python"
+        },
+        "qualified_name": "Embedder.dim",
+        "start_line": 36,
+        "end_line": 36,
+        "code_hash": "1d9392d3667f0c87447c327a7eacc6dea67c602d707676e08a27f5f3aa37027b"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/core/pipeline.py",
+          "content_hash": "20e8f5d912433ba8340c8b81ec9cb1d99d8fc802d01076804fddccb434ad8be6",
+          "language": "python"
+        },
+        "qualified_name": "_Embedder.dim",
+        "start_line": 35,
+        "end_line": 35,
+        "code_hash": "1d9392d3667f0c87447c327a7eacc6dea67c602d707676e08a27f5f3aa37027b"
+      },
+      "score": 1.0,
+      "duplicated_lines": 1,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 36,
+          "end_line": 36
+        },
+        "span_b": {
+          "start_line": 35,
+          "end_line": 35
+        },
+        "similarity": 1.0,
+        "diff": ""
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/model/interfaces.py",
+          "content_hash": "84443c672cbf275e2699306db86bdbf5b826eeb8172a0813db033405c3207e97",
+          "language": "python"
+        },
+        "qualified_name": "Embedder.embed",
+        "start_line": 39,
+        "end_line": 39,
+        "code_hash": "b72091b218db690e5e82ad4157f32f9bdf5e967e82ba0446decbb229907125b3"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/core/pipeline.py",
+          "content_hash": "20e8f5d912433ba8340c8b81ec9cb1d99d8fc802d01076804fddccb434ad8be6",
+          "language": "python"
+        },
+        "qualified_name": "_Embedder.embed",
+        "start_line": 32,
+        "end_line": 32,
+        "code_hash": "b72091b218db690e5e82ad4157f32f9bdf5e967e82ba0446decbb229907125b3"
+      },
+      "score": 0.9999999999999998,
+      "duplicated_lines": 1,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 39,
+          "end_line": 39
+        },
+        "span_b": {
+          "start_line": 32,
+          "end_line": 32
+        },
+        "similarity": 0.9999999999999998,
+        "diff": ""
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_threshold_edges.py",
+          "content_hash": "60dd14c866b57cc50b69400064a0d287f4f7002b2b3e4cd9b5e39ed3a79a4a10",
+          "language": "python"
+        },
+        "qualified_name": "test_func_threshold_edge",
+        "start_line": 43,
+        "end_line": 48,
+        "code_hash": "1c2baac88505f6271e98b908ddd217bb484831ff840f1f51f2e9e34fe59f9f4d"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_threshold_edges.py",
+          "content_hash": "60dd14c866b57cc50b69400064a0d287f4f7002b2b3e4cd9b5e39ed3a79a4a10",
+          "language": "python"
+        },
+        "qualified_name": "test_exp_threshold_edge",
+        "start_line": 90,
+        "end_line": 95,
+        "code_hash": "84ee6763dbf0496eedb394081eafc4e4ddf92cc88dd701f97d84537a99f23ebb"
+      },
+      "score": 0.9426938801286318,
+      "duplicated_lines": 6,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 43,
+          "end_line": 48
+        },
+        "span_b": {
+          "start_line": 90,
+          "end_line": 95
+        },
+        "similarity": 0.9426938801286318,
+        "diff": "--- \n+++ \n@@ -1,6 +1,6 @@\n-def test_func_threshold_edge():\n+def test_exp_threshold_edge():\n     thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)\n-    at = rollup_findings([_match('FUNC', 0.95)], thresholds)\n-    below = rollup_findings([_match('FUNC', 0.9499)], thresholds)\n+    at = rollup_findings([_match('EXP', 0.9)], thresholds)\n+    below = rollup_findings([_match('EXP', 0.8999)], thresholds)\n     assert at\n     assert not below"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_threshold_edges.py",
+          "content_hash": "60dd14c866b57cc50b69400064a0d287f4f7002b2b3e4cd9b5e39ed3a79a4a10",
+          "language": "python"
+        },
+        "qualified_name": "test_win_threshold_edge",
+        "start_line": 51,
+        "end_line": 87,
+        "code_hash": "bde73a31a28b67ff1debbc1dfeb227bd1e83c0e1f12459061ccf3969fdd7a92a"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_threshold_edges.py",
+          "content_hash": "60dd14c866b57cc50b69400064a0d287f4f7002b2b3e4cd9b5e39ed3a79a4a10",
+          "language": "python"
+        },
+        "qualified_name": "test_min_window_hits_edge",
+        "start_line": 98,
+        "end_line": 122,
+        "code_hash": "3611eb94e6442aa92df7452ab93a420676861147c6628004ab14bf0e763fe421"
+      },
+      "score": 0.9628723168159918,
+      "duplicated_lines": 25,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 51,
+          "end_line": 87
+        },
+        "span_b": {
+          "start_line": 98,
+          "end_line": 122
+        },
+        "similarity": 0.9628723168159918,
+        "diff": "--- \n+++ \n@@ -1,4 +1,4 @@\n-def test_win_threshold_edge():\n+def test_min_window_hits_edge():\n     thresholds = Thresholds(func=0.95, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0)\n     file = FileRef(path='x.py', content_hash='h', language='python')\n     fn_a = FunctionRef(file=file, qualified_name='a', start_line=1, end_line=20, code='pass', code_hash='a')\n@@ -7,7 +7,7 @@\n     b1 = SnippetRef(kind='WIN', function=fn_b, start_line=30, end_line=32, text='b1', snippet_hash='b1')\n     a2 = SnippetRef(kind='WIN', function=fn_a, start_line=4, end_line=6, text='a2', snippet_hash='a2')\n     b2 = SnippetRef(kind='WIN', function=fn_b, start_line=33, end_line=35, text='b2', snippet_hash='b2')\n-    at = rollup_findings([CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.9, evidence=''), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.9, evidence='')], thresholds)\n-    below = rollup_findings([CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.8999, evidence=''), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.8999, evidence='')], thresholds)\n-    assert at\n-    assert below\n+    m1 = CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.95, evidence='')\n+    m2 = CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.95, evidence='')\n+    findings = rollup_findings([m1, m2], thresholds)\n+    assert findings"
+      },
+      "reasons": [
+        "func_threshold",
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_expansion.py",
+          "content_hash": "40b8a8df248662a92173d69e1e775e33c3ab968b7ad318957c56ec35a7bf8b0e",
+          "language": "python"
+        },
+        "qualified_name": "test_expansion_generates_snippet",
+        "start_line": 6,
+        "end_line": 10,
+        "code_hash": "1c6c3cde499acd581cdbe7a39a910ce0194fa4b5ff4183e3fb31c260a35549b6"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_expansion.py",
+          "content_hash": "40b8a8df248662a92173d69e1e775e33c3ab968b7ad318957c56ec35a7bf8b0e",
+          "language": "python"
+        },
+        "qualified_name": "test_expansion_respects_max_chars",
+        "start_line": 22,
+        "end_line": 26,
+        "code_hash": "550347dcf9694041381fee0c91c6242af917c36c331f69c7bd466cb1f8199440"
+      },
+      "score": 0.9241675493184038,
+      "duplicated_lines": 5,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 6,
+          "end_line": 10
+        },
+        "span_b": {
+          "start_line": 22,
+          "end_line": 26
+        },
+        "similarity": 0.9241675493184038,
+        "diff": "--- \n+++ \n@@ -1,5 +1,5 @@\n-def test_expansion_generates_snippet():\n+def test_expansion_respects_max_chars():\n     files = collect_files(['fixtures/tiny_repo'], ['**/*.py'], [])\n     functions = [fn for file in files for fn in extract_functions(file)]\n-    snippets = expand_calls(functions, ExpansionParams(enabled=True, depth=1, max_chars=10000))\n-    assert any((snippet.kind == 'EXP' for snippet in snippets))\n+    snippets = expand_calls(functions, ExpansionParams(enabled=True, depth=1, max_chars=1))\n+    assert snippets == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_diff_e2e.py",
+          "content_hash": "38e18e62070de00030be4ecef8bf0815893cf5c22a46a5396bd9cce0b98836ec",
+          "language": "python"
+        },
+        "qualified_name": "test_diff_end_to_end",
+        "start_line": 8,
+        "end_line": 83,
+        "code_hash": "7b635eb8cb4a6b9e456cf4a9f460ae7022b5779f52506ff15a8469d4ed062ba7"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_cli_entrypoints.py",
+          "content_hash": "889c030e625f82d14751cb7874840cfc1b04768a7e94ac31d1bf6facc7012e84",
+          "language": "python"
+        },
+        "qualified_name": "test_cli_diff_command",
+        "start_line": 31,
+        "end_line": 83,
+        "code_hash": "a712e944bbc9cc90769e953acaea7ff547ee381a4f0cd832e567c1fda350fe7d"
+      },
+      "score": 0.9621340147986004,
+      "duplicated_lines": 52,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "WIN",
+        "span_a": {
+          "start_line": 31,
+          "end_line": 83
+        },
+        "span_b": {
+          "start_line": 32,
+          "end_line": 71
+        },
+        "similarity": 0.9102430147510193,
+        "diff": "--- \n+++ \n@@ -1,14 +1,40 @@\n-def test_cli_diff_command(tmp_path: Path):\n-    repo = tmp_path / 'repo'\n-    repo.mkdir()\n-    (repo / 'a.py').write_text('\\n\\ndef add(nums):\\n    total = 0\\n    for n in nums:\\n        total += n\\n    return total\\n', encoding='utf-8')\n-    subprocess.check_call(['git', 'init'], cwd=repo)\n-    subprocess.check_call(['git', 'config', 'user.email', 'test@example.com'], cwd=repo)\n-    subprocess.check_call(['git', 'config', 'user.name', 'Test User'], cwd=repo)\n-    subprocess.check_call(['git', 'add', 'a.py'], cwd=repo)\n-    subprocess.check_call(['git', 'commit', '-m', 'init'], cwd=repo)\n-    (repo / 'a.py').write_text('\\n\\ndef add(nums):\\n    total = 0\\n    for n in nums:\\n        total += n\\n    return total\\n\\n\\ndef add_copy(values):\\n    total = 0\\n    for n in values:\\n        total += n\\n    return total\\n', encoding='utf-8')\n-    out = tmp_path / 'diff.json'\n-    cmd = [sys.executable, '-m', 'clonehunter', 'diff', '--base', 'HEAD', '--format', 'json', '--out', str(out)]\n-    subprocess.check_call(cmd, cwd=repo, env=_env())\n-    assert out.exists()\n+    )\n+\n+    subprocess.check_call([\"git\", \"init\"], cwd=repo)\n+    subprocess.check_call([\"git\", \"config\", \"user.email\", \"test@example.com\"], cwd=repo)\n+    subprocess.check_call([\"git\", \"config\", \"user.name\", \"Test User\"], cwd=repo)\n+    subprocess.check_call([\"git\", \"add\", \"a.py\", \"b.py\"], cwd=repo)\n+    subprocess.check_call([\"git\", \"commit\", \"-m\", \"init\"], cwd=repo)\n+\n+    (repo / \"a.py\").write_text(\n+        \"\"\"\n+\n+def add(nums):\n+    total = 0\n+    for n in nums:\n+        total += n\n+    return total\n+\n+\n+def add_copy(values):\n+    total = 0\n+    for n in values:\n+        total += n\n+    return total\n+\"\"\",\n+        encoding=\"utf-8\",\n+    )\n+\n+    out = tmp_path / \"diff.json\"\n+    env = os.environ.copy()\n+    env[\"PYTHONPATH\"] = str(Path(__file__).resolve().parents[1] / \"src\")\n+    env[\"CLONEHUNTER_EMBEDDER\"] = \"stub\"\n+    cmd = [\n+        sys.executable,\n+        \"-m\",\n+        \"clonehunter\",\n+        \"diff\",\n+        \"--base\",\n+        \"HEAD\",\n+        \"--format\",\n+        \"json\","
+      },
+      "reasons": [
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_pipeline_smoke.py",
+          "content_hash": "97b628f74eb1c7e8c3a91456ae003fc4288b03d349993ba837a2282f63d05476",
+          "language": "python"
+        },
+        "qualified_name": "test_pipeline_non_python_implicit_windows_only",
+        "start_line": 15,
+        "end_line": 44,
+        "code_hash": "56353ab928b5e1e48fd94a277d23701d1d845c274e3f31dc969dfbc0601eceea"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_pipeline_smoke.py",
+          "content_hash": "97b628f74eb1c7e8c3a91456ae003fc4288b03d349993ba837a2282f63d05476",
+          "language": "python"
+        },
+        "qualified_name": "test_pipeline_non_python_allows_cross_file_types",
+        "start_line": 47,
+        "end_line": 72,
+        "code_hash": "59d3ac78258782ca59b0e36c2717eff08e6264df5e93e2f65c8eb4d9a6c3e2b2"
+      },
+      "score": 0.9490174380842854,
+      "duplicated_lines": 26,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 15,
+          "end_line": 44
+        },
+        "span_b": {
+          "start_line": 47,
+          "end_line": 72
+        },
+        "similarity": 0.9490174380842854,
+        "diff": "--- \n+++ \n@@ -1,13 +1,9 @@\n-def test_pipeline_non_python_implicit_windows_only(tmp_path: Path) -> None:\n+def test_pipeline_non_python_allows_cross_file_types(tmp_path: Path) -> None:\n     repo = tmp_path / 'repo'\n     repo.mkdir()\n     code = 'function add(a, b) {\\n  return a + b;\\n}\\n'\n     (repo / 'a.js').write_text(code, encoding='utf-8')\n-    (repo / 'b.js').write_text(code, encoding='utf-8')\n-    result = run_pipeline([str(repo)], CloneHunterConfig(include_globs=['**/*.js'], exclude_globs=[], embedder=EmbedderConfig(name='stub'), windows=WindowConfig(window_lines=3, stride_lines=1, min_nonempty=1), thresholds=Thresholds(func=0.99, win=0.8, exp=0.99, min_window_hits=1, lexical_min_ratio=0.0, lexical_weight=0.3)))\n+    (repo / 'b.ts').write_text(code, encoding='utf-8')\n+    result = run_pipeline([str(repo)], CloneHunterConfig(include_globs=['**/*.js', '**/*.ts'], exclude_globs=[], embedder=EmbedderConfig(name='stub'), windows=WindowConfig(window_lines=3, stride_lines=1, min_nonempty=1), thresholds=Thresholds(func=0.99, win=0.8, exp=0.99, min_window_hits=1, lexical_min_ratio=0.0, lexical_weight=0.3)))\n     assert result.stats.file_count == 2\n-    assert result.stats.function_count == 0\n     assert result.stats.finding_count >= 1\n-    finding = result.findings[0]\n-    assert finding.function_a.qualified_name != '<file>'\n-    assert finding.function_b.qualified_name != '<file>'"
+      },
+      "reasons": [
+        "func_threshold",
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_min_window_hits",
+        "start_line": 6,
+        "end_line": 34,
+        "code_hash": "36aa542ad79a0e64847c2fdd8ae1c613ed769c5c77d8e3e099edc326a8c91500"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_applies_lexical_filter",
+        "start_line": 109,
+        "end_line": 144,
+        "code_hash": "f7beb2e8061175ffcba4ca9d3e8facd01ce4819783317cd0568224b7946b25f5"
+      },
+      "score": 0.9269662980287967,
+      "duplicated_lines": 29,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 6,
+          "end_line": 34
+        },
+        "span_b": {
+          "start_line": 109,
+          "end_line": 144
+        },
+        "similarity": 0.9269662980287967,
+        "diff": "--- \n+++ \n@@ -1,11 +1,9 @@\n-def test_rollup_min_window_hits():\n+def test_rollup_applies_lexical_filter() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n     fn_a = FunctionRef(file=file, qualified_name='a', start_line=1, end_line=5, code='pass', code_hash='a')\n     fn_b = FunctionRef(file=file, qualified_name='b', start_line=10, end_line=14, code='pass', code_hash='b')\n-    a1 = SnippetRef(kind='WIN', function=fn_a, start_line=1, end_line=3, text='a1', snippet_hash='a1')\n-    b1 = SnippetRef(kind='WIN', function=fn_b, start_line=10, end_line=12, text='b1', snippet_hash='b1')\n-    a2 = SnippetRef(kind='WIN', function=fn_a, start_line=2, end_line=4, text='a2', snippet_hash='a2')\n-    b2 = SnippetRef(kind='WIN', function=fn_b, start_line=11, end_line=13, text='b2', snippet_hash='b2')\n-    matches = [CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.5, evidence=''), CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.5, evidence='')]\n-    findings = rollup_findings(matches, Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0))\n-    assert findings\n+    a = SnippetRef(kind='WIN', function=fn_a, start_line=1, end_line=3, text='def alpha():\\n    return 1', snippet_hash='a1')\n+    b = SnippetRef(kind='WIN', function=fn_b, start_line=10, end_line=12, text='def beta():\\n    return 2', snippet_hash='b1')\n+    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=0.99, evidence='')\n+    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.6))\n+    assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_filters_overlapping_windows_same_function",
+        "start_line": 37,
+        "end_line": 46,
+        "code_hash": "a775aa0a1266ffd2f05d211d94f2beb079c9637d4f24923aa62900a5a87e6d43"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_windows_same_function",
+        "start_line": 49,
+        "end_line": 58,
+        "code_hash": "4cab53e49440498bab983a14b4dacc8ae45d9f82e95c61c2ea5a2008c525a942"
+      },
+      "score": 0.9612719528379781,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 37,
+          "end_line": 46
+        },
+        "span_b": {
+          "start_line": 49,
+          "end_line": 58
+        },
+        "similarity": 0.9545153006915563,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_filters_overlapping_windows_same_function():\n+def test_rollup_drops_identical_windows_same_function() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n-    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n-    a = SnippetRef(kind='WIN', function=fn, start_line=1, end_line=5, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='WIN', function=fn, start_line=4, end_line=8, text='b', snippet_hash='b')\n+    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=30, code='pass', code_hash='c')\n+    a = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='a', snippet_hash='a')\n+    b = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='b', snippet_hash='b')\n     match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_filters_overlapping_windows_same_function",
+        "start_line": 37,
+        "end_line": 46,
+        "code_hash": "a775aa0a1266ffd2f05d211d94f2beb079c9637d4f24923aa62900a5a87e6d43"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_func_self_match",
+        "start_line": 61,
+        "end_line": 70,
+        "code_hash": "fb1a0b2b246b1d3bc63e71b2622dd32c8dd36583f34592d2cbbbf34b5f46ea8a"
+      },
+      "score": 0.9699284803257625,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 37,
+          "end_line": 46
+        },
+        "span_b": {
+          "start_line": 61,
+          "end_line": 70
+        },
+        "similarity": 0.9644487642365451,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_filters_overlapping_windows_same_function():\n+def test_rollup_drops_identical_func_self_match() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n     fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n-    a = SnippetRef(kind='WIN', function=fn, start_line=1, end_line=5, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='WIN', function=fn, start_line=4, end_line=8, text='b', snippet_hash='b')\n+    a = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='a', snippet_hash='a')\n+    b = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='b', snippet_hash='b')\n     match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_filters_overlapping_windows_same_function",
+        "start_line": 37,
+        "end_line": 46,
+        "code_hash": "a775aa0a1266ffd2f05d211d94f2beb079c9637d4f24923aa62900a5a87e6d43"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_overlapping_func_win_same_function",
+        "start_line": 73,
+        "end_line": 84,
+        "code_hash": "1411dfd452ddb773f4a47567824acfa1799a07a6afa56ea13dc5f331486e8531"
+      },
+      "score": 0.9380237453962632,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 37,
+          "end_line": 46
+        },
+        "span_b": {
+          "start_line": 73,
+          "end_line": 84
+        },
+        "similarity": 0.9380237453962632,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_filters_overlapping_windows_same_function():\n+def test_rollup_drops_overlapping_func_win_same_function() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n-    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n-    a = SnippetRef(kind='WIN', function=fn, start_line=1, end_line=5, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='WIN', function=fn, start_line=4, end_line=8, text='b', snippet_hash='b')\n-    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n+    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=30, code='pass', code_hash='c')\n+    func = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=30, text='f', snippet_hash='f')\n+    win = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='w', snippet_hash='w')\n+    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_windows_same_function",
+        "start_line": 49,
+        "end_line": 58,
+        "code_hash": "4cab53e49440498bab983a14b4dacc8ae45d9f82e95c61c2ea5a2008c525a942"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_func_self_match",
+        "start_line": 61,
+        "end_line": 70,
+        "code_hash": "fb1a0b2b246b1d3bc63e71b2622dd32c8dd36583f34592d2cbbbf34b5f46ea8a"
+      },
+      "score": 0.9699254373225056,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 49,
+          "end_line": 58
+        },
+        "span_b": {
+          "start_line": 61,
+          "end_line": 70
+        },
+        "similarity": 0.9645503745675958,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_drops_identical_windows_same_function() -> None:\n+def test_rollup_drops_identical_func_self_match() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n-    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=30, code='pass', code_hash='c')\n-    a = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='b', snippet_hash='b')\n+    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n+    a = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='a', snippet_hash='a')\n+    b = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='b', snippet_hash='b')\n     match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_windows_same_function",
+        "start_line": 49,
+        "end_line": 58,
+        "code_hash": "4cab53e49440498bab983a14b4dacc8ae45d9f82e95c61c2ea5a2008c525a942"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_overlapping_func_win_same_function",
+        "start_line": 73,
+        "end_line": 84,
+        "code_hash": "1411dfd452ddb773f4a47567824acfa1799a07a6afa56ea13dc5f331486e8531"
+      },
+      "score": 0.9698768262425053,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 49,
+          "end_line": 58
+        },
+        "span_b": {
+          "start_line": 73,
+          "end_line": 84
+        },
+        "similarity": 0.9698768262425053,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_drops_identical_windows_same_function() -> None:\n+def test_rollup_drops_overlapping_func_win_same_function() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n     fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=30, code='pass', code_hash='c')\n-    a = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='b', snippet_hash='b')\n-    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n+    func = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=30, text='f', snippet_hash='f')\n+    win = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='w', snippet_hash='w')\n+    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_func_self_match",
+        "start_line": 61,
+        "end_line": 70,
+        "code_hash": "fb1a0b2b246b1d3bc63e71b2622dd32c8dd36583f34592d2cbbbf34b5f46ea8a"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_overlapping_func_win_same_function",
+        "start_line": 73,
+        "end_line": 84,
+        "code_hash": "1411dfd452ddb773f4a47567824acfa1799a07a6afa56ea13dc5f331486e8531"
+      },
+      "score": 0.9473319539588376,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 61,
+          "end_line": 70
+        },
+        "span_b": {
+          "start_line": 73,
+          "end_line": 84
+        },
+        "similarity": 0.9473319539588376,
+        "diff": "--- \n+++ \n@@ -1,8 +1,8 @@\n-def test_rollup_drops_identical_func_self_match() -> None:\n+def test_rollup_drops_overlapping_func_win_same_function() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n-    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n-    a = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='b', snippet_hash='b')\n-    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n+    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=30, code='pass', code_hash='c')\n+    func = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=30, text='f', snippet_hash='f')\n+    win = SnippetRef(kind='WIN', function=fn, start_line=5, end_line=24, text='w', snippet_hash='w')\n+    match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence='')\n     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n     assert findings == []"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_identical_func_self_match",
+        "start_line": 61,
+        "end_line": 70,
+        "code_hash": "fb1a0b2b246b1d3bc63e71b2622dd32c8dd36583f34592d2cbbbf34b5f46ea8a"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_rollup.py",
+          "content_hash": "615453ed2c26b0ac7c484e8b220f899a24f8a14440dbd5e61f1fbd6e844d4ac7",
+          "language": "python"
+        },
+        "qualified_name": "test_rollup_drops_overlapping_functions_same_file",
+        "start_line": 87,
+        "end_line": 106,
+        "code_hash": "9b7276ff23e95f4cf0f12bc9456b62a41f015dfa3850a54c591fe12dcad3effa"
+      },
+      "score": 0.914657001614171,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "WIN",
+        "span_a": {
+          "start_line": 61,
+          "end_line": 70
+        },
+        "span_b": {
+          "start_line": 87,
+          "end_line": 106
+        },
+        "similarity": 0.914657001614171,
+        "diff": "--- \n+++ \n@@ -1,8 +1,9 @@\n-def test_rollup_drops_identical_func_self_match() -> None:\n+def test_rollup_drops_overlapping_functions_same_file() -> None:\n     file = FileRef(path='x.py', content_hash='h', language='python')\n-    fn = FunctionRef(file=file, qualified_name='f', start_line=1, end_line=10, code='pass', code_hash='c')\n-    a = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='a', snippet_hash='a')\n-    b = SnippetRef(kind='FUNC', function=fn, start_line=1, end_line=10, text='b', snippet_hash='b')\n-    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence='')\n-    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))\n+    fn_outer = FunctionRef(file=file, qualified_name='outer', start_line=1, end_line=40, code='pass', code_hash='o')\n+    fn_inner = FunctionRef(file=file, qualified_name='inner', start_line=10, end_line=20, code='pass', code_hash='i')\n+    outer = SnippetRef(kind='FUNC', function=fn_outer, start_line=1, end_line=40, text='o', snippet_hash='o')\n+    inner = SnippetRef(kind='FUNC', function=fn_inner, start_line=10, end_line=20, text='i', snippet_hash='i')\n+    match = CandidateMatch(snippet_a=outer, snippet_b=inner, similarity=1.0, evidence='')\n+    findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0))\n     assert findings == []"
+      },
+      "reasons": [
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "tests/test_clustering.py",
+          "content_hash": "555113b26e9dd1ed86ec030528f91dcd6db8b7cb4ac9c1dd0dd0a45c24aff983",
+          "language": "python"
+        },
+        "qualified_name": "_finding",
+        "start_line": 5,
+        "end_line": 26,
+        "code_hash": "a7fe323220c06c71a758291182076711a07b588102b5e91a89e5e9f36fa921a3"
+      },
+      "function_b": {
+        "file": {
+          "path": "tests/test_reporters_html_sarif.py",
+          "content_hash": "470a06990a299b8bda379446bf3bf5dfa4553c8867e78683bc852652cc63bd60",
+          "language": "python"
+        },
+        "qualified_name": "_sample_result",
+        "start_line": 17,
+        "end_line": 44,
+        "code_hash": "2b7a9d3c212c4be0a6faa8c90e9e89da2765aa7d2da2e7ed887ab1b7c69f3cc6"
+      },
+      "score": 0.9342067988642904,
+      "duplicated_lines": 34,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 5,
+          "end_line": 26
+        },
+        "span_b": {
+          "start_line": 17,
+          "end_line": 44
+        },
+        "similarity": 0.9217647316738908,
+        "diff": "--- \n+++ \n@@ -1,8 +1,9 @@\n-def _finding(a: str, b: str) -> Finding:\n-    file_a = FileRef(path=f'{a}.py', content_hash='h', language='python')\n-    file_b = FileRef(path=f'{b}.py', content_hash='h', language='python')\n-    fn_a = FunctionRef(file=file_a, qualified_name=a, start_line=1, end_line=2, code='pass', code_hash=a)\n-    fn_b = FunctionRef(file=file_b, qualified_name=b, start_line=1, end_line=2, code='pass', code_hash=b)\n-    snip = SnippetRef(kind='FUNC', function=fn_a, start_line=1, end_line=2, text='pass', snippet_hash=a)\n+def _sample_result() -> ScanResult:\n+    file_a = FileRef(path='fixtures/tiny_repo/a.py', content_hash='h', language='python')\n+    file_b = FileRef(path='fixtures/tiny_repo/b.py', content_hash='h', language='python')\n+    fn_a = FunctionRef(file=file_a, qualified_name='a', start_line=1, end_line=2, code='pass', code_hash='a')\n+    fn_b = FunctionRef(file=file_b, qualified_name='b', start_line=10, end_line=12, code='pass', code_hash='b')\n+    snip = SnippetRef(kind='FUNC', function=fn_a, start_line=1, end_line=2, text='pass', snippet_hash='s')\n     match = CandidateMatch(snippet_a=snip, snippet_b=snip, similarity=1.0, evidence='')\n-    return Finding(function_a=fn_a, function_b=fn_b, score=1.0, duplicated_lines=2, evidence=[match], reasons=['func'], metadata={})\n+    finding = Finding(function_a=fn_a, function_b=fn_b, score=1.0, duplicated_lines=2, evidence=[match], reasons=['func'], metadata={})\n+    return ScanResult(findings=[finding], stats=ScanStats(0, 0, 0, 0, 1, 0, 0), config_snapshot={}, timing={})"
+      },
+      "reasons": [
+        "func_threshold",
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/demo_monorepo/orders_pipeline.py",
+          "content_hash": "8ed2a3376577d32629069e3600a16530dbf90e708857d812aa5052ae0d247d60",
+          "language": "python"
+        },
+        "qualified_name": "normalize_customer_name",
+        "start_line": 14,
+        "end_line": 16,
+        "code_hash": "643d65c7da23753708a6c1f30e8fb5b372612ab16a1071f929486dffb998f747"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/demo_monorepo/invoices_pipeline.py",
+          "content_hash": "42c942b9e6219bda97aee95d3df80c618b41ced7a78bcaa27b166707a76152b5",
+          "language": "python"
+        },
+        "qualified_name": "normalize_client_name",
+        "start_line": 14,
+        "end_line": 16,
+        "code_hash": "98861f0e6280a8db2461b0ce27d0d23cfacd84f70038a3b1fa53c52e5ae547b6"
+      },
+      "score": 0.9596680213399746,
+      "duplicated_lines": 3,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 14,
+          "end_line": 16
+        },
+        "span_b": {
+          "start_line": 14,
+          "end_line": 16
+        },
+        "similarity": 0.9596680213399746,
+        "diff": "--- \n+++ \n@@ -1,3 +1,3 @@\n-def normalize_customer_name(raw: str) -> str:\n+def normalize_client_name(raw: str) -> str:\n     cleaned = ' '.join((part for part in raw.strip().split(' ') if part))\n     return cleaned.title()"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/demo_monorepo/orders_pipeline.py",
+          "content_hash": "8ed2a3376577d32629069e3600a16530dbf90e708857d812aa5052ae0d247d60",
+          "language": "python"
+        },
+        "qualified_name": "summarize_totals",
+        "start_line": 76,
+        "end_line": 85,
+        "code_hash": "fb9db6264e1678560aa847c6c0670257d6bd9d1334c306b23f9bee0c57113362"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/demo_monorepo/invoices_pipeline.py",
+          "content_hash": "42c942b9e6219bda97aee95d3df80c618b41ced7a78bcaa27b166707a76152b5",
+          "language": "python"
+        },
+        "qualified_name": "summarize_totals",
+        "start_line": 76,
+        "end_line": 85,
+        "code_hash": "c877ceb37597ac30788bba817733b1e2100829ad688f6e0eaa8d18a81cfa32a4"
+      },
+      "score": 0.9662876942183141,
+      "duplicated_lines": 10,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 76,
+          "end_line": 85
+        },
+        "span_b": {
+          "start_line": 76,
+          "end_line": 85
+        },
+        "similarity": 0.9662876942183141,
+        "diff": "--- \n+++ \n@@ -2,6 +2,6 @@\n     subtotal = float(payload.get('subtotal', 0.0))\n     discount = float(payload.get('discount', 0.0))\n     tax = float(payload.get('tax', 0.0))\n-    shipping = float(payload.get('shipping', 0.0))\n+    service_fee = float(payload.get('service_fee', 0.0))\n     total = float(payload.get('total', 0.0))\n-    return f'subtotal=${subtotal:,.2f}; discount=${discount:,.2f}; tax=${tax:,.2f}; shipping=${shipping:,.2f}; total=${total:,.2f}'\n+    return f'subtotal=${subtotal:,.2f}; discount=${discount:,.2f}; tax=${tax:,.2f}; service_fee=${service_fee:,.2f}; total=${total:,.2f}'"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/demo_monorepo/orders_pipeline.py",
+          "content_hash": "8ed2a3376577d32629069e3600a16530dbf90e708857d812aa5052ae0d247d60",
+          "language": "python"
+        },
+        "qualified_name": "build_monthly_breakdown",
+        "start_line": 88,
+        "end_line": 124,
+        "code_hash": "d0b9768ddbb7841cb020e6c5b7a98aa597f8751a57150c37b187f4df713027d7"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/demo_monorepo/invoices_pipeline.py",
+          "content_hash": "42c942b9e6219bda97aee95d3df80c618b41ced7a78bcaa27b166707a76152b5",
+          "language": "python"
+        },
+        "qualified_name": "build_monthly_breakdown",
+        "start_line": 88,
+        "end_line": 129,
+        "code_hash": "8049c9ada34b142d72fa9de355db4a8aecd7a6a0205a80673810edb7230b17c8"
+      },
+      "score": 0.9352588014919346,
+      "duplicated_lines": 37,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 88,
+          "end_line": 124
+        },
+        "span_b": {
+          "start_line": 88,
+          "end_line": 129
+        },
+        "similarity": 0.9348853548897895,
+        "diff": "--- \n+++ \n@@ -6,13 +6,15 @@\n         start = idx * 7\n         end = min(start + 7, len(daily_totals))\n         revenue = round(sum(daily_totals[start:end]), 2)\n-        marketing = round(weekly_marketing_spend[idx] if idx < len(weekly_marketing_spend) else 0.0, 2)\n+        outreach = round(weekly_marketing_spend[idx] if idx < len(weekly_marketing_spend) else 0.0, 2)\n         fixed = round(fixed_cost, 2)\n-        cost = round(marketing + fixed, 2)\n+        support_overhead = 15.0 if idx == 3 else 0.0\n+        cost = round(outreach + fixed + support_overhead, 2)\n         margin = round(revenue - cost, 2)\n         margin_pct = round(margin / revenue * 100, 2) if revenue > 0 else 0.0\n+        margin_pct = min(margin_pct, 95.0)\n         monthly_revenue += revenue\n         monthly_cost += cost\n-        weeks.append({'week': idx + 1, 'revenue': revenue, 'cost': cost, 'margin': margin, 'margin_pct': margin_pct})\n+        weeks.append({'week': idx + 1, 'revenue': revenue, 'cost': cost, 'margin': margin, 'margin_pct': margin_pct, 'warning': 'low_margin' if margin_pct < 20 else ''})\n     monthly_margin = round(monthly_revenue - monthly_cost, 2)\n-    return {'weeks': weeks, 'monthly_revenue': round(monthly_revenue, 2), 'monthly_cost': round(monthly_cost, 2), 'monthly_margin': monthly_margin, 'profitable': monthly_margin > 0}\n+    return {'weeks': weeks, 'monthly_revenue': round(monthly_revenue, 2), 'monthly_cost': round(monthly_cost, 2), 'monthly_margin': monthly_margin, 'net_positive': monthly_margin > 0}"
+      },
+      "reasons": [
+        "func_threshold",
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/demo_monorepo/orders_pipeline.py",
+          "content_hash": "8ed2a3376577d32629069e3600a16530dbf90e708857d812aa5052ae0d247d60",
+          "language": "python"
+        },
+        "qualified_name": "compile_weekly_metrics",
+        "start_line": 127,
+        "end_line": 163,
+        "code_hash": "ba9c002a0caed1026d06eb2f62fbaf8c98c717579d9df22ab2dd172e74b57767"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/demo_monorepo/invoices_pipeline.py",
+          "content_hash": "42c942b9e6219bda97aee95d3df80c618b41ced7a78bcaa27b166707a76152b5",
+          "language": "python"
+        },
+        "qualified_name": "compile_weekly_metrics",
+        "start_line": 132,
+        "end_line": 170,
+        "code_hash": "f58f3915730c2e9801edc9153985ed072a765c608fff7d9e9702782f2fd64908"
+      },
+      "score": 0.9936170212765957,
+      "duplicated_lines": 37,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 127,
+          "end_line": 163
+        },
+        "span_b": {
+          "start_line": 132,
+          "end_line": 170
+        },
+        "similarity": 0.9936170212765957,
+        "diff": "--- \n+++ \n@@ -13,4 +13,5 @@\n     total_revenue = round(sum((float(row['revenue']) for row in weeks)), 2)\n     total_refunds = sum((int(row['refunds']) for row in weeks))\n     net_orders = max(0, total_orders - total_refunds)\n-    return {'weeks': weeks, 'totals': {'orders': total_orders, 'revenue': total_revenue, 'refunds': total_refunds, 'net_orders': net_orders}}\n+    adjusted_net = max(0, net_orders - 1)\n+    return {'weeks': weeks, 'totals': {'orders': total_orders, 'revenue': total_revenue, 'refunds': total_refunds, 'net_orders': adjusted_net}}"
+      },
+      "reasons": [
+        "func_threshold",
+        "min_window_hits"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/tiny_repo/classes.py",
+          "content_hash": "0d1d543afafb6c80d0c8bec2761c58a3452ad0d0ddf4e2f9eb5cf147ecb3218b",
+          "language": "python"
+        },
+        "qualified_name": "Accumulator.total",
+        "start_line": 2,
+        "end_line": 6,
+        "code_hash": "2ef51f8acaf6f094f977b874a4ddc84d89143edfcab01515d7d08cf7d19acd73"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/tiny_repo/helpers.py",
+          "content_hash": "a1e3c49e17915942a2b048fdbfaa9b9217f0af4496c6fc175a35e96fac546bc9",
+          "language": "python"
+        },
+        "qualified_name": "helper_sum",
+        "start_line": 1,
+        "end_line": 5,
+        "code_hash": "acafd4a5149863f9b591b0647c0e50a0e18128e8afff5d103667695c2ea6d259"
+      },
+      "score": 0.9328993846463113,
+      "duplicated_lines": 5,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 2,
+          "end_line": 6
+        },
+        "span_b": {
+          "start_line": 1,
+          "end_line": 5
+        },
+        "similarity": 0.9328993846463113,
+        "diff": "--- \n+++ \n@@ -1,5 +1,5 @@\n-    def total(self, items):\n-        total = 0\n-        for item in items:\n-            total += item\n-        return total\n+def helper_sum(items):\n+    total = 0\n+    for item in items:\n+        total += item\n+    return total"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/reporting/html_reporter.py",
+          "content_hash": "754e80b29620599f356ec9e533e15d0996a57e614b4388620e6c53440d1a2164",
+          "language": "python"
+        },
+        "qualified_name": "_select_compare",
+        "start_line": 147,
+        "end_line": 151,
+        "code_hash": "68939e2cef98849b38b2c0b80ca6f3025b6d0ef3e550c53afcdfc48b83a6b814"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/reporting/json_reporter.py",
+          "content_hash": "a44cae11cce29b3d0ed30b95b0f81ca886d358a25bee7934bc57c88179f28fd9",
+          "language": "python"
+        },
+        "qualified_name": "_select_compare",
+        "start_line": 65,
+        "end_line": 69,
+        "code_hash": "249bc300b134cf58bfef1cde6dc6a8113a19283b8f7a59fda64ba7daa380ab25"
+      },
+      "score": 0.9619782452779875,
+      "duplicated_lines": 5,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 147,
+          "end_line": 151
+        },
+        "span_b": {
+          "start_line": 65,
+          "end_line": 69
+        },
+        "similarity": 0.9619782452779875,
+        "diff": "--- \n+++ \n@@ -2,4 +2,4 @@\n     compare = select_compare(matches)\n     if compare is None:\n         return None\n-    return _compare_payload(compare, matches)\n+    return _serialize_evidence(compare)"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "src/clonehunter/reporting/html_reporter.py",
+          "content_hash": "754e80b29620599f356ec9e533e15d0996a57e614b4388620e6c53440d1a2164",
+          "language": "python"
+        },
+        "qualified_name": "_merge_spans",
+        "start_line": 339,
+        "end_line": 350,
+        "code_hash": "c8fd6f3a37b2b76735230cb0a0eeecb239c167f9ef889da1c9eff45c723de046"
+      },
+      "function_b": {
+        "file": {
+          "path": "src/clonehunter/similarity/rollup.py",
+          "content_hash": "4b04e4587a6712aeb0633b9bf81137f32332e06fee97b34fd4e1c0d36888c130",
+          "language": "python"
+        },
+        "qualified_name": "_covered_lines",
+        "start_line": 152,
+        "end_line": 162,
+        "code_hash": "12123916b1586177c8d79c2c8d684616d838a3dced27eb25a411615022364c4c"
+      },
+      "score": 0.9211043177265966,
+      "duplicated_lines": 11,
+      "compare": {
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "span_a": {
+          "start_line": 339,
+          "end_line": 350
+        },
+        "span_b": {
+          "start_line": 152,
+          "end_line": 162
+        },
+        "similarity": 0.9211043177265966,
+        "diff": "--- \n+++ \n@@ -1,12 +1,11 @@\n-def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:\n+def _covered_lines(spans: list[tuple[int, int]]) -> int:\n     if not spans:\n-        return []\n-    merged: list[tuple[int, int]] = []\n+        return 0\n+    merged: list[list[int]] = []\n     for start, end in sorted(spans):\n         if not merged or start > merged[-1][1] + 1:\n-            merged.append((start, end))\n+            merged.append([start, end])\n             continue\n-        prev_start, prev_end = merged[-1]\n-        if end > prev_end:\n-            merged[-1] = (prev_start, end)\n-    return merged\n+        if end > merged[-1][1]:\n+            merged[-1][1] = end\n+    return sum((end - start + 1 for start, end in merged))"
+      },
+      "reasons": [
+        "func_threshold"
+      ],
+      "metadata": {}
+    },
+    {
+      "function_a": {
+        "file": {
+          "path": "fixtures/demo_monorepo/order_form_helpers.ts",
+          "content_hash": "a711a1e49ce4fdcd95838798b2a8ac920d9f2457f83433a01ccffffd9667ffae",
+          "language": "text"
+        },
+        "qualified_name": "order_form_helpers.ts",
+        "start_line": 1,
+        "end_line": 64,
+        "code_hash": "a711a1e49ce4fdcd95838798b2a8ac920d9f2457f83433a01ccffffd9667ffae"
+      },
+      "function_b": {
+        "file": {
+          "path": "fixtures/demo_monorepo/invoice_form_helpers.ts",
+          "content_hash": "c5317ec8c5a177744c5d7d3dafc5057a1a0856e2b1f8d017c7cc2d766a388fe7",
+          "language": "text"
+        },
+        "qualified_name": "invoice_form_helpers.ts",
+        "start_line": 1,
+        "end_line": 64,
+        "code_hash": "c5317ec8c5a177744c5d7d3dafc5057a1a0856e2b1f8d017c7cc2d766a388fe7"
+      },
+      "score": 1.0,
+      "duplicated_lines": 64,
+      "compare": {
+        "kind_a": "WIN",
+        "kind_b": "WIN",
+        "span_a": {
+          "start_line": 19,
+          "end_line": 58
+        },
+        "span_b": {
+          "start_line": 19,
+          "end_line": 58
+        },
+        "similarity": 0.9437351093873529,
+        "diff": "--- \n+++ \n@@ -20,15 +20,15 @@\n   return { ok: true, message: \"\" };\n }\n \n-export function buildFormTotals(items: FormItem[], discountPct: number): {\n+export function buildChargeTotals(charges: FormCharge[], discountPct: number): {\n   subtotal: number;\n   discount: number;\n   tax: number;\n   total: number;\n } {\n   let subtotal = 0;\n-  for (const item of items) {\n-    subtotal += item.quantity * item.unitPrice;\n+  for (const charge of charges) {\n+    subtotal += charge.units * charge.rate;\n   }\n \n   const normalizedSubtotal = Math.round(subtotal * 100) / 100;"
+      },
+      "reasons": [
+        "min_window_hits"
+      ],
+      "metadata": {}
+    }
+  ],
+  "stats": {
+    "file_count": 85,
+    "function_count": 256,
+    "snippet_count": 908,
+    "candidate_count": 1362,
+    "finding_count": 24,
+    "cache_hits": 802,
+    "cache_misses": 106
+  },
+  "config": {
+    "engine": "semantic"
+  },
+  "timing": {
+    "collect_files": 0.03088574999856064,
+    "extract_functions": 0.034435625006153714,
+    "generate_snippets": 0.10019325000030221,
+    "embed": 7.516306917001202,
+    "similarity": 6.467626124998787
+  }
+}

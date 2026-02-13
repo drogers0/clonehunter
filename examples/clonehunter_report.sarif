@@ -1,0 +1,969 @@
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "properties": {
+    "schema_version": "1.0.0"
+  },
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CloneHunter",
+          "informationUri": "https://example.com/clonehunter",
+          "rules": [
+            {
+              "id": "clonehunter",
+              "name": "SemanticClone",
+              "shortDescription": {
+                "text": "Semantic code clone"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_pipeline_smoke.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 44
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_pipeline_smoke.py"
+                },
+                "region": {
+                  "startLine": 47,
+                  "endLine": 72
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9490174380842854,
+            "duplicated_lines": 26,
+            "reasons": [
+              "func_threshold",
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 6,
+                  "endLine": 34
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 109,
+                  "endLine": 144
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9269662980287967,
+            "duplicated_lines": 29,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 37,
+                  "endLine": 46
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 49,
+                  "endLine": 58
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9612719528379781,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 37,
+                  "endLine": 46
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 61,
+                  "endLine": 70
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9699284803257625,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 37,
+                  "endLine": 46
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 73,
+                  "endLine": 84
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9380237453962632,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 49,
+                  "endLine": 58
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 61,
+                  "endLine": 70
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9699254373225056,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 49,
+                  "endLine": 58
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 73,
+                  "endLine": 84
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9698768262425053,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 61,
+                  "endLine": 70
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 73,
+                  "endLine": 84
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9473319539588376,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 61,
+                  "endLine": 70
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_rollup.py"
+                },
+                "region": {
+                  "startLine": 87,
+                  "endLine": 106
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.914657001614171,
+            "duplicated_lines": 10,
+            "reasons": [
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_cli_entrypoints.py"
+                },
+                "region": {
+                  "startLine": 31,
+                  "endLine": 83
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_diff_e2e.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 83
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9621340147986004,
+            "duplicated_lines": 58,
+            "reasons": [
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_reporters_html_sarif.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 44
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_clustering.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 26
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9342067988642904,
+            "duplicated_lines": 34,
+            "reasons": [
+              "func_threshold",
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/model/interfaces.py"
+                },
+                "region": {
+                  "startLine": 36,
+                  "endLine": 36
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/core/pipeline.py"
+                },
+                "region": {
+                  "startLine": 35,
+                  "endLine": 35
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 1.0,
+            "duplicated_lines": 1,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/model/interfaces.py"
+                },
+                "region": {
+                  "startLine": 39,
+                  "endLine": 39
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/core/pipeline.py"
+                },
+                "region": {
+                  "startLine": 32,
+                  "endLine": 32
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9999999999999998,
+            "duplicated_lines": 1,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_threshold_edges.py"
+                },
+                "region": {
+                  "startLine": 43,
+                  "endLine": 48
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_threshold_edges.py"
+                },
+                "region": {
+                  "startLine": 90,
+                  "endLine": 95
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9426938801286318,
+            "duplicated_lines": 6,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_threshold_edges.py"
+                },
+                "region": {
+                  "startLine": 51,
+                  "endLine": 87
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_threshold_edges.py"
+                },
+                "region": {
+                  "startLine": 98,
+                  "endLine": 122
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9628723168159918,
+            "duplicated_lines": 25,
+            "reasons": [
+              "func_threshold",
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_expansion.py"
+                },
+                "region": {
+                  "startLine": 6,
+                  "endLine": 10
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/test_expansion.py"
+                },
+                "region": {
+                  "startLine": 22,
+                  "endLine": 26
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9241675493184038,
+            "duplicated_lines": 5,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/reporting/html_reporter.py"
+                },
+                "region": {
+                  "startLine": 147,
+                  "endLine": 151
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/reporting/json_reporter.py"
+                },
+                "region": {
+                  "startLine": 65,
+                  "endLine": 69
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9619782452779875,
+            "duplicated_lines": 5,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/reporting/html_reporter.py"
+                },
+                "region": {
+                  "startLine": 339,
+                  "endLine": 350
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/clonehunter/similarity/rollup.py"
+                },
+                "region": {
+                  "startLine": 152,
+                  "endLine": 162
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9211043177265966,
+            "duplicated_lines": 11,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/orders_pipeline.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 16
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/invoices_pipeline.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 16
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9596680213399746,
+            "duplicated_lines": 3,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/orders_pipeline.py"
+                },
+                "region": {
+                  "startLine": 76,
+                  "endLine": 85
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/invoices_pipeline.py"
+                },
+                "region": {
+                  "startLine": 76,
+                  "endLine": 85
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9662876942183141,
+            "duplicated_lines": 10,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/orders_pipeline.py"
+                },
+                "region": {
+                  "startLine": 88,
+                  "endLine": 124
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/invoices_pipeline.py"
+                },
+                "region": {
+                  "startLine": 88,
+                  "endLine": 129
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9352588014919346,
+            "duplicated_lines": 37,
+            "reasons": [
+              "func_threshold",
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/orders_pipeline.py"
+                },
+                "region": {
+                  "startLine": 127,
+                  "endLine": 163
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/invoices_pipeline.py"
+                },
+                "region": {
+                  "startLine": 132,
+                  "endLine": 170
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9936170212765957,
+            "duplicated_lines": 37,
+            "reasons": [
+              "func_threshold",
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/tiny_repo/classes.py"
+                },
+                "region": {
+                  "startLine": 2,
+                  "endLine": 6
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/tiny_repo/helpers.py"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0.9328993846463113,
+            "duplicated_lines": 5,
+            "reasons": [
+              "func_threshold"
+            ],
+            "metadata": {}
+          }
+        },
+        {
+          "ruleId": "clonehunter",
+          "level": "note",
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/order_form_helpers.ts"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 64
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixtures/demo_monorepo/invoice_form_helpers.ts"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 64
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 1.0,
+            "duplicated_lines": 64,
+            "reasons": [
+              "min_window_hits"
+            ],
+            "metadata": {}
+          }
+        }
+      ]
+    }
+  ]
+}
