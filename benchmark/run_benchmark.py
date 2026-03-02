@@ -26,12 +26,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import shutil
 import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -106,7 +109,7 @@ class RepoMetrics:
     cache_hits: int = 0
     cache_misses: int = 0
 
-    # Timing – cold run (empty cache)
+    # Timing - cold run (empty cache)
     cold_time_collect_files: float = 0.0
     cold_time_extract_functions: float = 0.0
     cold_time_generate_snippets: float = 0.0
@@ -116,7 +119,7 @@ class RepoMetrics:
     cold_cache_hits: int = 0
     cold_cache_misses: int = 0
 
-    # Timing – warm run (fully cached embeddings)
+    # Timing - warm run (fully cached embeddings)
     warm_time_collect_files: float = 0.0
     warm_time_extract_functions: float = 0.0
     warm_time_generate_snippets: float = 0.0
@@ -127,10 +130,10 @@ class RepoMetrics:
     warm_cache_misses: int = 0
 
     # Per-finding scores (sorted, for stable comparison)
-    finding_scores: list[float] = field(default_factory=list)
+    finding_scores: list[float] = field(default_factory=lambda: list[float]())
 
     # Per-finding file pairs (sorted, for checking we find the same clones)
-    finding_pairs: list[str] = field(default_factory=list)
+    finding_pairs: list[str] = field(default_factory=lambda: list[str]())
 
 
 @dataclass
@@ -138,7 +141,12 @@ class BenchmarkResult:
     """Full benchmark run result."""
 
     timestamp: str = ""
-    results: dict[str, dict] = field(default_factory=dict)
+    environment: dict[str, str] = field(
+        default_factory=lambda: dict[str, str](),
+    )
+    results: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: dict[str, dict[str, Any]](),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +154,78 @@ class BenchmarkResult:
 # ---------------------------------------------------------------------------
 
 
-def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+def _run(
+    cmd: list[str],
+    *,
+    check: bool = False,
+    capture_output: bool = False,
+    text: bool = False,
+) -> subprocess.CompletedProcess[str]:
     """Run a command, printing it first."""
     print(f"  $ {' '.join(cmd)}", flush=True)
-    return subprocess.run(cmd, **kwargs)
+    return subprocess.run(
+        cmd, check=check, capture_output=capture_output, text=text,
+    )
+
+
+def _get_pkg_version(pkg: str) -> str:
+    """Get installed package version, or 'not installed'."""
+    try:
+        from importlib.metadata import version
+        return version(pkg)
+    except Exception:
+        return "not installed"
+
+
+def _get_clonehunter_git_sha() -> str:
+    """Get the current git commit SHA of the clonehunter repo."""
+    result = subprocess.run(
+        ["git", "-C", str(BENCHMARK_DIR.parent), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _scan_flag(name: str) -> str:
+    """Extract a --flag value from SCAN_FLAGS."""
+    for i, flag in enumerate(SCAN_FLAGS):
+        if flag == name and i + 1 < len(SCAN_FLAGS):
+            return SCAN_FLAGS[i + 1]
+    return "unknown"
+
+
+def collect_environment() -> dict[str, str]:
+    """Collect environment metadata for reproducibility."""
+    return {
+        # Code version
+        "clonehunter_version": _get_pkg_version("clonehunter"),
+        "clonehunter_git_sha": _get_clonehunter_git_sha(),
+        # Dependencies
+        "python_version": platform.python_version(),
+        "numpy_version": _get_pkg_version("numpy"),
+        "torch_version": _get_pkg_version("torch"),
+        "transformers_version": _get_pkg_version("transformers"),
+        "faiss_version": _get_pkg_version("faiss-cpu"),
+        # Scan configuration (affects results/timing)
+        "engine": _scan_flag("--engine"),
+        "embedder": _scan_flag("--embedder"),
+        "index": _scan_flag("--index"),
+        "repotype": _scan_flag("--repotype"),
+        "threshold_func": _scan_flag("--threshold-func"),
+        "threshold_win": _scan_flag("--threshold-win"),
+        "threshold_exp": _scan_flag("--threshold-exp"),
+        "min_window_hits": _scan_flag("--min-window-hits"),
+        "lexical_min_ratio": _scan_flag("--lexical-min-ratio"),
+        "lexical_weight": _scan_flag("--lexical-weight"),
+        "window_lines": _scan_flag("--window-lines"),
+        "stride_lines": _scan_flag("--stride-lines"),
+        "min_nonempty": _scan_flag("--min-nonempty"),
+        # Hardware
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "cpu_count": str(os.cpu_count() or "unknown"),
+    }
 
 
 def clone_repo(name: str, url: str, tag: str, expected_sha: str) -> Path:
@@ -212,12 +288,15 @@ def run_scan(repo_path: Path, out_json: Path, cache_path: Path) -> float:
     return elapsed
 
 
-def _parse_json(json_path: Path) -> dict:
+def _parse_json(json_path: Path) -> dict[str, Any]:
     with open(json_path, encoding="utf-8") as f:
-        return json.load(f)
+        result: dict[str, Any] = json.load(f)
+    return result
 
 
-def _extract_timing(data: dict, wall_time: float, prefix: str) -> dict[str, float]:
+def _extract_timing(
+    data: dict[str, Any], wall_time: float, prefix: str,
+) -> dict[str, float]:
     """Extract timing fields from a scan result, prefixed for cold/warm."""
     timing = data["timing"]
     return {
@@ -230,7 +309,7 @@ def _extract_timing(data: dict, wall_time: float, prefix: str) -> dict[str, floa
     }
 
 
-def _extract_cache(data: dict, prefix: str) -> dict[str, int]:
+def _extract_cache(data: dict[str, Any], prefix: str) -> dict[str, int]:
     """Extract cache hit/miss from a scan result, prefixed for cold/warm."""
     stats = data["stats"]
     return {
@@ -264,9 +343,11 @@ def parse_metrics(
     finding_pairs: list[str] = []
     for finding in warm_data.get("findings", []):
         finding_scores.append(round(finding["score"], 6))
+        fa = finding["function_a"]
+        fb = finding["function_b"]
         pair = "::".join(sorted([
-            _rel(finding["function_a"]["file"]["path"]) + ":" + finding["function_a"]["qualified_name"],
-            _rel(finding["function_b"]["file"]["path"]) + ":" + finding["function_b"]["qualified_name"],
+            _rel(fa["file"]["path"]) + ":" + fa["qualified_name"],
+            _rel(fb["file"]["path"]) + ":" + fb["qualified_name"],
         ]))
         finding_pairs.append(pair)
 
@@ -447,6 +528,7 @@ def save_baseline(all_metrics: dict[str, RepoMetrics]) -> None:
     """Save current results as the baseline."""
     data = BenchmarkResult(
         timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
+        environment=collect_environment(),
         results={name: asdict(m) for name, m in all_metrics.items()},
     )
     with open(BASELINE_PATH, "w", encoding="utf-8") as f:
@@ -552,9 +634,16 @@ def compare_baseline(
         c_scores = current[repo].finding_scores
         if len(b_scores) != len(c_scores):
             all_ok = False
-            print(f"  {repo}: MISMATCH - baseline has {len(b_scores)} scores, current has {len(c_scores)}")
+            print(
+                f"  {repo}: MISMATCH - baseline has "
+                f"{len(b_scores)} scores, "
+                f"current has {len(c_scores)}"
+            )
             continue
-        diffs = [abs(b - c) for b, c in zip(b_scores, c_scores)]
+        diffs = [
+            abs(b - c)
+            for b, c in zip(b_scores, c_scores, strict=True)
+        ]
         max_diff = max(diffs) if diffs else 0.0
         if max_diff > 1e-4:
             all_ok = False
@@ -573,7 +662,12 @@ def compare_baseline(
             cval = getattr(current[repo], fld)
             if bval > 0:
                 pct = (cval - bval) / bval
-                marker = " SLOW" if pct > timing_tolerance else " fast" if pct < -timing_tolerance else ""
+                if pct > timing_tolerance:
+                    marker = " SLOW"
+                elif pct < -timing_tolerance:
+                    marker = " fast"
+                else:
+                    marker = ""
                 row += f"{bval:>{col_w}.3f}{cval:>{col_w}.3f}{pct:>+{col_w}.1%}{marker}"
             else:
                 row += f"{bval:>{col_w}.3f}{cval:>{col_w}.3f}{'n/a':>{col_w}s}"
@@ -589,7 +683,12 @@ def compare_baseline(
             cval = getattr(current[repo], fld)
             if bval > 0:
                 pct = (cval - bval) / bval
-                marker = " SLOW" if pct > timing_tolerance else " fast" if pct < -timing_tolerance else ""
+                if pct > timing_tolerance:
+                    marker = " SLOW"
+                elif pct < -timing_tolerance:
+                    marker = " fast"
+                else:
+                    marker = ""
                 row += f"{bval:>{col_w}.3f}{cval:>{col_w}.3f}{pct:>+{col_w}.1%}{marker}"
             else:
                 row += f"{bval:>{col_w}.3f}{cval:>{col_w}.3f}{'n/a':>{col_w}s}"
@@ -667,8 +766,12 @@ def main() -> None:
             )
             actual_sha = result.stdout.strip()
             if actual_sha != expected_sha:
-                print(f"  WARNING: [{name}] SHA mismatch — expected {expected_sha[:12]}, got {actual_sha[:12]}")
-                print(f"           Re-run without --skip-clone to fix.")
+                print(
+                    f"  WARNING: [{name}] SHA mismatch"
+                    f" - expected {expected_sha[:12]},"
+                    f" got {actual_sha[:12]}"
+                )
+                print("           Re-run without --skip-clone to fix.")
             else:
                 print(f"  [{name}] SHA verified: {actual_sha[:12]}")
 
