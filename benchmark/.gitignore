@@ -1,0 +1,8 @@
+# Cloned repositories (large, re-downloadable)
+repos/
+
+# Scan output JSON files (regenerated each run)
+output/
+
+# Embedding cache (regenerated per cold/warm run)
+cache/
