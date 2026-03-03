@@ -76,9 +76,9 @@ def _apply_config(config: CloneHunterConfig, cfg: dict[str, Any]) -> CloneHunter
             index=replace(
                 config.index,
                 name=i.get("name", config.index.name),
-                top_k=i.get("top_k", config.index.top_k),
-                faiss_nlist=i.get("faiss_nlist", config.index.faiss_nlist),
-                faiss_nprobe=i.get("faiss_nprobe", config.index.faiss_nprobe),
+                top_k=int(i.get("top_k", config.index.top_k)),
+                faiss_nlist=int(i.get("faiss_nlist", config.index.faiss_nlist)),
+                faiss_nprobe=int(i.get("faiss_nprobe", config.index.faiss_nprobe)),
             ),
         )
     if "cache" in cfg:

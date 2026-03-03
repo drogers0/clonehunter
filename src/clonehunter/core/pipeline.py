@@ -206,9 +206,7 @@ def run_pipeline(paths: list[str], config: CloneHunterConfig) -> ScanResult:
             }
             cached = cache.get_many(key_map.values())
             to_embed = [snip for snip in snippets if key_map[snip.snippet_hash] not in cached]
-            batch_count = (
-                (len(to_embed) - 1) // config.embedder.batch_size + 1 if to_embed else 0
-            )
+            batch_count = (len(to_embed) - 1) // config.embedder.batch_size + 1 if to_embed else 0
             set_total(len(files) + batch_count + len(snippets))
         progress_int: Callable[[Iterable[int], str, int | None], Iterable[int]] = progress
         embeddings, cache_hits, cache_misses = _embed_snippets(

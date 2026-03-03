@@ -17,6 +17,8 @@ class BruteIndex(VectorIndex):
         self._norms: NDArray[np.float32] | None = None  # (N,), precomputed L2 norms
 
     def build(self, vectors: list[Embedding], ids: list[str]) -> None:
+        if len(vectors) != len(ids):
+            raise ValueError(f"vectors length ({len(vectors)}) != ids length ({len(ids)})")
         self._ids = list(ids)
         if not vectors:
             self._matrix = None
@@ -27,6 +29,8 @@ class BruteIndex(VectorIndex):
         self._norms = cast(NDArray[np.float32], np.where(norms == 0, 1.0, norms))
 
     def query(self, vector: Embedding, k: int) -> list[tuple[str, float]]:
+        if k <= 0:
+            return []
         if self._matrix is None or self._norms is None or len(self._ids) == 0:
             return []
         q = np.asarray(vector.vector, dtype=np.float32)
