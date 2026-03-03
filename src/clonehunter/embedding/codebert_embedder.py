@@ -20,12 +20,13 @@ class CodeBertConfig:
     trust_remote_code: bool = False
 
 
-def resolve_device(requested: str) -> str:
-    """Resolve ``"auto"`` to the best available torch device."""
+def resolve_device(requested: str, torch: Any) -> str:
+    """Resolve ``"auto"`` to the best available torch device.
+
+    Accepts an already-imported ``torch`` module to avoid a redundant import.
+    """
     if requested != "auto":
         return requested
-    import torch
-
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
     if torch.cuda.is_available():
@@ -40,7 +41,7 @@ class CodeBertEmbedder:
         import torch
         import transformers as _transformers
 
-        resolved_device = resolve_device(config.device)
+        resolved_device = resolve_device(config.device, torch)
         config = _dc_replace(config, device=resolved_device)
         self._config = config
 

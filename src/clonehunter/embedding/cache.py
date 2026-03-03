@@ -128,3 +128,9 @@ class EmbeddingCache:
 
     def close(self) -> None:
         self._conn.close()
+
+    def __enter__(self) -> EmbeddingCache:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()

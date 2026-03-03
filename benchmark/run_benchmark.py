@@ -216,9 +216,11 @@ def _scan_flag(name: str) -> str:
 def _get_torch_device() -> str:
     """Return the device that ``resolve_device("auto")`` would pick."""
     try:
+        import torch
+
         from clonehunter.embedding.codebert_embedder import resolve_device
 
-        return resolve_device("auto")
+        return resolve_device("auto", torch)
     except Exception:
         return "unknown"
 
