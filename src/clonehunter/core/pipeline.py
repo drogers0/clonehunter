@@ -189,6 +189,7 @@ def run_pipeline(paths: list[str], config: CloneHunterConfig) -> ScanResult:
                 max_length=config.embedder.max_length,
                 batch_size=config.embedder.batch_size,
                 device=config.embedder.device,
+                trust_remote_code=config.embedder.trust_remote_code,
             )
         )
         model_name = config.embedder.model_name

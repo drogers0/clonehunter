@@ -41,14 +41,29 @@ class CacheConfig:
     path: str = "~/.cache/clonehunter"
 
 
+EMBEDDER_PRESETS: dict[str, dict[str, str | int | bool]] = {
+    "codebert": {
+        "model_name": "microsoft/codebert-base",
+        "max_length": 256,
+        "batch_size": 16,
+    },
+    "faster": {
+        "model_name": "isuruwijesiri/all-MiniLM-L6-v2-code-search-512",
+        "max_length": 512,
+        "batch_size": 32,
+    },
+}
+
+
 @dataclass(frozen=True, slots=True)
 class EmbedderConfig:
-    name: Literal["codebert", "stub"] = "codebert"
+    name: Literal["codebert", "faster", "stub"] = "codebert"
     model_name: str = "microsoft/codebert-base"
     revision: str = "main"
     max_length: int = 256
     batch_size: int = 16
     device: str = "cpu"
+    trust_remote_code: bool = False
 
 
 @dataclass(frozen=True, slots=True)

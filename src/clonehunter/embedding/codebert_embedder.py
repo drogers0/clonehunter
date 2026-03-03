@@ -15,6 +15,7 @@ class CodeBertConfig:
     max_length: int
     batch_size: int
     device: str
+    trust_remote_code: bool = False
 
 
 class CodeBertEmbedder:
@@ -50,10 +51,12 @@ class CodeBertEmbedder:
             config.model_name,
             revision=config.revision,
             use_fast=True,
+            trust_remote_code=config.trust_remote_code,
         )
         self._model: Any = auto_model.from_pretrained(
             config.model_name,
             revision=config.revision,
+            trust_remote_code=config.trust_remote_code,
         ).to(config.device)
         self._model.eval()
 

@@ -15,7 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--format", choices=["json", "html", "sarif"], default="html")
     scan.add_argument("--out", default=None)
     scan.add_argument("--engine", choices=["semantic", "sonarqube"], default=None)
-    scan.add_argument("--embedder", choices=["codebert", "stub"], default=None)
+    scan.add_argument("--embedder", choices=["codebert", "faster", "stub"], default=None)
     scan.add_argument("--index", choices=["brute", "faiss"], default=None)
     scan.add_argument("--threshold-func", type=float, default=None)
     scan.add_argument("--threshold-win", type=float, default=None)
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--format", choices=["json", "html", "sarif"], default="html")
     diff.add_argument("--out", default=None)
     diff.add_argument("--engine", choices=["semantic", "sonarqube"], default=None)
-    diff.add_argument("--embedder", choices=["codebert", "stub"], default=None)
+    diff.add_argument("--embedder", choices=["codebert", "faster", "stub"], default=None)
     diff.add_argument("--index", choices=["brute", "faiss"], default=None)
 
     return parser
