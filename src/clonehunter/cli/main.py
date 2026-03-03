@@ -37,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument("--include-globs", action="append", default=None)
     scan.add_argument("--exclude-globs", action="append", default=None)
+    scan.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default=None)
 
     diff = sub.add_parser("diff", help="Scan only changed files")
     diff.add_argument("--base", default="HEAD")
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--engine", choices=["semantic", "sonarqube"], default=None)
     diff.add_argument("--embedder", choices=["codebert", "faster", "stub"], default=None)
     diff.add_argument("--index", choices=["brute", "faiss"], default=None)
+    diff.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default=None)
 
     return parser
 
@@ -82,7 +84,8 @@ def main() -> None:
                 repotypes=args.repotype,
                 include_globs=args.include_globs,
                 exclude_globs=args.exclude_globs,
+                device=args.device,
             )
         )
     if args.command == "diff":
-        run_diff(args.base, args.format, args.out, args.embedder, args.index)
+        run_diff(args.base, args.format, args.out, args.embedder, args.index, args.device)

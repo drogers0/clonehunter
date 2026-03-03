@@ -20,6 +20,7 @@ def run_diff(
     out_path: str,
     embedder: str | None,
     index: str | None,
+    device: str | None = None,
 ) -> None:
     files = changed_files(base)
     if not files:
@@ -30,6 +31,7 @@ def run_diff(
                 out_path=out_path,
                 embedder=embedder,
                 index=index,
+                device=device,
             )
         )
         return
@@ -42,6 +44,11 @@ def run_diff(
         overrides["embedder"] = {"name": embedder}
     if index:
         overrides["index"] = {"name": index}
+    if device:
+        emb = overrides.get("embedder", {})
+        if isinstance(emb, dict):
+            emb["device"] = device
+            overrides["embedder"] = emb
     if env_embedder == "stub" and "embedder" not in overrides:
         overrides["embedder"] = {"name": "stub"}
     config = load_config(Path.cwd(), overrides)

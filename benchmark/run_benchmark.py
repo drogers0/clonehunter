@@ -72,20 +72,34 @@ REPOS: dict[str, tuple[str, str, str]] = {
 # Consistent scan settings so results are deterministic (modulo model
 # non-determinism on different hardware).
 SCAN_FLAGS: list[str] = [
-    "--format", "json",
-    "--repotype", "python",
-    "--engine", "semantic",
-    "--embedder", "codebert",
-    "--index", "brute",
-    "--threshold-func", "0.92",
-    "--threshold-win", "0.90",
-    "--threshold-exp", "0.90",
-    "--min-window-hits", "2",
-    "--lexical-min-ratio", "0.5",
-    "--lexical-weight", "0.3",
-    "--window-lines", "12",
-    "--stride-lines", "6",
-    "--min-nonempty", "4",
+    "--format",
+    "json",
+    "--repotype",
+    "python",
+    "--engine",
+    "semantic",
+    "--embedder",
+    "codebert",
+    "--index",
+    "brute",
+    "--threshold-func",
+    "0.92",
+    "--threshold-win",
+    "0.90",
+    "--threshold-exp",
+    "0.90",
+    "--min-window-hits",
+    "2",
+    "--lexical-min-ratio",
+    "0.5",
+    "--lexical-weight",
+    "0.3",
+    "--window-lines",
+    "12",
+    "--stride-lines",
+    "6",
+    "--min-nonempty",
+    "4",
 ]
 
 
@@ -164,7 +178,10 @@ def _run(
     """Run a command, printing it first."""
     print(f"  $ {' '.join(cmd)}", flush=True)
     return subprocess.run(
-        cmd, check=check, capture_output=capture_output, text=text,
+        cmd,
+        check=check,
+        capture_output=capture_output,
+        text=text,
     )
 
 
@@ -172,6 +189,7 @@ def _get_pkg_version(pkg: str) -> str:
     """Get installed package version, or 'not installed'."""
     try:
         from importlib.metadata import version
+
         return version(pkg)
     except Exception:
         return "not installed"
@@ -181,7 +199,8 @@ def _get_clonehunter_git_sha() -> str:
     """Get the current git commit SHA of the clonehunter repo."""
     result = subprocess.run(
         ["git", "-C", str(BENCHMARK_DIR.parent), "rev-parse", "HEAD"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
@@ -192,6 +211,16 @@ def _scan_flag(name: str) -> str:
         if flag == name and i + 1 < len(SCAN_FLAGS):
             return SCAN_FLAGS[i + 1]
     return "unknown"
+
+
+def _get_torch_device() -> str:
+    """Return the device that ``resolve_device("auto")`` would pick."""
+    try:
+        from clonehunter.embedding.codebert_embedder import resolve_device
+
+        return resolve_device("auto")
+    except Exception:
+        return "unknown"
 
 
 def collect_environment() -> dict[str, str]:
@@ -225,6 +254,8 @@ def collect_environment() -> dict[str, str]:
         "machine": platform.machine(),
         "processor": platform.processor(),
         "cpu_count": str(os.cpu_count() or "unknown"),
+        # Torch device (resolved from "auto")
+        "torch_device": _get_torch_device(),
     }
 
 
@@ -235,7 +266,8 @@ def clone_repo(name: str, url: str, tag: str, expected_sha: str) -> Path:
         # Verify existing clone matches expected SHA
         result = subprocess.run(
             ["git", "-C", str(dest), "rev-parse", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         actual_sha = result.stdout.strip()
         if actual_sha != expected_sha:
@@ -255,7 +287,9 @@ def clone_repo(name: str, url: str, tag: str, expected_sha: str) -> Path:
     # Verify commit SHA
     result = subprocess.run(
         ["git", "-C", str(dest), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     actual_sha = result.stdout.strip()
     if actual_sha != expected_sha:
@@ -272,10 +306,15 @@ def clone_repo(name: str, url: str, tag: str, expected_sha: str) -> Path:
 def run_scan(repo_path: Path, out_json: Path, cache_path: Path) -> float:
     """Run ``clonehunter scan`` and return wall-clock time."""
     cmd = [
-        sys.executable, "-m", "clonehunter",
-        "scan", str(repo_path),
-        "--out", str(out_json),
-        "--cache-path", str(cache_path),
+        sys.executable,
+        "-m",
+        "clonehunter",
+        "scan",
+        str(repo_path),
+        "--out",
+        str(out_json),
+        "--cache-path",
+        str(cache_path),
         *SCAN_FLAGS,
     ]
     t0 = time.perf_counter()
@@ -295,7 +334,9 @@ def _parse_json(json_path: Path) -> dict[str, Any]:
 
 
 def _extract_timing(
-    data: dict[str, Any], wall_time: float, prefix: str,
+    data: dict[str, Any],
+    wall_time: float,
+    prefix: str,
 ) -> dict[str, float]:
     """Extract timing fields from a scan result, prefixed for cold/warm."""
     timing = data["timing"]
@@ -345,10 +386,14 @@ def parse_metrics(
         finding_scores.append(round(finding["score"], 6))
         fa = finding["function_a"]
         fb = finding["function_b"]
-        pair = "::".join(sorted([
-            _rel(fa["file"]["path"]) + ":" + fa["qualified_name"],
-            _rel(fb["file"]["path"]) + ":" + fb["qualified_name"],
-        ]))
+        pair = "::".join(
+            sorted(
+                [
+                    _rel(fa["file"]["path"]) + ":" + fa["qualified_name"],
+                    _rel(fb["file"]["path"]) + ":" + fb["qualified_name"],
+                ]
+            )
+        )
         finding_pairs.append(pair)
 
     finding_scores.sort()
@@ -376,8 +421,11 @@ def parse_metrics(
 # ---------------------------------------------------------------------------
 
 DETECTION_FIELDS = [
-    "file_count", "function_count", "snippet_count",
-    "candidate_count", "finding_count",
+    "file_count",
+    "function_count",
+    "snippet_count",
+    "candidate_count",
+    "finding_count",
 ]
 DETECTION_LABELS = {
     "file_count": "Files",
@@ -388,8 +436,10 @@ DETECTION_LABELS = {
 }
 
 CACHE_FIELDS = [
-    "cold_cache_hits", "cold_cache_misses",
-    "warm_cache_hits", "warm_cache_misses",
+    "cold_cache_hits",
+    "cold_cache_misses",
+    "warm_cache_hits",
+    "warm_cache_misses",
 ]
 CACHE_LABELS = {
     "cold_cache_hits": "Cold hits",
@@ -399,14 +449,20 @@ CACHE_LABELS = {
 }
 
 COLD_TIMING_FIELDS = [
-    "cold_time_collect_files", "cold_time_extract_functions",
-    "cold_time_generate_snippets", "cold_time_embed",
-    "cold_time_similarity", "cold_time_total",
+    "cold_time_collect_files",
+    "cold_time_extract_functions",
+    "cold_time_generate_snippets",
+    "cold_time_embed",
+    "cold_time_similarity",
+    "cold_time_total",
 ]
 WARM_TIMING_FIELDS = [
-    "warm_time_collect_files", "warm_time_extract_functions",
-    "warm_time_generate_snippets", "warm_time_embed",
-    "warm_time_similarity", "warm_time_total",
+    "warm_time_collect_files",
+    "warm_time_extract_functions",
+    "warm_time_generate_snippets",
+    "warm_time_embed",
+    "warm_time_similarity",
+    "warm_time_total",
 ]
 TIMING_LABELS = {
     "cold_time_collect_files": "Collect files",
@@ -640,10 +696,7 @@ def compare_baseline(
                 f"current has {len(c_scores)}"
             )
             continue
-        diffs = [
-            abs(b - c)
-            for b, c in zip(b_scores, c_scores, strict=True)
-        ]
+        diffs = [abs(b - c) for b, c in zip(b_scores, c_scores, strict=True)]
         max_diff = max(diffs) if diffs else 0.0
         if max_diff > 1e-4:
             all_ok = False
@@ -762,7 +815,8 @@ def main() -> None:
             _, _, expected_sha = REPOS[name]
             result = subprocess.run(
                 ["git", "-C", str(dest), "rev-parse", "HEAD"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             actual_sha = result.stdout.strip()
             if actual_sha != expected_sha:

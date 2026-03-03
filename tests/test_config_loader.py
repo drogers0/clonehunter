@@ -26,6 +26,12 @@ name = "brute"
     assert config.index.name == "brute"
 
 
+def test_default_device_is_auto(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    config = load_config(tmp_path)
+    assert config.embedder.device == "auto"
+
+
 def test_embedder_preset_faster(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     config = load_config(tmp_path, {"embedder": {"name": "faster"}})

@@ -62,7 +62,7 @@ class EmbedderConfig:
     revision: str = "main"
     max_length: int = 256
     batch_size: int = 16
-    device: str = "cpu"
+    device: str = "auto"
     trust_remote_code: bool = False
 
 
