@@ -189,32 +189,38 @@ def run_pipeline(paths: list[str], config: CloneHunterConfig) -> ScanResult:
                 max_length=config.embedder.max_length,
                 batch_size=config.embedder.batch_size,
                 device=config.embedder.device,
+                trust_remote_code=config.embedder.trust_remote_code,
             )
         )
         model_name = config.embedder.model_name
         revision = config.embedder.revision
         max_length = config.embedder.max_length
     cache = EmbeddingCache(config.cache.path)
-    if bar is not None:
-        key_map = {
-            snip.snippet_hash: embed_cache_key(model_name, revision, max_length, snip.snippet_hash)
-            for snip in snippets
-        }
-        cached = cache.get_many(key_map.values())
-        to_embed = [snip for snip in snippets if key_map[snip.snippet_hash] not in cached]
-        batch_count = (len(to_embed) - 1) // config.embedder.batch_size + 1 if to_embed else 0
-        set_total(len(files) + batch_count + len(snippets))
-    progress_int: Callable[[Iterable[int], str, int | None], Iterable[int]] = progress
-    embeddings, cache_hits, cache_misses = _embed_snippets(
-        snippets=snippets,
-        embedder=embedder,
-        cache=cache,
-        model_name=model_name,
-        revision=revision,
-        max_length=max_length,
-        batch_size=config.embedder.batch_size,
-        progress=progress_int,
-    )
+    try:
+        if bar is not None:
+            key_map = {
+                snip.snippet_hash: embed_cache_key(
+                    model_name, revision, max_length, snip.snippet_hash
+                )
+                for snip in snippets
+            }
+            cached = cache.get_many(key_map.values())
+            to_embed = [snip for snip in snippets if key_map[snip.snippet_hash] not in cached]
+            batch_count = (len(to_embed) - 1) // config.embedder.batch_size + 1 if to_embed else 0
+            set_total(len(files) + batch_count + len(snippets))
+        progress_int: Callable[[Iterable[int], str, int | None], Iterable[int]] = progress
+        embeddings, cache_hits, cache_misses = _embed_snippets(
+            snippets=snippets,
+            embedder=embedder,
+            cache=cache,
+            model_name=model_name,
+            revision=revision,
+            max_length=max_length,
+            batch_size=config.embedder.batch_size,
+            progress=progress_int,
+        )
+    finally:
+        cache.close()
     timing["embed"] = time.perf_counter() - start
 
     start = time.perf_counter()

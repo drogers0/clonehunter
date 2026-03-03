@@ -3,8 +3,10 @@ from __future__ import annotations
 import contextlib
 import importlib
 from dataclasses import dataclass
+from dataclasses import replace as _dc_replace
 from typing import Any
 
+from clonehunter.core.logging import get_logger
 from clonehunter.core.types import Embedding, SnippetRef
 
 
@@ -15,15 +17,36 @@ class CodeBertConfig:
     max_length: int
     batch_size: int
     device: str
+    trust_remote_code: bool = False
+
+
+def resolve_device(requested: str, torch: Any) -> str:
+    """Resolve ``"auto"`` to the best available torch device.
+
+    Accepts an already-imported ``torch`` module to avoid a redundant import.
+    """
+    if requested != "auto":
+        return requested
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
 
 
 class CodeBertEmbedder:
     def __init__(self, config: CodeBertConfig) -> None:
-        self._config = config
         import os
 
         import torch
         import transformers as _transformers
+
+        resolved_device = resolve_device(config.device, torch)
+        config = _dc_replace(config, device=resolved_device)
+        self._config = config
+
+        logger = get_logger()
+        logger.info("Using device: %s", config.device)
 
         self._torch: Any = torch
         transformers: Any = _transformers
@@ -50,11 +73,29 @@ class CodeBertEmbedder:
             config.model_name,
             revision=config.revision,
             use_fast=True,
+            trust_remote_code=config.trust_remote_code,
         )
-        self._model: Any = auto_model.from_pretrained(
-            config.model_name,
-            revision=config.revision,
-        ).to(config.device)
+        try:
+            self._model: Any = auto_model.from_pretrained(
+                config.model_name,
+                revision=config.revision,
+                trust_remote_code=config.trust_remote_code,
+            ).to(config.device)
+        except RuntimeError:
+            if config.device != "cpu":
+                logger.warning(
+                    "Failed to load model on %s, falling back to cpu",
+                    config.device,
+                )
+                config = _dc_replace(config, device="cpu")
+                self._config = config
+                self._model = auto_model.from_pretrained(
+                    config.model_name,
+                    revision=config.revision,
+                    trust_remote_code=config.trust_remote_code,
+                ).to("cpu")
+            else:
+                raise
         self._model.eval()
 
     @property

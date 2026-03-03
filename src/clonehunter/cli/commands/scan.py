@@ -100,6 +100,7 @@ class ScanOptions:
     repotypes: list[str] | None = None
     include_globs: list[str] | None = None
     exclude_globs: list[str] | None = None
+    device: str | None = None
 
 
 def run_scan(options: ScanOptions) -> None:
@@ -155,6 +156,11 @@ def run_scan(options: ScanOptions) -> None:
             "depth": options.expand_depth,
             "max_chars": options.expand_max_chars,
         }
+    if options.device:
+        emb = overrides.get("embedder", {})
+        if isinstance(emb, dict):
+            emb["device"] = options.device
+            overrides["embedder"] = emb
     if options.cache_path:
         overrides["cache"] = {"path": options.cache_path}
     if options.cluster:

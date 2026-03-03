@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from clonehunter._compat.toml import loads as toml_loads
-from clonehunter.core.config import CloneHunterConfig
+from clonehunter.core.config import EMBEDDER_PRESETS, CloneHunterConfig
 
 
 def load_config(root: Path, overrides: dict[str, Any] | None = None) -> CloneHunterConfig:
@@ -76,9 +76,9 @@ def _apply_config(config: CloneHunterConfig, cfg: dict[str, Any]) -> CloneHunter
             index=replace(
                 config.index,
                 name=i.get("name", config.index.name),
-                top_k=i.get("top_k", config.index.top_k),
-                faiss_nlist=i.get("faiss_nlist", config.index.faiss_nlist),
-                faiss_nprobe=i.get("faiss_nprobe", config.index.faiss_nprobe),
+                top_k=int(i.get("top_k", config.index.top_k)),
+                faiss_nlist=int(i.get("faiss_nlist", config.index.faiss_nlist)),
+                faiss_nprobe=int(i.get("faiss_nprobe", config.index.faiss_nprobe)),
             ),
         )
     if "cache" in cfg:
@@ -86,16 +86,22 @@ def _apply_config(config: CloneHunterConfig, cfg: dict[str, Any]) -> CloneHunter
         config = replace(config, cache=replace(config.cache, path=c.get("path", config.cache.path)))
     if "embedder" in cfg:
         e = cfg["embedder"]
+        name = e.get("name", config.embedder.name)
+        p = EMBEDDER_PRESETS.get(name, {})
+        cur = config.embedder
         config = replace(
             config,
             embedder=replace(
-                config.embedder,
-                name=e.get("name", config.embedder.name),
-                model_name=e.get("model_name", config.embedder.model_name),
-                revision=e.get("revision", config.embedder.revision),
-                max_length=e.get("max_length", config.embedder.max_length),
-                batch_size=e.get("batch_size", config.embedder.batch_size),
-                device=e.get("device", config.embedder.device),
+                cur,
+                name=name,
+                model_name=e.get("model_name", p.get("model_name", cur.model_name)),
+                revision=e.get("revision", p.get("revision", cur.revision)),
+                max_length=e.get("max_length", p.get("max_length", cur.max_length)),
+                batch_size=e.get("batch_size", p.get("batch_size", cur.batch_size)),
+                device=e.get("device", p.get("device", cur.device)),
+                trust_remote_code=e.get(
+                    "trust_remote_code", p.get("trust_remote_code", cur.trust_remote_code)
+                ),
             ),
         )
     return config
