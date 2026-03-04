@@ -89,7 +89,7 @@ SCAN_FLAGS: list[str] = [
     "--threshold-exp",
     "0.90",
     "--min-window-hits",
-    "2",
+    "1",
     "--lexical-min-ratio",
     "0.5",
     "--lexical-weight",
