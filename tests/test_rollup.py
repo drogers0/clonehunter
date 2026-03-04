@@ -46,6 +46,25 @@ def test_rollup_filters_overlapping_windows_same_function():
     assert findings == []
 
 
+def test_rollup_keeps_non_overlapping_windows_same_function() -> None:
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=40, code="pass", code_hash="c"
+    )
+    a = SnippetRef(
+        kind="WIN", function=fn, start_line=1, end_line=10, text="same", snippet_hash="a"
+    )
+    b = SnippetRef(
+        kind="WIN", function=fn, start_line=21, end_line=30, text="same", snippet_hash="b"
+    )
+    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence="")
+    findings = rollup_findings(
+        [match],
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0),
+    )
+    assert findings
+
+
 def test_rollup_drops_identical_windows_same_function() -> None:
     file = FileRef(path="x.py", content_hash="h", language="python")
     fn = FunctionRef(
@@ -81,6 +100,21 @@ def test_rollup_drops_overlapping_func_win_same_function() -> None:
     win = SnippetRef(kind="WIN", function=fn, start_line=5, end_line=24, text="w", snippet_hash="w")
     match = CandidateMatch(snippet_a=func, snippet_b=win, similarity=1.0, evidence="")
     findings = rollup_findings([match], Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1))
+    assert findings == []
+
+
+def test_rollup_drops_overlapping_expansions_same_function() -> None:
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=60, code="pass", code_hash="c"
+    )
+    a = SnippetRef(kind="EXP", function=fn, start_line=10, end_line=35, text="a", snippet_hash="a")
+    b = SnippetRef(kind="EXP", function=fn, start_line=20, end_line=45, text="b", snippet_hash="b")
+    match = CandidateMatch(snippet_a=a, snippet_b=b, similarity=1.0, evidence="")
+    findings = rollup_findings(
+        [match],
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0),
+    )
     assert findings == []
 
 

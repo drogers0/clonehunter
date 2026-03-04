@@ -554,13 +554,6 @@ def print_summary(all_metrics: dict[str, RepoMetrics]) -> None:
             row += f"{val:>{col_w}.3f}"
         print(row)
 
-    # Speedup from caching
-    row = f"{'Speedup (cold/warm)':<20s}"
-    for repo in repos:
-        m = all_metrics[repo]
-        speedup = m.cold_time_total / m.warm_time_total if m.warm_time_total > 0 else 0
-        row += f"{speedup:>{col_w}.2f}x"
-    print(row)
     print(sep)
 
     # Finding details
@@ -884,9 +877,6 @@ def main() -> None:
 
         metrics = parse_metrics(cold_json, cold_wall, warm_json, warm_wall, repo_path=repo_path)
         all_metrics[name] = metrics
-
-        speedup = cold_wall / warm_wall if warm_wall > 0 else 0
-        print(f"  [{name}] Cache speedup: {speedup:.2f}x")
 
     if not all_metrics:
         print("\nNo results collected!", file=sys.stderr)
