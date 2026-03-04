@@ -1,7 +1,7 @@
 {
   "timestamp": "2026-03-03T18:47:49",
   "environment": {
-    "clonehunter_version": "1.0.2",
+    "clonehunter_version": "1.0.3",
     "clonehunter_git_sha": "1ac1b4a951419e32e2f26bd9493b9bdf29737f1e",
     "python_version": "3.13.2",
     "numpy_version": "2.4.2",
