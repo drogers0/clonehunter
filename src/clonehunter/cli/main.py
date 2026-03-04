@@ -40,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default=None)
 
     diff = sub.add_parser("diff", help="Scan only changed files")
+    diff.add_argument("path", nargs="*", default=["."])
     diff.add_argument("--base", default="HEAD")
     diff.add_argument("--format", choices=["json", "html", "sarif"], default="html")
     diff.add_argument("--out", default=None)
@@ -88,4 +89,13 @@ def main() -> None:
             )
         )
     if args.command == "diff":
-        run_diff(args.base, args.format, args.out, args.embedder, args.index, args.device)
+        run_diff(
+            args.base,
+            args.format,
+            args.out,
+            args.path,
+            args.engine,
+            args.embedder,
+            args.index,
+            args.device,
+        )

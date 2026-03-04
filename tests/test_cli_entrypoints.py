@@ -72,6 +72,7 @@ def add_copy(values):
         "-m",
         "clonehunter",
         "diff",
+        ".",
         "--base",
         "HEAD",
         "--format",

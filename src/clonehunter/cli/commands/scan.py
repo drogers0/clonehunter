@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import cast
 
+from clonehunter.cli.commands.overrides import build_base_overrides, clean_overrides
 from clonehunter.core.config_loader import load_config
 from clonehunter.core.types import ScanRequest
 from clonehunter.model.registry import get_engine
@@ -104,16 +104,13 @@ class ScanOptions:
 
 
 def run_scan(options: ScanOptions) -> None:
-    env_embedder = os.environ.get("CLONEHUNTER_EMBEDDER", "").strip().lower()
-    overrides: dict[str, object] = {}
-    if options.engine_name:
-        overrides["engine"] = options.engine_name
-    if options.embedder:
-        overrides["embedder"] = {"name": options.embedder}
-    if options.index:
-        overrides["index"] = {"name": options.index}
-    if env_embedder == "stub" and "embedder" not in overrides:
-        overrides["embedder"] = {"name": "stub"}
+    overrides = build_base_overrides(
+        engine_name=options.engine_name,
+        embedder=options.embedder,
+        index=options.index,
+        device=options.device,
+        env_embedder=os.environ.get("CLONEHUNTER_EMBEDDER"),
+    )
     if (
         options.threshold_func is not None
         or options.threshold_win is not None
@@ -156,11 +153,6 @@ def run_scan(options: ScanOptions) -> None:
             "depth": options.expand_depth,
             "max_chars": options.expand_max_chars,
         }
-    if options.device:
-        emb = overrides.get("embedder", {})
-        if isinstance(emb, dict):
-            emb["device"] = options.device
-            overrides["embedder"] = emb
     if options.cache_path:
         overrides["cache"] = {"path": options.cache_path}
     if options.cluster:
@@ -170,7 +162,7 @@ def run_scan(options: ScanOptions) -> None:
 
     __import__("clonehunter.engines")
 
-    config = load_config(Path.cwd(), _clean_overrides(overrides))
+    config = load_config(Path.cwd(), clean_overrides(overrides))
     repotype_include, repotype_exclude = resolve_repotype_globs(
         effective_repotypes(options.repotypes)
     )
@@ -196,19 +188,6 @@ def run_scan(options: ScanOptions) -> None:
         HtmlReporter().write(result, options.out_path)
     else:
         SarifReporter().write(result, options.out_path)
-
-
-def _clean_overrides(overrides: dict[str, object]) -> dict[str, object]:
-    cleaned: dict[str, object] = {}
-    for key, value in overrides.items():
-        if isinstance(value, dict):
-            value_dict = cast(dict[str, object], value)
-            filtered: dict[str, object] = {k: v for k, v in value_dict.items() if v is not None}
-            if filtered:
-                cleaned[key] = filtered
-        elif value is not None:
-            cleaned[key] = value
-    return cleaned
 
 
 def merge_globs(
