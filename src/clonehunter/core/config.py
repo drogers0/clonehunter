@@ -23,7 +23,7 @@ class Thresholds:
     func: float = 0.92
     win: float = 0.90
     exp: float = 0.90
-    min_window_hits: int = 2
+    min_window_hits: int = 1
     lexical_min_ratio: float = 0.5
     lexical_weight: float = 0.3
 

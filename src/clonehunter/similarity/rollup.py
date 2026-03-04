@@ -11,8 +11,7 @@ from clonehunter.similarity.scoring import best_score
 
 def rollup_findings(matches: list[CandidateMatch], thresholds: Thresholds) -> list[Finding]:
     grouped: dict[tuple[str, str], list[CandidateMatch]] = defaultdict(list)
-    filtered = _filter_overlapping_functions(matches)
-    filtered = _filter_overlapping_windows(filtered)
+    filtered = _filter_overlapping_matches(matches)
     filtered = _filter_lexical_matches(filtered, thresholds.lexical_min_ratio)
     filtered = _dedupe_matches(filtered)
     for match in filtered:
@@ -84,37 +83,30 @@ def _reasons(matches: list[CandidateMatch], thresholds: Thresholds) -> list[str]
     return reasons
 
 
-def _filter_overlapping_windows(matches: list[CandidateMatch]) -> list[CandidateMatch]:
+def _filter_overlapping_matches(matches: list[CandidateMatch]) -> list[CandidateMatch]:
     filtered: list[CandidateMatch] = []
     for match in matches:
-        a = match.snippet_a
-        b = match.snippet_b
-        if a.function.identity == b.function.identity:
-            same_span = a.start_line == b.start_line and a.end_line == b.end_line
-            if same_span:
-                continue
-            overlap = _overlap_len(a.start_line, a.end_line, b.start_line, b.end_line)
-            if overlap:
-                # Drop overlapping self-matches across different snippet kinds (e.g., FUNC vs WIN).
-                if a.kind != b.kind:
-                    continue
-                # Drop any overlapping windows within the same function.
-                if a.kind == "WIN":
-                    continue
-        filtered.append(match)
-    return filtered
-
-
-def _filter_overlapping_functions(matches: list[CandidateMatch]) -> list[CandidateMatch]:
-    filtered: list[CandidateMatch] = []
-    for match in matches:
+        snippet_a = match.snippet_a
+        snippet_b = match.snippet_b
         func_a = match.snippet_a.function
         func_b = match.snippet_b.function
-        if func_a.file.path == func_b.file.path and func_a.identity != func_b.identity:
-            overlap = _overlap_len(
+
+        # Allow self-clones only when the matched ranges in the function are disjoint.
+        if func_a.identity == func_b.identity:
+            snippet_overlap = _overlap_len(
+                snippet_a.start_line, snippet_a.end_line, snippet_b.start_line, snippet_b.end_line
+            )
+            if snippet_overlap:
+                continue
+            filtered.append(match)
+            continue
+
+        # Functions that overlap in the same file represent structural containment, not duplication.
+        if func_a.file.path == func_b.file.path:
+            function_overlap = _overlap_len(
                 func_a.start_line, func_a.end_line, func_b.start_line, func_b.end_line
             )
-            if overlap:
+            if function_overlap:
                 continue
         filtered.append(match)
     return filtered
