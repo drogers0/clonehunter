@@ -143,13 +143,7 @@ def run_scan(options: ScanOptions) -> None:
         or options.expand_max_chars is not None
     ):
         overrides["expansion"] = {
-            "enabled": True
-            if (
-                options.expand_calls
-                or options.expand_depth is not None
-                or options.expand_max_chars is not None
-            )
-            else None,
+            "enabled": True,
             "depth": options.expand_depth,
             "max_chars": options.expand_max_chars,
         }
@@ -162,7 +156,8 @@ def run_scan(options: ScanOptions) -> None:
 
     __import__("clonehunter.engines")
 
-    config = load_config(Path.cwd(), clean_overrides(overrides))
+    config_root = _resolve_config_root(options.paths)
+    config = load_config(config_root, clean_overrides(overrides))
     repotype_include, repotype_exclude = resolve_repotype_globs(
         effective_repotypes(options.repotypes)
     )
@@ -240,3 +235,17 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         deduped.append(value)
     return deduped
+
+
+def _resolve_config_root(paths: list[str]) -> Path:
+    if not paths:
+        return Path.cwd()
+    roots: list[Path] = []
+    for raw_path in paths:
+        candidate = Path(raw_path)
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        resolved = candidate.resolve(strict=False)
+        roots.append(resolved.parent if resolved.is_file() else resolved)
+    common_root = Path(os.path.commonpath([str(path) for path in roots]))
+    return common_root

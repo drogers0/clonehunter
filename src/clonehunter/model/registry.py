@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from clonehunter.core.errors import ConfigError
 from clonehunter.model.interfaces import Engine
 
 
@@ -21,5 +22,6 @@ def register_engine(name: str, factory: Callable[[], Engine]) -> None:
 
 def get_engine(name: str) -> Engine:
     if name not in _REGISTRY:
-        raise KeyError(f"Engine not registered: {name}")
+        supported = ", ".join(sorted(_REGISTRY))
+        raise ConfigError(f"Unknown engine {name!r}. Supported engines: {supported}")
     return _REGISTRY[name].factory()

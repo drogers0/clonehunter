@@ -127,7 +127,7 @@ cluster_min_size = 2
 func = 0.92
 win = 0.90
 exp = 0.90
-min_window_hits = 2
+min_window_hits = 1
 lexical_min_ratio = 0.5
 lexical_weight = 0.3
 
@@ -166,7 +166,7 @@ By default, CLI scans apply the `monorepo` repotype preset unless overridden wit
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
   --engine semantic|sonarqube
-  --embedder codebert|stub
+  --embedder codebert|faster|stub
   --index brute|faiss
   --threshold-func FLOAT
   --threshold-win FLOAT
@@ -187,6 +187,7 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
                                   # repeatable preset globs
   --include-globs GLOB   # repeatable; merged with config includes
   --exclude-globs GLOB   # repeatable; merged with config excludes
+  --device auto|cpu|mps|cuda
 
 clonehunter diff --base REF [--format json|html|sarif] [--out FILE]
 ```

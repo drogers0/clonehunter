@@ -6,48 +6,130 @@ from clonehunter.cli.commands.diff import run_diff
 from clonehunter.cli.commands.scan import REPO_TYPE_PRESETS, ScanOptions, run_scan
 
 
+def _add_common_report_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--format",
+        choices=["json", "html", "sarif"],
+        default="html",
+        help="Output report format.",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Output path. Auto-derived from --format when omitted.",
+    )
+
+
+def _add_common_override_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--engine",
+        choices=["semantic", "sonarqube"],
+        default=None,
+        help="Scan engine override; defaults to config value.",
+    )
+    parser.add_argument(
+        "--embedder",
+        choices=["codebert", "faster", "stub"],
+        default=None,
+        help="Embedding backend override; defaults to config value.",
+    )
+    parser.add_argument(
+        "--index",
+        choices=["brute", "faiss"],
+        default=None,
+        help="Vector index override; defaults to config value.",
+    )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "mps", "cuda"],
+        default=None,
+        help="Embedder device override.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="clonehunter")
+    parser = argparse.ArgumentParser(
+        prog="clonehunter",
+        description="Find semantic code clones in repositories.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    scan = sub.add_parser("scan", help="Scan a repository for semantic clones")
-    scan.add_argument("path", nargs="*", default=["."])
-    scan.add_argument("--format", choices=["json", "html", "sarif"], default="html")
-    scan.add_argument("--out", default=None)
-    scan.add_argument("--engine", choices=["semantic", "sonarqube"], default=None)
-    scan.add_argument("--embedder", choices=["codebert", "faster", "stub"], default=None)
-    scan.add_argument("--index", choices=["brute", "faiss"], default=None)
-    scan.add_argument("--threshold-func", type=float, default=None)
-    scan.add_argument("--threshold-win", type=float, default=None)
-    scan.add_argument("--threshold-exp", type=float, default=None)
-    scan.add_argument("--min-window-hits", type=int, default=None)
-    scan.add_argument("--lexical-min-ratio", type=float, default=None)
-    scan.add_argument("--lexical-weight", type=float, default=None)
-    scan.add_argument("--window-lines", type=int, default=None)
-    scan.add_argument("--stride-lines", type=int, default=None)
-    scan.add_argument("--min-nonempty", type=int, default=None)
-    scan.add_argument("--expand-calls", action="store_true")
-    scan.add_argument("--expand-depth", type=int, default=None)
-    scan.add_argument("--expand-max-chars", type=int, default=None)
-    scan.add_argument("--cache-path", default=None)
-    scan.add_argument("--cluster", action="store_true")
-    scan.add_argument("--cluster-min-size", type=int, default=None)
-    scan.add_argument(
-        "--repotype", action="append", choices=sorted(REPO_TYPE_PRESETS), default=None
+    scan = sub.add_parser(
+        "scan",
+        help="Scan a repository for semantic clones",
+        description="Scan one or more paths for duplicate code patterns.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    scan.add_argument("--include-globs", action="append", default=None)
-    scan.add_argument("--exclude-globs", action="append", default=None)
-    scan.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default=None)
-
-    diff = sub.add_parser("diff", help="Scan only changed files")
-    diff.add_argument("path", nargs="*", default=["."])
-    diff.add_argument("--base", default="HEAD")
-    diff.add_argument("--format", choices=["json", "html", "sarif"], default="html")
-    diff.add_argument("--out", default=None)
-    diff.add_argument("--engine", choices=["semantic", "sonarqube"], default=None)
-    diff.add_argument("--embedder", choices=["codebert", "faster", "stub"], default=None)
-    diff.add_argument("--index", choices=["brute", "faiss"], default=None)
-    diff.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default=None)
+    scan.add_argument("path", nargs="*", default=["."], help="Files/directories to scan.")
+    _add_common_report_args(scan)
+    _add_common_override_args(scan)
+    scan.add_argument(
+        "--threshold-func", type=float, default=None, help="Function threshold override [0,1]."
+    )
+    scan.add_argument(
+        "--threshold-win", type=float, default=None, help="Window threshold override [0,1]."
+    )
+    scan.add_argument(
+        "--threshold-exp", type=float, default=None, help="Expansion threshold override [0,1]."
+    )
+    scan.add_argument(
+        "--min-window-hits", type=int, default=None, help="Minimum window hits required."
+    )
+    scan.add_argument(
+        "--lexical-min-ratio", type=float, default=None, help="Lexical floor in [0,1]."
+    )
+    scan.add_argument(
+        "--lexical-weight", type=float, default=None, help="Lexical blend weight in [0,1]."
+    )
+    scan.add_argument("--window-lines", type=int, default=None, help="Window size in lines.")
+    scan.add_argument("--stride-lines", type=int, default=None, help="Window stride in lines.")
+    scan.add_argument(
+        "--min-nonempty", type=int, default=None, help="Minimum non-empty lines per window."
+    )
+    scan.add_argument("--expand-calls", action="store_true", help="Enable call-expansion snippets.")
+    scan.add_argument(
+        "--expand-depth", type=int, default=None, help="Call-expansion depth override."
+    )
+    scan.add_argument(
+        "--expand-max-chars", type=int, default=None, help="Call-expansion size cap override."
+    )
+    scan.add_argument("--cache-path", default=None, help="Embedding cache directory override.")
+    scan.add_argument("--cluster", action="store_true", help="Enable cluster post-processing.")
+    scan.add_argument("--cluster-min-size", type=int, default=None, help="Minimum cluster size.")
+    scan.add_argument(
+        "--repotype",
+        action="append",
+        choices=sorted(REPO_TYPE_PRESETS),
+        default=None,
+        help="Repeatable language preset globs. Use --repotype none to disable preset globs.",
+    )
+    scan.add_argument(
+        "--include-globs",
+        action="append",
+        default=None,
+        help="Repeatable include glob appended after config/preset globs.",
+    )
+    scan.add_argument(
+        "--exclude-globs",
+        action="append",
+        default=None,
+        help="Repeatable exclude glob appended after config/preset globs.",
+    )
+    diff = sub.add_parser(
+        "diff",
+        help="Scan only changed files",
+        description="Scan files changed from a git base reference.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    diff.add_argument(
+        "path", nargs="*", default=["."], help="Files/directories to scope changed-file discovery."
+    )
+    diff.add_argument(
+        "--base", default="HEAD", help="Git base revision for changed-file detection."
+    )
+    _add_common_report_args(diff)
+    _add_common_override_args(diff)
 
     return parser
 
@@ -88,7 +170,7 @@ def main() -> None:
                 device=args.device,
             )
         )
-    if args.command == "diff":
+    elif args.command == "diff":
         run_diff(
             args.base,
             args.format,
