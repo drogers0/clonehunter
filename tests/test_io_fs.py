@@ -52,3 +52,36 @@ def test_collect_files_non_python_are_text_language(tmp_path: Path):
     files = collect_files([str(tmp_path)], include_globs=["**/*.js"], exclude_globs=[])
     assert len(files) == 1
     assert files[0].language == "text"
+
+
+def test_collect_files_dedupes_overlapping_inputs(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    nested = root / "pkg" / "a.py"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("print('x')\n", encoding="utf-8")
+
+    files = collect_files(
+        [str(root), str(nested)],
+        include_globs=["**/*.py"],
+        exclude_globs=[],
+    )
+    assert len(files) == 1
+    assert Path(files[0].path).resolve() == nested.resolve()
+
+
+def test_collect_files_external_absolute_path_respects_excludes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    external = tmp_path / "external" / "generated" / "skip.py"
+    external.parent.mkdir(parents=True)
+    external.write_text("print('skip')\n", encoding="utf-8")
+
+    monkeypatch.chdir(cwd)
+    files = collect_files(
+        [str(external.resolve())],
+        include_globs=["**/*.py"],
+        exclude_globs=["**/generated/**"],
+    )
+    assert files == []

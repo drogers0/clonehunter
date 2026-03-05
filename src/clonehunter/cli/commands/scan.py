@@ -239,7 +239,9 @@ def _dedupe(values: list[str]) -> list[str]:
 
 def _resolve_config_root(paths: list[str]) -> Path:
     if not paths:
-        return Path.cwd()
+        cwd = Path.cwd()
+        return _find_nearest_pyproject_root(cwd) or cwd
+
     roots: list[Path] = []
     for raw_path in paths:
         candidate = Path(raw_path)
@@ -247,5 +249,23 @@ def _resolve_config_root(paths: list[str]) -> Path:
             candidate = Path.cwd() / candidate
         resolved = candidate.resolve(strict=False)
         roots.append(resolved.parent if resolved.is_file() else resolved)
+
     common_root = Path(os.path.commonpath([str(path) for path in roots]))
-    return common_root
+    pyproject_roots: set[Path] = set()
+    for path in roots:
+        pyproject_root = _find_nearest_pyproject_root(path)
+        if pyproject_root is not None:
+            pyproject_roots.add(pyproject_root)
+    if len(pyproject_roots) == 1:
+        return next(iter(pyproject_roots))
+    return _find_nearest_pyproject_root(common_root) or common_root
+
+
+def _find_nearest_pyproject_root(start: Path) -> Path | None:
+    current = start
+    while True:
+        if (current / "pyproject.toml").is_file():
+            return current
+        if current.parent == current:
+            return None
+        current = current.parent

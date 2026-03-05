@@ -64,3 +64,44 @@ def test_run_scan_loads_config_from_target_directory(
     )
 
     assert captured["root"] == target_repo.resolve()
+
+
+def test_run_scan_loads_config_from_repo_root_when_path_is_nested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    caller = tmp_path / "caller"
+    caller.mkdir()
+    target_repo = tmp_path / "target_repo"
+    nested = target_repo / "src" / "pkg"
+    nested.mkdir(parents=True)
+    (target_repo / "pyproject.toml").write_text(
+        """
+[tool.clonehunter]
+engine = "semantic"
+""",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, Path] = {}
+
+    def _load_config(root: Path, overrides: dict[str, object]) -> CloneHunterConfig:
+        captured["root"] = root
+        return CloneHunterConfig()
+
+    def _get_engine(_name: str) -> _FakeEngine:
+        return _FakeEngine()
+
+    monkeypatch.chdir(caller)
+    monkeypatch.setattr(scan_cmd, "load_config", _load_config)
+    monkeypatch.setattr(scan_cmd, "get_engine", _get_engine)
+    monkeypatch.setattr(scan_cmd, "JsonReporter", _NullJsonReporter)
+
+    run_scan(
+        ScanOptions(
+            paths=[str(nested)],
+            fmt="json",
+            out_path=str(tmp_path / "out.json"),
+        )
+    )
+
+    assert captured["root"] == target_repo.resolve()

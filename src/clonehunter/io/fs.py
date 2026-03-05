@@ -40,19 +40,34 @@ def _matches(globs: list[str], rel_path: Path) -> bool:
     return False
 
 
-def _relative_path(path: Path) -> Path:
+def _match_path(path: Path) -> Path:
     if path.is_absolute():
+        resolved = path.resolve(strict=False)
         try:
-            return path.relative_to(Path.cwd())
+            return resolved.relative_to(Path.cwd())
         except ValueError:
-            return Path(path.name)
+            # Keep absolute context so glob patterns can match directory segments.
+            return resolved
     return path
+
+
+def _canonical_key(path: Path) -> str:
+    return path.resolve(strict=False).as_posix()
+
+
+def _append_unique(gathered: list[Path], seen: set[str], candidate: Path) -> None:
+    key = _canonical_key(candidate)
+    if key in seen:
+        return
+    seen.add(key)
+    gathered.append(candidate)
 
 
 def _iter_files(
     paths: Iterable[str], include_globs: list[str], exclude_globs: list[str]
 ) -> list[Path]:
     gathered: list[Path] = []
+    seen: set[str] = set()
     for raw in paths:
         p = Path(raw)
         if p.is_dir():
@@ -67,11 +82,11 @@ def _iter_files(
                         continue
                     if _matches(exclude_globs, rel_file):
                         continue
-                    gathered.append(root_path / name)
+                    _append_unique(gathered, seen, root_path / name)
         elif p.is_file():
-            rel = _relative_path(p)
+            rel = _match_path(p)
             if _matches(include_globs, rel) and not _matches(exclude_globs, rel):
-                gathered.append(p)
+                _append_unique(gathered, seen, p)
     return gathered
 
 
