@@ -1,3 +1,6 @@
+import argparse
+from typing import Any, cast
+
 from clonehunter.cli.commands.scan import effective_repotypes, merge_globs, resolve_repotype_globs
 from clonehunter.cli.main import build_parser
 
@@ -98,3 +101,18 @@ def test_scan_parser_accepts_repotype_none() -> None:
     parser = build_parser()
     args = parser.parse_args(["scan", ".", "--repotype", "none"])
     assert args.repotype == ["none"]
+
+
+def test_cli_help_includes_defaults_and_repotype_guidance() -> None:
+    parser = build_parser()
+    scan_parser: argparse.ArgumentParser | None = None
+    for action in cast(list[Any], parser._actions):
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and "scan" in choices:
+            scan_parser = cast(argparse.ArgumentParser, choices["scan"])
+            break
+    assert scan_parser is not None
+    help_text = scan_parser.format_help()
+    assert "--embedder {codebert,faster,stub}" in help_text
+    assert "(default: html)" in help_text
+    assert "to disable preset globs." in help_text

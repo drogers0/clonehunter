@@ -1,6 +1,8 @@
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import Any, TypeVar
 
 class Config: ...
 
@@ -12,9 +14,28 @@ class MonkeyPatch:
 
 class RaisesContext(AbstractContextManager[Any]):
     def __enter__(self) -> Any: ...
-    def __exit__(self, exc_type, exc, tb) -> bool: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool: ...
 
-def raises(expected_exception: type[BaseException]) -> RaisesContext: ...
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+class MarkDecorator:
+    def __call__(self, func: _F) -> _F: ...
+
+class MarkNamespace:
+    def parametrize(self, argnames: str | tuple[str, ...], argvalues: Any) -> MarkDecorator: ...
+
+mark: MarkNamespace
+
+def raises(
+    expected_exception: type[BaseException],
+    *,
+    match: str | None = None,
+) -> RaisesContext: ...
 def skip(reason: str) -> None: ...
 def importorskip(
     modname: str,

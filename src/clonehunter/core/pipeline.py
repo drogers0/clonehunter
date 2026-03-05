@@ -6,6 +6,7 @@ from functools import partial
 from typing import Protocol
 
 from clonehunter.core.config import CloneHunterConfig
+from clonehunter.core.config_loader import validate_config
 from clonehunter.core.types import Embedding, FunctionRef, ScanResult, ScanStats, SnippetRef
 from clonehunter.embedding.cache import EmbeddingCache
 from clonehunter.embedding.codebert_embedder import CodeBertConfig, CodeBertEmbedder
@@ -44,17 +45,6 @@ def _build_faiss_index(nlist: int, nprobe: int) -> VectorIndex:
         return FaissIndex(nlist=nlist, nprobe=nprobe)
     except RuntimeError:
         return BruteIndex()
-
-
-def _validate_config(config: CloneHunterConfig) -> None:
-    if config.windows.window_lines <= 0:
-        raise ValueError("window_lines must be > 0")
-    if config.windows.stride_lines <= 0:
-        raise ValueError("stride_lines must be > 0")
-    if not 0.0 <= config.thresholds.lexical_weight <= 1.0:
-        raise ValueError("lexical_weight must be between 0 and 1")
-    if not 0.0 <= config.thresholds.lexical_min_ratio <= 1.0:
-        raise ValueError("lexical_min_ratio must be between 0 and 1")
 
 
 def _embed_snippets(
@@ -129,7 +119,7 @@ def run_pipeline(paths: list[str], config: CloneHunterConfig) -> ScanResult:
             update(1)
             yield item
 
-    _validate_config(config)
+    validate_config(config)
 
     timing: dict[str, float] = {}
 
