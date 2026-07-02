@@ -7,6 +7,8 @@ from typing import Any, cast
 from clonehunter.core.types import CandidateMatch, Finding, ScanResult
 from clonehunter.reporting.compare import CompareData, select_compare
 from clonehunter.reporting.schema import SCHEMA_VERSION
+from clonehunter.similarity.occurrences import SelfCloneOccurrences, is_self_clone
+from clonehunter.similarity.ranking import best_match
 
 
 class HtmlReporter:
@@ -111,8 +113,12 @@ class HtmlReporter:
 def _render_finding(finding: Finding) -> str:
     func_a = finding.function_a
     func_b = finding.function_b
-    span_a, span_b = _evidence_bounds(finding.evidence)
-    compare = _select_compare(finding.evidence)
+    matches = finding.evidence
+    # Build the occurrence-component clustering once per finding and thread it through
+    # both consumers below, rather than re-running union-find twice for the same group.
+    occ = SelfCloneOccurrences(matches) if is_self_clone(matches) else None
+    span_a, span_b = _evidence_bounds(matches, occ)
+    compare = _select_compare(matches, occ)
     diff_html = _render_diff(compare)
     path_min = min(func_a.file.path, func_b.file.path, key=str.casefold)
     return f"""
@@ -144,16 +150,20 @@ def _render_finding(finding: Finding) -> str:
 """
 
 
-def _select_compare(matches: list[CandidateMatch]) -> dict[str, object] | None:
+def _select_compare(
+    matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> dict[str, object] | None:
     compare = select_compare(matches)
     if compare is None:
         return None
-    return _compare_payload(compare, matches)
+    return _compare_payload(compare, matches, occ)
 
 
-def _compare_payload(compare: CompareData, matches: list[CandidateMatch]) -> dict[str, object]:
+def _compare_payload(
+    compare: CompareData, matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> dict[str, object]:
     hidden_before_a, hidden_before_b, hidden_after_a, hidden_after_b = _hidden_duplicated_lines(
-        matches=matches, span_a=compare.span_a, span_b=compare.span_b
+        matches=matches, span_a=compare.span_a, span_b=compare.span_b, occ=occ
     )
     return {
         "kind_a": compare.kind_a,
@@ -177,13 +187,11 @@ def _render_diff(compare: dict[str, object] | None) -> str:
     text_b = str(compare.get("text_b", ""))
     span_a = _as_span(compare.get("span_a"))
     span_b = _as_span(compare.get("span_b"))
-    lines_a = _strip_blank_lines(text_a.splitlines())
-    lines_b = _strip_blank_lines(text_b.splitlines())
+    lines_a = _strip_blank_lines(text_a.splitlines(), span_a[0])
+    lines_b = _strip_blank_lines(text_b.splitlines(), span_b[0])
     table = _render_side_by_side(
         lines_a=lines_a,
         lines_b=lines_b,
-        start_a=span_a[0],
-        start_b=span_b[0],
         hidden_before_a=_as_int(compare.get("hidden_before_a", 0)),
         hidden_before_b=_as_int(compare.get("hidden_before_b", 0)),
         hidden_after_a=_as_int(compare.get("hidden_after_a", 0)),
@@ -193,16 +201,16 @@ def _render_diff(compare: dict[str, object] | None) -> str:
 
 
 def _render_side_by_side(
-    lines_a: list[str],
-    lines_b: list[str],
-    start_a: int,
-    start_b: int,
+    lines_a: list[tuple[int, str]],
+    lines_b: list[tuple[int, str]],
     hidden_before_a: int,
     hidden_before_b: int,
     hidden_after_a: int,
     hidden_after_b: int,
 ) -> str:
-    matcher = difflib.SequenceMatcher(a=lines_a, b=lines_b)
+    text_a = [line for _, line in lines_a]
+    text_b = [line for _, line in lines_b]
+    matcher = difflib.SequenceMatcher(a=text_a, b=text_b)
     rows: list[str] = []
     top_row = _render_hidden_row(hidden_before_a, hidden_before_b)
     if top_row:
@@ -210,25 +218,23 @@ def _render_side_by_side(
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
             for offset in range(max(i2 - i1, j2 - j1)):
-                a_line = lines_a[i1 + offset]
-                b_line = lines_b[j1 + offset]
-                rows.append(
-                    _render_row(start_a + i1 + offset, a_line, start_b + j1 + offset, b_line, "")
-                )
+                a_no, a_line = lines_a[i1 + offset]
+                b_no, b_line = lines_b[j1 + offset]
+                rows.append(_render_row(a_no, a_line, b_no, b_line, ""))
         elif tag == "replace":
             count = max(i2 - i1, j2 - j1)
             for offset in range(count):
-                a_line = lines_a[i1 + offset] if i1 + offset < i2 else ""
-                b_line = lines_b[j1 + offset] if j1 + offset < j2 else ""
-                a_no = start_a + i1 + offset if i1 + offset < i2 else ""
-                b_no = start_b + j1 + offset if j1 + offset < j2 else ""
+                a_no, a_line = lines_a[i1 + offset] if i1 + offset < i2 else ("", "")
+                b_no, b_line = lines_b[j1 + offset] if j1 + offset < j2 else ("", "")
                 rows.append(_render_row(a_no, a_line, b_no, b_line, "diff_chg"))
         elif tag == "delete":
             for offset in range(i1, i2):
-                rows.append(_render_row(start_a + offset, lines_a[offset], "", "", "diff_sub"))
+                a_no, a_line = lines_a[offset]
+                rows.append(_render_row(a_no, a_line, "", "", "diff_sub"))
         elif tag == "insert":
             for offset in range(j1, j2):
-                rows.append(_render_row("", "", start_b + offset, lines_b[offset], "diff_add"))
+                b_no, b_line = lines_b[offset]
+                rows.append(_render_row("", "", b_no, b_line, "diff_add"))
     bottom_row = _render_hidden_row(hidden_after_a, hidden_after_b)
     if bottom_row:
         rows.append(bottom_row)
@@ -265,8 +271,8 @@ def _render_row(a_no: int | str, a_line: str, b_no: int | str, b_line: str, cls:
     )
 
 
-def _strip_blank_lines(lines: list[str]) -> list[str]:
-    return [line for line in lines if line.strip()]
+def _strip_blank_lines(lines: list[str], start: int) -> list[tuple[int, str]]:
+    return [(start + i, line) for i, line in enumerate(lines) if line.strip()]
 
 
 def _as_int(value: object) -> int:
@@ -313,8 +319,22 @@ def _render_hidden_row(line_count_a: int, line_count_b: int) -> str:
 
 
 def _hidden_duplicated_lines(
-    matches: list[CandidateMatch], span_a: dict[str, int], span_b: dict[str, int]
+    matches: list[CandidateMatch],
+    span_a: dict[str, int],
+    span_b: dict[str, int],
+    occ: SelfCloneOccurrences | None,
 ) -> tuple[int, int, int, int]:
+    if occ is not None:
+        # Self-clone: measure against the two occurrences the header describes, so the
+        # "N lines not shown" markers stay consistent with the header (Design Decision 5).
+        occ_a = occ.occurrence_for(span_a["start_line"], span_a["end_line"])
+        occ_b = occ.occurrence_for(span_b["start_line"], span_b["end_line"])
+        return (
+            span_a["start_line"] - occ_a[0],
+            span_b["start_line"] - occ_b[0],
+            occ_a[1] - span_a["end_line"],
+            occ_b[1] - span_b["end_line"],
+        )
     spans_a = [(m.snippet_a.start_line, m.snippet_a.end_line) for m in matches]
     spans_b = [(m.snippet_b.start_line, m.snippet_b.end_line) for m in matches]
     before_a = _covered_in_range(spans_a, 1, span_a["start_line"] - 1)
@@ -350,9 +370,19 @@ def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def _evidence_bounds(matches: list[CandidateMatch]) -> tuple[tuple[int, int], tuple[int, int]]:
+def _evidence_bounds(
+    matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> tuple[tuple[int, int], tuple[int, int]]:
     if not matches:
         return (1, 1), (1, 1)
+    if occ is not None:
+        # Self-clone: the header shows the two occurrences of the pair that is actually
+        # rendered in the diff below, not a min/max envelope over unrelated evidence.
+        best = best_match(matches)
+        assert best is not None  # matches is non-empty, so best_match cannot return None
+        span_a = occ.occurrence_for(best.snippet_a.start_line, best.snippet_a.end_line)
+        span_b = occ.occurrence_for(best.snippet_b.start_line, best.snippet_b.end_line)
+        return span_a, span_b
     starts_a = [m.snippet_a.start_line for m in matches]
     ends_a = [m.snippet_a.end_line for m in matches]
     starts_b = [m.snippet_b.start_line for m in matches]

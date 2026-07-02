@@ -32,7 +32,7 @@ class SonarQubeEngine(Engine):
             b = _to_function(issue.get("b"))
             if a is None or b is None:
                 continue
-            snip = SnippetRef(
+            snip_a = SnippetRef(
                 kind="FUNC",
                 function=a,
                 start_line=a.start_line,
@@ -40,8 +40,16 @@ class SonarQubeEngine(Engine):
                 text=a.code,
                 snippet_hash=a.code_hash,
             )
+            snip_b = SnippetRef(
+                kind="FUNC",
+                function=b,
+                start_line=b.start_line,
+                end_line=b.end_line,
+                text=b.code,
+                snippet_hash=b.code_hash,
+            )
             match = CandidateMatch(
-                snippet_a=snip, snippet_b=snip, similarity=1.0, evidence="sonarqube"
+                snippet_a=snip_a, snippet_b=snip_b, similarity=1.0, evidence="sonarqube"
             )
             findings.append(
                 Finding(
