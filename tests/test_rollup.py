@@ -209,3 +209,63 @@ def test_rollup_distinct_functions_with_same_code_hash() -> None:
         Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0),
     )
     assert len(findings) == 2
+
+
+def test_rollup_normalizes_self_clone_orientation() -> None:
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=3000, code="pass", code_hash="c"
+    )
+    # Two occurrences of the same duplicated block within one function, found by two
+    # different sliding windows that queried each other in opposite directions.
+    early_1 = SnippetRef(
+        kind="WIN", function=fn, start_line=1800, end_line=1820, text="s", snippet_hash="w1"
+    )
+    late_1 = SnippetRef(
+        kind="WIN", function=fn, start_line=2100, end_line=2120, text="s", snippet_hash="w2"
+    )
+    late_2 = SnippetRef(
+        kind="WIN", function=fn, start_line=2105, end_line=2125, text="s", snippet_hash="w3"
+    )
+    early_2 = SnippetRef(
+        kind="WIN", function=fn, start_line=1805, end_line=1825, text="s", snippet_hash="w4"
+    )
+    matches = [
+        CandidateMatch(snippet_a=early_1, snippet_b=late_1, similarity=0.9, evidence=""),
+        # Orientation flipped relative to the pair above -- candidate generation
+        # queries each snippet independently, so this is realistic, not contrived.
+        CandidateMatch(snippet_a=late_2, snippet_b=early_2, similarity=0.9, evidence=""),
+    ]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    evidence = findings[0].evidence
+    max_end_a = max(m.snippet_a.end_line for m in evidence)
+    min_start_b = min(m.snippet_b.start_line for m in evidence)
+    assert max_end_a < min_start_b, "side A and side B evidence bounds must be disjoint"
+
+
+def test_rollup_canonicalizes_cross_function_orientation() -> None:
+    file = FileRef(path="z.py", content_hash="h", language="python")
+    fn_a = FunctionRef(
+        file=file, qualified_name="a_fn", start_line=1, end_line=20, code="pass", code_hash="ca"
+    )
+    fn_b = FunctionRef(
+        file=file, qualified_name="b_fn", start_line=100, end_line=120, code="pass", code_hash="cb"
+    )
+    snip_a = SnippetRef(
+        kind="FUNC", function=fn_a, start_line=1, end_line=20, text="s", snippet_hash="sa"
+    )
+    snip_b = SnippetRef(
+        kind="FUNC", function=fn_b, start_line=100, end_line=120, text="s", snippet_hash="sb"
+    )
+    # Supplied B-before-A (the smaller identity "a_fn" is in snippet_b).
+    matches = [CandidateMatch(snippet_a=snip_b, snippet_b=snip_a, similarity=0.95, evidence="")]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    assert findings[0].function_a.identity < findings[0].function_b.identity

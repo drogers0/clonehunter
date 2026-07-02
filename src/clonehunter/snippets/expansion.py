@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 from clonehunter.core.types import FunctionRef, SnippetRef
 from clonehunter.io.fingerprints import hash_text
@@ -26,7 +24,6 @@ def expand_calls(functions: list[FunctionRef], params: ExpansionParams) -> list[
     for fn in functions:
         by_file.setdefault(fn.file.path, []).append(fn)
 
-    module_name_map = _module_name_map(by_file)
     module_functions = {file_path: _name_map(fns) for file_path, fns in by_file.items()}
     module_qualified = {
         file_path: {fn.qualified_name: fn for fn in fns} for file_path, fns in by_file.items()
@@ -49,7 +46,6 @@ def expand_calls(functions: list[FunctionRef], params: ExpansionParams) -> list[
                 qualified_map,
                 class_names,
                 imports,
-                module_name_map,
                 module_functions,
                 module_qualified,
                 module_classes,
@@ -89,7 +85,6 @@ def _expand_for_function(
     qualified_map: dict[str, FunctionRef],
     class_names: set[str],
     imports: ImportMap,
-    module_name_map: dict[str, str],
     module_functions: dict[str, dict[str, FunctionRef]],
     module_qualified: dict[str, dict[str, FunctionRef]],
     module_classes: dict[str, set[str]],
@@ -107,7 +102,6 @@ def _expand_for_function(
         class_names,
         factory_map,
         imports,
-        module_name_map,
         module_factories,
         module_classes,
     )
@@ -122,7 +116,6 @@ def _expand_for_function(
                     qualified_map,
                     class_names,
                     imports,
-                    module_name_map,
                     module_functions,
                     module_qualified,
                     class_name,
@@ -201,7 +194,6 @@ def _resolve_call(
     qualified_map: dict[str, FunctionRef],
     class_names: set[str],
     imports: ImportMap,
-    module_name_map: dict[str, str],
     module_functions: dict[str, dict[str, FunctionRef]],
     module_qualified: dict[str, dict[str, FunctionRef]],
     class_name: str | None,
@@ -212,9 +204,7 @@ def _resolve_call(
             return name_map[call.name]
         if call.name in imports.function_aliases:
             module_path, func_name = imports.function_aliases[call.name]
-            return _resolve_module_function(
-                module_path, func_name, module_name_map, module_functions
-            )
+            return _resolve_module_function(module_path, func_name, module_functions)
         return None
     if call.kind == "attr":
         if call.base in {"self", "cls"} and class_name:
@@ -225,14 +215,10 @@ def _resolve_call(
             if module_path is None:
                 qualified = f"{cls_name}.{call.name}"
                 return qualified_map.get(qualified)
-            return _resolve_class_method(
-                module_path, cls_name, call.name, module_name_map, module_qualified
-            )
+            return _resolve_class_method(module_path, cls_name, call.name, module_qualified)
         if call.base in imports.module_aliases:
             module_path = imports.module_aliases[call.base]
-            return _resolve_module_function(
-                module_path, call.name, module_name_map, module_functions
-            )
+            return _resolve_module_function(module_path, call.name, module_functions)
     if call.kind == "ctor":
         cls_name = call.base or ""
         if cls_name in class_names:
@@ -242,44 +228,29 @@ def _resolve_call(
                 return local
         if cls_name in imports.class_aliases:
             module_path, imported_class = imports.class_aliases[cls_name]
-            return _resolve_class_method(
-                module_path, imported_class, call.name, module_name_map, module_qualified
-            )
+            return _resolve_class_method(module_path, imported_class, call.name, module_qualified)
     return None
-
-
-def _module_name_map(by_file: dict[str, list[FunctionRef]]) -> dict[str, str]:
-    mapping: dict[str, str] = {}
-    for file_path in by_file:
-        path = Path(file_path)
-        mapping[path.name] = file_path
-        mapping[path.stem] = file_path
-    return mapping
 
 
 def _resolve_module_function(
     module_path: str,
     func_name: str,
-    module_name_map: dict[str, str],
     module_functions: dict[str, dict[str, FunctionRef]],
 ) -> FunctionRef | None:
-    return cast(
-        FunctionRef | None,
-        _resolve_from_module(module_path, func_name, module_name_map, module_functions),
-    )
+    # Invariant: module_path is always an exact by_file key (produced by
+    # _resolve_local_module), so index the by-path maps directly. The old
+    # basename/stem name-map indirection was redundant and collided across
+    # packages that share a filename (#14).
+    return module_functions.get(module_path, {}).get(func_name)
 
 
 def _resolve_class_method(
     module_path: str,
     class_name: str,
     method_name: str,
-    module_name_map: dict[str, str],
     module_qualified: dict[str, dict[str, FunctionRef]],
 ) -> FunctionRef | None:
-    qualified = _resolve_map_for_module(module_path, module_name_map, module_qualified)
-    if qualified is None:
-        return None
-    return cast(dict[str, FunctionRef], qualified).get(f"{class_name}.{method_name}")
+    return module_qualified.get(module_path, {}).get(f"{class_name}.{method_name}")
 
 
 def _collect_imports(path: Path, local_files: list[Path]) -> ImportMap:
@@ -363,7 +334,6 @@ def _local_class_map(
     class_names: set[str],
     factory_map: dict[str, str],
     imports: ImportMap,
-    module_name_map: dict[str, str],
     module_factories: dict[str, dict[str, str]],
     module_classes: dict[str, set[str]],
 ) -> dict[str, tuple[str | None, str]]:
@@ -380,7 +350,6 @@ def _local_class_map(
                 class_names,
                 factory_map,
                 imports,
-                module_name_map,
                 module_factories,
                 module_classes,
             )
@@ -409,7 +378,6 @@ def _resolve_value_class(
     class_names: set[str],
     factory_map: dict[str, str],
     imports: ImportMap,
-    module_name_map: dict[str, str],
     module_factories: dict[str, dict[str, str]],
     module_classes: dict[str, set[str]],
 ) -> tuple[str | None, str] | None:
@@ -419,27 +387,21 @@ def _resolve_value_class(
             return (None, name)
         if name in imports.class_aliases:
             module_path, imported_class = imports.class_aliases[name]
-            if _class_exists_in_module(
-                module_path, imported_class, module_name_map, module_classes
-            ):
+            if _class_exists_in_module(module_path, imported_class, module_classes):
                 return (module_path, imported_class)
             return None
         if name in factory_map:
             return (None, factory_map[name])
         if name in imports.function_aliases:
             module_path, func_name = imports.function_aliases[name]
-            cls_name = _resolve_factory_return(
-                module_path, func_name, module_name_map, module_factories
-            )
+            cls_name = _resolve_factory_return(module_path, func_name, module_factories)
             if cls_name:
                 return (module_path, cls_name)
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
         base = node.func.value
         if isinstance(base, ast.Name) and base.id in imports.module_aliases:
             module_path = imports.module_aliases[base.id]
-            cls_name = _resolve_factory_return(
-                module_path, node.func.attr, module_name_map, module_factories
-            )
+            cls_name = _resolve_factory_return(module_path, node.func.attr, module_factories)
             if cls_name:
                 return (module_path, cls_name)
     return None
@@ -462,13 +424,9 @@ def _resolve_annotation_class(node: ast.AST, imports: ImportMap) -> tuple[str | 
 def _resolve_factory_return(
     module_path: str,
     func_name: str,
-    module_name_map: dict[str, str],
     module_factories: dict[str, dict[str, str]],
 ) -> str | None:
-    return cast(
-        str | None,
-        _resolve_from_module(module_path, func_name, module_name_map, module_factories),
-    )
+    return module_factories.get(module_path, {}).get(func_name)
 
 
 def _factory_map_for_functions(functions: list[FunctionRef]) -> dict[str, str]:
@@ -518,40 +476,6 @@ def _module_class_names(functions: list[FunctionRef]) -> set[str]:
 def _class_exists_in_module(
     module_path: str,
     class_name: str,
-    module_name_map: dict[str, str],
     module_classes: dict[str, set[str]],
 ) -> bool:
-    classes = _resolve_map_for_module(module_path, module_name_map, module_classes)
-    if classes is None:
-        return False
-    return class_name in cast(set[str], classes)
-
-
-def _resolve_module_path(module_path: str, module_name_map: dict[str, str]) -> str | None:
-    return module_name_map.get(Path(module_path).name) or module_name_map.get(
-        Path(module_path).stem
-    )
-
-
-def _resolve_map_for_module(
-    module_path: str,
-    module_name_map: dict[str, str],
-    module_values: Mapping[str, object],
-) -> object | None:
-    file_path = _resolve_module_path(module_path, module_name_map)
-    if not file_path:
-        return None
-    return module_values.get(file_path)
-
-
-def _resolve_from_module(
-    module_path: str,
-    key: str,
-    module_name_map: dict[str, str],
-    module_values: Mapping[str, Mapping[str, object]],
-) -> object | None:
-    raw = _resolve_map_for_module(module_path, module_name_map, module_values)
-    if raw is None:
-        return None
-    values = cast(Mapping[str, object], raw)
-    return values.get(key)
+    return class_name in module_classes.get(module_path, set())
