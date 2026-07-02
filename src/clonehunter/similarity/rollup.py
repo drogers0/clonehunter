@@ -5,6 +5,7 @@ from collections import defaultdict
 from clonehunter.core.config import Thresholds
 from clonehunter.core.types import CandidateMatch, Finding, SnippetRef
 from clonehunter.similarity.lexical import lexical_similarity
+from clonehunter.similarity.occurrences import SelfCloneOccurrences, is_self_clone
 from clonehunter.similarity.ranking import kind_rank
 from clonehunter.similarity.scoring import best_score
 
@@ -75,9 +76,11 @@ def _normalize_orientation(match: CandidateMatch) -> CandidateMatch:
     # per-side aggregator (duplicated lines, evidence bounds, diff rendering)
     # branches from -- so all downstream consumers see a consistent split.
     # NOTE: this is per-pair, not a global 2-partition of the group; a self-clone
-    # group with 3+ occurrences chained by pairwise matches can still over-report
-    # per-side (a shared region on both sides). Full fix needs connected-component
-    # clustering before aggregation -- tracked as a follow-up, out of scope here.
+    # group with 3+ occurrences chained by pairwise matches would still over-report
+    # per-side (a shared region on both sides) if aggregated with plain min/max. That
+    # N-way case is now handled by connected-component clustering via
+    # SelfCloneOccurrences, used by _duplicated_lines below and by the HTML reporter's
+    # evidence bounds / hidden-line markers.
     a, b = match.snippet_a, match.snippet_b
     if _is_canonical_order(a, b):
         return match
@@ -160,6 +163,8 @@ def _filter_lexical_matches(
 def _duplicated_lines(matches: list[CandidateMatch]) -> int:
     if not matches:
         return 0
+    if is_self_clone(matches):
+        return SelfCloneOccurrences(matches).duplicated_lines()
     spans_a = [(m.snippet_a.start_line, m.snippet_a.end_line) for m in matches]
     spans_b = [(m.snippet_b.start_line, m.snippet_b.end_line) for m in matches]
     return min(_covered_lines(spans_a), _covered_lines(spans_b))

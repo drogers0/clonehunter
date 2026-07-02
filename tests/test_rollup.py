@@ -247,6 +247,115 @@ def test_rollup_normalizes_self_clone_orientation() -> None:
     assert max_end_a < min_start_b, "side A and side B evidence bounds must be disjoint"
 
 
+def test_rollup_nway_chained_self_clone_duplicated_lines() -> None:
+    # Three occurrences of one duplicated block, chained by two pairwise matches that
+    # share the long middle region R2 (R1<->R2 and R2<->R3, no direct R1<->R3 edge). Per
+    # #22's per-pair canonicalization alone, R2 lands on side A of one match and side B
+    # of the other, so the old per-side min/max double-counts it: min(covered_a=107,
+    # covered_b=107) = 107. The occurrence-component fix must instead treat {R1, R2, R3}
+    # as one connected component and count sum-max.
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=3000, code="pass", code_hash="c"
+    )
+    r1 = SnippetRef(
+        kind="EXP", function=fn, start_line=1000, end_line=1005, text="s", snippet_hash="r1"
+    )
+    r2 = SnippetRef(
+        kind="EXP", function=fn, start_line=2000, end_line=2100, text="s", snippet_hash="r2"
+    )
+    r3 = SnippetRef(
+        kind="EXP", function=fn, start_line=2900, end_line=2905, text="s", snippet_hash="r3"
+    )
+    # Orientation-flipped variant of the second edge, and a slightly shifted middle span
+    # (R2' overlaps R2) to exercise both canonicalization and occurrence merging.
+    r2b = SnippetRef(
+        kind="EXP", function=fn, start_line=2005, end_line=2105, text="s", snippet_hash="r2b"
+    )
+    matches = [
+        CandidateMatch(snippet_a=r1, snippet_b=r2, similarity=0.95, evidence=""),
+        CandidateMatch(snippet_a=r3, snippet_b=r2b, similarity=0.95, evidence=""),
+    ]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=1, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    # merged middle occurrence is 2000-2105 (106 lines): sum - max = (6 + 106 + 6) - 106 = 12
+    assert findings[0].duplicated_lines == 12
+
+
+def test_rollup_two_occurrence_self_clone_duplicated_lines_unchanged() -> None:
+    # Guard: the clean 2-occurrence self-clone case (same fixture as
+    # test_rollup_normalizes_self_clone_orientation) must produce the exact same
+    # duplicated_lines value under the new occurrence-component path as the old
+    # min(covered_a, covered_b) path: sum - max = (26 + 26) - 26 = 26.
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=3000, code="pass", code_hash="c"
+    )
+    early_1 = SnippetRef(
+        kind="WIN", function=fn, start_line=1800, end_line=1820, text="s", snippet_hash="w1"
+    )
+    late_1 = SnippetRef(
+        kind="WIN", function=fn, start_line=2100, end_line=2120, text="s", snippet_hash="w2"
+    )
+    late_2 = SnippetRef(
+        kind="WIN", function=fn, start_line=2105, end_line=2125, text="s", snippet_hash="w3"
+    )
+    early_2 = SnippetRef(
+        kind="WIN", function=fn, start_line=1805, end_line=1825, text="s", snippet_hash="w4"
+    )
+    matches = [
+        CandidateMatch(snippet_a=early_1, snippet_b=late_1, similarity=0.9, evidence=""),
+        CandidateMatch(snippet_a=late_2, snippet_b=early_2, similarity=0.9, evidence=""),
+    ]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    assert findings[0].duplicated_lines == 26
+
+
+def test_rollup_cross_function_multiwindow_duplicated_lines_unchanged() -> None:
+    # Guard: cross-function findings never enter the self-clone occurrence-component
+    # path (function identities differ), so duplicated_lines stays the existing
+    # min(covered_a, covered_b) over independently-pooled per-side spans.
+    # covered_a = len(1-10) + len(20-29) = 10 + 10 = 20 (disjoint, no merge).
+    # covered_b = len(101-110) + len(120-139) = 10 + 20 = 30 (disjoint, no merge).
+    # min(20, 30) = 20.
+    file = FileRef(path="x.py", content_hash="h", language="python")
+    fn_a = FunctionRef(
+        file=file, qualified_name="a", start_line=1, end_line=50, code="pass", code_hash="ca"
+    )
+    fn_b = FunctionRef(
+        file=file, qualified_name="b", start_line=100, end_line=150, code="pass", code_hash="cb"
+    )
+    a1 = SnippetRef(
+        kind="WIN", function=fn_a, start_line=1, end_line=10, text="a1", snippet_hash="a1"
+    )
+    b1 = SnippetRef(
+        kind="WIN", function=fn_b, start_line=101, end_line=110, text="b1", snippet_hash="b1"
+    )
+    a2 = SnippetRef(
+        kind="WIN", function=fn_a, start_line=20, end_line=29, text="a2", snippet_hash="a2"
+    )
+    b2 = SnippetRef(
+        kind="WIN", function=fn_b, start_line=120, end_line=139, text="b2", snippet_hash="b2"
+    )
+    matches = [
+        CandidateMatch(snippet_a=a1, snippet_b=b1, similarity=0.95, evidence=""),
+        CandidateMatch(snippet_a=a2, snippet_b=b2, similarity=0.95, evidence=""),
+    ]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    assert findings[0].duplicated_lines == 20
+
+
 def test_rollup_canonicalizes_cross_function_orientation() -> None:
     file = FileRef(path="z.py", content_hash="h", language="python")
     fn_a = FunctionRef(

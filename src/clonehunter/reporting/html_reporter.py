@@ -7,6 +7,8 @@ from typing import Any, cast
 from clonehunter.core.types import CandidateMatch, Finding, ScanResult
 from clonehunter.reporting.compare import CompareData, select_compare
 from clonehunter.reporting.schema import SCHEMA_VERSION
+from clonehunter.similarity.occurrences import SelfCloneOccurrences, is_self_clone
+from clonehunter.similarity.ranking import best_match
 
 
 class HtmlReporter:
@@ -111,8 +113,12 @@ class HtmlReporter:
 def _render_finding(finding: Finding) -> str:
     func_a = finding.function_a
     func_b = finding.function_b
-    span_a, span_b = _evidence_bounds(finding.evidence)
-    compare = _select_compare(finding.evidence)
+    matches = finding.evidence
+    # Build the occurrence-component clustering once per finding and thread it through
+    # both consumers below, rather than re-running union-find twice for the same group.
+    occ = SelfCloneOccurrences(matches) if is_self_clone(matches) else None
+    span_a, span_b = _evidence_bounds(matches, occ)
+    compare = _select_compare(matches, occ)
     diff_html = _render_diff(compare)
     path_min = min(func_a.file.path, func_b.file.path, key=str.casefold)
     return f"""
@@ -144,16 +150,20 @@ def _render_finding(finding: Finding) -> str:
 """
 
 
-def _select_compare(matches: list[CandidateMatch]) -> dict[str, object] | None:
+def _select_compare(
+    matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> dict[str, object] | None:
     compare = select_compare(matches)
     if compare is None:
         return None
-    return _compare_payload(compare, matches)
+    return _compare_payload(compare, matches, occ)
 
 
-def _compare_payload(compare: CompareData, matches: list[CandidateMatch]) -> dict[str, object]:
+def _compare_payload(
+    compare: CompareData, matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> dict[str, object]:
     hidden_before_a, hidden_before_b, hidden_after_a, hidden_after_b = _hidden_duplicated_lines(
-        matches=matches, span_a=compare.span_a, span_b=compare.span_b
+        matches=matches, span_a=compare.span_a, span_b=compare.span_b, occ=occ
     )
     return {
         "kind_a": compare.kind_a,
@@ -309,8 +319,22 @@ def _render_hidden_row(line_count_a: int, line_count_b: int) -> str:
 
 
 def _hidden_duplicated_lines(
-    matches: list[CandidateMatch], span_a: dict[str, int], span_b: dict[str, int]
+    matches: list[CandidateMatch],
+    span_a: dict[str, int],
+    span_b: dict[str, int],
+    occ: SelfCloneOccurrences | None,
 ) -> tuple[int, int, int, int]:
+    if occ is not None:
+        # Self-clone: measure against the two occurrences the header describes, so the
+        # "N lines not shown" markers stay consistent with the header (Design Decision 5).
+        occ_a = occ.occurrence_for(span_a["start_line"], span_a["end_line"])
+        occ_b = occ.occurrence_for(span_b["start_line"], span_b["end_line"])
+        return (
+            span_a["start_line"] - occ_a[0],
+            span_b["start_line"] - occ_b[0],
+            occ_a[1] - span_a["end_line"],
+            occ_b[1] - span_b["end_line"],
+        )
     spans_a = [(m.snippet_a.start_line, m.snippet_a.end_line) for m in matches]
     spans_b = [(m.snippet_b.start_line, m.snippet_b.end_line) for m in matches]
     before_a = _covered_in_range(spans_a, 1, span_a["start_line"] - 1)
@@ -346,9 +370,19 @@ def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def _evidence_bounds(matches: list[CandidateMatch]) -> tuple[tuple[int, int], tuple[int, int]]:
+def _evidence_bounds(
+    matches: list[CandidateMatch], occ: SelfCloneOccurrences | None
+) -> tuple[tuple[int, int], tuple[int, int]]:
     if not matches:
         return (1, 1), (1, 1)
+    if occ is not None:
+        # Self-clone: the header shows the two occurrences of the pair that is actually
+        # rendered in the diff below, not a min/max envelope over unrelated evidence.
+        best = best_match(matches)
+        assert best is not None  # matches is non-empty, so best_match cannot return None
+        span_a = occ.occurrence_for(best.snippet_a.start_line, best.snippet_a.end_line)
+        span_b = occ.occurrence_for(best.snippet_b.start_line, best.snippet_b.end_line)
+        return span_a, span_b
     starts_a = [m.snippet_a.start_line for m in matches]
     ends_a = [m.snippet_a.end_line for m in matches]
     starts_b = [m.snippet_b.start_line for m in matches]

@@ -197,6 +197,52 @@ def test_html_reporter_self_clone_evidence_bounds_disjoint(tmp_path: Path) -> No
     assert "app/service.py:2100-2125" in text
 
 
+def test_html_reporter_nway_chained_self_clone_bounds_disjoint(tmp_path: Path) -> None:
+    # Three equal-length occurrences chained via a shared middle region, same self-clone
+    # shape as the rollup regression test but sized so the header assertion is
+    # unambiguous. best_match must deterministically prefer the higher-similarity
+    # R1<->R2 pair (kind_rank and min_len tie between the two matches), independent of
+    # evidence ordering, so the header shows the two occurrences of that pair -- not a
+    # min/max envelope spanning all three occurrences.
+    file = FileRef(path="app/nway.py", content_hash="h", language="python")
+    fn = FunctionRef(
+        file=file, qualified_name="f", start_line=1, end_line=3000, code="pass", code_hash="c"
+    )
+    r1 = SnippetRef(
+        kind="WIN", function=fn, start_line=1000, end_line=1020, text="s", snippet_hash="r1"
+    )
+    r2 = SnippetRef(
+        kind="WIN", function=fn, start_line=2000, end_line=2020, text="s", snippet_hash="r2"
+    )
+    r3 = SnippetRef(
+        kind="WIN", function=fn, start_line=2900, end_line=2920, text="s", snippet_hash="r3"
+    )
+    r2b = SnippetRef(
+        kind="WIN", function=fn, start_line=2005, end_line=2025, text="s", snippet_hash="r2b"
+    )
+    matches = [
+        CandidateMatch(snippet_a=r1, snippet_b=r2, similarity=0.95, evidence=""),
+        CandidateMatch(snippet_a=r3, snippet_b=r2b, similarity=0.90, evidence=""),
+    ]
+    findings = rollup_findings(
+        matches,
+        Thresholds(func=0.9, win=0.9, exp=0.9, min_window_hits=2, lexical_min_ratio=0.0),
+    )
+    assert len(findings) == 1
+    result = ScanResult(
+        findings=findings,
+        stats=ScanStats(0, 0, 0, 0, len(findings), 0, 0),
+        config_snapshot={},
+        timing={},
+    )
+    out = tmp_path / "report.html"
+    HtmlReporter().write(result, str(out))
+    text = out.read_text(encoding="utf-8")
+    assert "app/nway.py:1000-1020" in text
+    assert "app/nway.py:2000-2025" in text
+    assert "app/nway.py:1000-2025" not in text
+
+
 def test_sarif_reporter(tmp_path: Path) -> None:
     result = _sample_result()
     out = tmp_path / "report.sarif"
