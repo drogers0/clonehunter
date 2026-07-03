@@ -1,11 +1,17 @@
 [package]
 name = "clonehunter"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.85.0"
 description = "Find duplicate code across mixed-language repositories"
 license = "MIT"
 default-run = "clonehunter"
+authors = ["drogers0"]
+homepage = "https://github.com/drogers0/clonehunter"
+repository = "https://github.com/drogers0/clonehunter"
+documentation = "https://github.com/drogers0/clonehunter"
+keywords = ["code-clone", "duplicate-code", "static-analysis"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "clonehunter"

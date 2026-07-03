@@ -2,63 +2,55 @@
 
 CloneHunter finds duplicate code across mixed-language repositories. It uses function-aware analysis for Python and windows-based analysis for other code files, with evidence so you can decide what to refactor.
 
-Under the hood, CloneHunter combines snippet generation (function/window/call-expansion), transformer-based code embeddings (CodeBERT), vector similarity search (brute-force or FAISS), and lexical scoring before rolling matches up into findings and HTML/JSON/SARIF reports. This is intentionally not a lightweight grep-style checker: it runs a semantic retrieval pipeline with model inference and indexing to catch harder, non-trivial duplicate patterns.
+Under the hood, CloneHunter combines snippet generation (function/window/call-expansion), transformer-based code embeddings (CodeBERT via [candle](https://github.com/huggingface/candle)), vector similarity search, and lexical scoring before rolling matches up into findings and HTML/JSON/SARIF reports. This is intentionally not a lightweight grep-style checker: it runs a semantic retrieval pipeline with model inference and indexing to catch harder, non-trivial duplicate patterns.
 
 ![CloneHunter HTML report screenshot](https://raw.githubusercontent.com/drogers0/clonehunter/master/assets/clonehunter-report-demo.png)
 
-## Quickstart
+## Install
 
-Requires Python 3.10+.
+### Download binary (recommended)
 
-### Install with uv
+Download the pre-built binary for your platform from [GitHub Releases](https://github.com/drogers0/clonehunter/releases):
 
-```bash
-uv python install 3.10
-uv pip install git+https://github.com/drogers0/clonehunter
-```
-
-### Install from a release tag
-
-```bash
-uv pip install git+https://github.com/drogers0/clonehunter@v1.0.2
-```
-
-### Install with venv + pip
+| Platform | File |
+|---|---|
+| macOS (Apple Silicon) | `clonehunter-aarch64-apple-darwin.tar.gz` |
+| macOS (Intel) | `clonehunter-x86_64-apple-darwin.tar.gz` |
+| Linux x86_64 | `clonehunter-x86_64-unknown-linux-musl.tar.gz` |
+| Windows x86_64 | `clonehunter-x86_64-pc-windows-msvc.zip` |
 
 ```bash
-python3.10 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install git+https://github.com/drogers0/clonehunter
+# macOS / Linux example
+curl -L https://github.com/drogers0/clonehunter/releases/latest/download/clonehunter-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv clonehunter /usr/local/bin/
 ```
 
-### From source (dev)
+### Cargo install (from source)
+
+```bash
+cargo install --git https://github.com/drogers0/clonehunter
+```
+
+### Build from source
 
 ```bash
 git clone https://github.com/drogers0/clonehunter
 cd clonehunter
-uv python install 3.10
-uv sync
-uv pip install -e .
+cargo build --release
+# Binary is at target/release/clonehunter
 ```
 
-### Run
+> **First run:** CodeBERT model weights (~440 MB) are downloaded from Hugging Face on first use
+> and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the local cache.
+> Use `--embedder stub` for instant runs without any model download.
+
+---
+
+## Quickstart
 
 ```bash
 clonehunter scan . --format html --out clonehunter_report.html
 ```
-
-If the CLI entrypoint is not on your PATH, use:
-
-```bash
-uv run clonehunter scan . --format html --out clonehunter_report.html
-```
-
-### Notes on dependencies
-
-* `codebert` embedder requires `torch` and `transformers`.
-* `faiss` index is optional; install `faiss-cpu` for faster search.
-* Use `--embedder stub` for quick local runs without ML dependencies.
 
 ---
 
@@ -67,28 +59,28 @@ uv run clonehunter scan . --format html --out clonehunter_report.html
 Scan a repository (defaults to HTML and `clonehunter_report.html`; output extension follows `--format`):
 
 ```bash
-uv run clonehunter scan .
+clonehunter scan .
 ```
 
 Generate a JSON report:
 
 ```bash
-uv run clonehunter scan . --format json --out report.json
+clonehunter scan . --format json --out report.json
 ```
 
 Generate an HTML report:
 
 ```bash
-uv run clonehunter scan . --format html --out report.html
+clonehunter scan . --format html --out report.html
 ```
 
-Generate a SARIF report:
+Generate a SARIF report (for integration with GitHub Code Scanning):
 
 ```bash
-uv run clonehunter scan . --format sarif --out report.sarif
+clonehunter scan . --format sarif --out report.sarif
 ```
 
-Diff scan (compare changed files against the full repo):
+Diff scan (scan only changed files relative to a git ref):
 
 ```bash
 clonehunter diff --base HEAD --format json --out diff.json
@@ -96,9 +88,9 @@ clonehunter diff --base HEAD --format json --out diff.json
 
 ### Language Support
 
-* **Python files**: parsed with AST extraction and analyzed with function/window snippets.
-* **Other code files**: analyzed in implicit windows-only mode by file content.
-* **Cross-file-type comparisons** are allowed.
+* **Python files**: parsed with tree-sitter AST extraction and analyzed with function/window snippets.
+* **Other code files**: analyzed in windows-only mode by file content.
+* **Cross-file-type comparisons** are supported.
 * Results can vary by language and repository shape; tune thresholds/windows for best quality.
 
 ---
@@ -115,15 +107,16 @@ Matches are filtered by `lexical_min_ratio`, and then the composite score is com
 
 ---
 
-## Configuration (pyproject.toml)
+## Configuration (clonehunter.toml)
+
+Place a `clonehunter.toml` file in your repository root to configure CloneHunter:
 
 ```toml
-[tool.clonehunter]
 engine = "semantic"
 cluster_findings = false
 cluster_min_size = 2
 
-[tool.clonehunter.thresholds]
+[thresholds]
 func = 0.92
 win = 0.90
 exp = 0.90
@@ -131,31 +124,35 @@ min_window_hits = 1
 lexical_min_ratio = 0.5
 lexical_weight = 0.3
 
-[tool.clonehunter.windows]
+[windows]
 window_lines = 12
 stride_lines = 6
 min_nonempty = 4
 
-[tool.clonehunter.expansion]
+[expansion]
 enabled = false
 depth = 1
 max_chars = 4000
 
-[tool.clonehunter.index]
+[index]
 name = "brute"
 top_k = 25
 
-[tool.clonehunter.cache]
+[cache]
 path = "~/.cache/clonehunter"
 
-[tool.clonehunter.embedder]
+[embedder]
 name = "codebert"
-model_name = "microsoft/codebert-base"
+model = "microsoft/codebert-base"
 revision = "main"
 max_length = 256
 batch_size = 16
-device = "cpu"
+device = "auto"
 ```
+
+> **Migrating from pyproject.toml:** Move your `[tool.clonehunter]` settings into a standalone
+> `clonehunter.toml` file in your repository root. The key names are unchanged; drop the
+> `[tool.clonehunter]` prefix (e.g., `[tool.clonehunter.thresholds]` → `[thresholds]`).
 
 By default, CLI scans apply the `monorepo` repotype preset unless overridden with `--repotype` or `--repotype none`.
 
@@ -193,15 +190,15 @@ clonehunter diff --base REF [--format json|html|sarif] [--out FILE]
 ```
 
 `--repotype` is additive and can be mixed (for example `--repotype python --repotype react`).
-If `--repotype` is omitted, CloneHunter defaults to `monorepo`.
-Use `--repotype none` to disable repotype presets.
-Merge order is: `pyproject.toml` globs, then `--repotype`, then explicit `--include-globs/--exclude-globs`.
+If `--repotype` is omitted, CloneHunter defaults to `monorepo` (scans all supported languages).
+Use `--repotype none` to disable all repotype presets (scans 0 files unless `--include-globs` is also passed).
+Merge order: `clonehunter.toml` globs → `--repotype` presets → explicit `--include-globs`/`--exclude-globs`.
 When the same glob appears in both include/exclude sets, the most recent CLI layer wins.
 
 Example mixed-language scan with custom overrides:
 
 ```bash
-uv run clonehunter scan . \
+clonehunter scan . \
   --repotype python \
   --repotype react \
   --repotype cpp \
@@ -225,11 +222,11 @@ Example reports live in the `examples/` folder:
 Generate the example reports:
 
 ```bash
-uv run clonehunter scan . --format html --out examples/clonehunter_report.html
-uv run clonehunter scan . --format json --out examples/clonehunter_report.json
-uv run clonehunter scan . --format sarif --out examples/clonehunter_report.sarif
-uv run clonehunter diff --base HEAD --format json --out examples/clonehunter_diff.json
-uv run clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_report.html
+clonehunter scan . --format html --out examples/clonehunter_report.html
+clonehunter scan . --format json --out examples/clonehunter_report.json
+clonehunter scan . --format sarif --out examples/clonehunter_report.sarif
+clonehunter diff --base HEAD --format json --out examples/clonehunter_diff.json
+clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_report.html
 ```
 
 ---
@@ -242,34 +239,31 @@ uv run clonehunter diff --base HEAD --format html --out examples/clonehunter_dif
 
 ---
 
-## Limitations
+## Known Limitations
 
 * Semantic similarity is approximate, not guaranteed equivalence.
 * Python findings are generally richer due to AST/function context.
 * Non-Python findings use windows-only analysis and may require threshold/window tuning.
 * Very small functions are harder to compare meaningfully.
-* Domain-specific logic may require threshold tuning.
+* The `faster` embedder preset uses XLM-RoBERTa architecture; loading BERT-family weights may fail — use `codebert` (the default) if `faster` fails.
+* FAISS index is not implemented; the `--index faiss` flag is accepted for CLI compatibility but always uses the brute-force index.
+* Embedding arithmetic uses f32 (candle default); near-equal cosine scores may differ slightly from the Python baseline.
 
 ---
 
 ## Development
 
-Run the full test suite:
-
 ```bash
-python -m pytest
-```
+# Run the full test suite
+cargo test
 
-Run formatting and type checks:
+# Format and lint
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 
-```bash
-ruff format .
-ruff check .
-pyright
-```
+# Fast dev loop without model download (stub embedder is deterministic)
+CLONEHUNTER_EMBEDDER=stub cargo run -- scan .
 
-Install dev dependencies:
-
-```bash
-uv pip install -e ".[dev,faiss]"
+# Full scan with CodeBERT (downloads ~440 MB on first run)
+cargo run --release -- scan . --format html
 ```
