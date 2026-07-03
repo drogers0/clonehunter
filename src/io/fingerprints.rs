@@ -1,4 +1,4 @@
-// Items here are used starting T7; allow dead_code until then.
+// allow dead_code until T12 wires cli::run to the pipeline
 #![allow(dead_code)]
 
 use sha2::{Digest, Sha256};

@@ -1,4 +1,4 @@
-// Items here are used starting T5–T11; allow dead_code until then.
+// Items used starting T5–T11; allow dead_code until T12 wires cli::run to the pipeline.
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};

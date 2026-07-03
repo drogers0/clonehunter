@@ -1,4 +1,4 @@
-// Items here are used starting T10 (pipeline); allow dead_code until then.
+// allow dead_code until T12 wires cli::run to the pipeline
 #![allow(dead_code)]
 
 use crate::core::config::WindowConfig;

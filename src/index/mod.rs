@@ -1,4 +1,6 @@
-#![allow(dead_code)] // T10 (pipeline) will wire these up
+// allow dead_code until T12 wires cli::run to the pipeline
+#![allow(dead_code)]
+
 mod brute;
 
 use crate::core::config::IndexName;
