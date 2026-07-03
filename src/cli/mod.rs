@@ -24,6 +24,7 @@ use glob_merge::{effective_repotypes, merge_globs, resolve_repotype_globs, valid
 #[derive(Parser)]
 #[command(
     name = "clonehunter",
+    version = env!("CARGO_PKG_VERSION"),
     about = "Find semantic code clones in repositories."
 )]
 struct Cli {

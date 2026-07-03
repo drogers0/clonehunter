@@ -20,6 +20,12 @@ Usage:
 
     # Only run a subset
     python benchmark/run_benchmark.py --repos click requests
+
+    # Build the Rust binary before running
+    python benchmark/run_benchmark.py --build-release
+
+    # Verify determinism (run first repo twice, compare results)
+    python benchmark/run_benchmark.py --verify-determinism
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -43,6 +50,7 @@ from typing import Any
 BENCHMARK_DIR = Path(__file__).resolve().parent
 REPOS_DIR = BENCHMARK_DIR / "repos"
 BASELINE_PATH = BENCHMARK_DIR / "baseline.json"
+RUST_BINARY_DEFAULT = BENCHMARK_DIR.parent / "target" / "release" / "clonehunter"
 
 # Pinned repos: name → (url, tag, expected_commit_sha).
 # Tags for shallow cloning, SHAs for integrity verification.
@@ -164,6 +172,39 @@ class BenchmarkResult:
 
 
 # ---------------------------------------------------------------------------
+# Rust binary discovery
+# ---------------------------------------------------------------------------
+
+
+def _is_rust_binary(path: str) -> bool:
+    """Return True if path is the Rust binary (not the Python entrypoint)."""
+    result = subprocess.run([path, "--version"], capture_output=True, text=True)
+    # Rust binary emits "clonehunter X.Y.Z"; Python entrypoint may include "(python)"
+    return result.returncode == 0 and "python" not in result.stdout.lower()
+
+
+def find_rust_binary() -> Path:
+    """Locate the Rust clonehunter binary."""
+    env_path = os.environ.get("CLONEHUNTER_BINARY")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+        raise RuntimeError(f"CLONEHUNTER_BINARY={env_path} does not exist")
+    if RUST_BINARY_DEFAULT.exists():
+        return RUST_BINARY_DEFAULT
+    sys_path = shutil.which("clonehunter")
+    if sys_path and _is_rust_binary(sys_path):
+        return Path(sys_path)
+    raise RuntimeError(
+        f"Rust binary not found.\n"
+        f"  Tried: {RUST_BINARY_DEFAULT}\n"
+        f"  Run: cargo build --release\n"
+        f"  Or set: CLONEHUNTER_BINARY=/path/to/clonehunter"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -185,16 +226,6 @@ def _run(
     )
 
 
-def _get_pkg_version(pkg: str) -> str:
-    """Get installed package version, or 'not installed'."""
-    try:
-        from importlib.metadata import version
-
-        return version(pkg)
-    except Exception:
-        return "not installed"
-
-
 def _get_clonehunter_git_sha() -> str:
     """Get the current git commit SHA of the clonehunter repo."""
     result = subprocess.run(
@@ -213,31 +244,60 @@ def _scan_flag(name: str) -> str:
     return "unknown"
 
 
-def _get_torch_device() -> str:
-    """Return the device that ``resolve_device("auto")`` would pick."""
+def _get_rust_binary_version(rust_binary: Path) -> str:
+    """Get clonehunter version from the binary."""
+    result = subprocess.run(
+        [str(rust_binary), "--version"], capture_output=True, text=True
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _get_rust_version() -> str:
+    rustc = shutil.which("rustc") or str(Path.home() / ".cargo" / "bin" / "rustc")
+    result = subprocess.run([rustc, "--version"], capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _get_candle_version() -> str:
+    """Extract candle-core version from Cargo.lock."""
+    lock_path = BENCHMARK_DIR.parent / "Cargo.lock"
+    if not lock_path.exists():
+        return "unknown"
+    text = lock_path.read_text(encoding="utf-8")
+    m = re.search(r'name = "candle-core"\nversion = "([^"]+)"', text)
+    return m.group(1) if m else "unknown"
+
+
+def _get_resolved_device(first_cold_output: "Path | None") -> str:
+    """Extract device from first scan config_snapshot.
+
+    NOTE: This reads the configured device value, not the runtime-resolved hardware.
+    Since SCAN_FLAGS contains no --device flag, this always returns "auto". Its purpose
+    is to confirm the benchmark ran with default device selection (not an override).
+    Check the binary's stderr for the actual hardware device selected at runtime.
+    """
+    if first_cold_output is None or not first_cold_output.exists():
+        return "unknown"
     try:
-        import torch
-
-        from clonehunter.embedding.codebert_embedder import resolve_device
-
-        return resolve_device("auto", torch)
+        data = _parse_json(first_cold_output)
+        return str(data.get("config", {}).get("embedder", {}).get("device", "unknown"))
     except Exception:
         return "unknown"
 
 
-def collect_environment() -> dict[str, str]:
-    """Collect environment metadata for reproducibility."""
+def collect_environment(
+    rust_binary: Path,
+    first_cold_output: "Path | None" = None,
+) -> dict[str, str]:
+    """Collect Rust environment metadata for reproducibility."""
     return {
         # Code version
-        "clonehunter_version": _get_pkg_version("clonehunter"),
+        "clonehunter_version": _get_rust_binary_version(rust_binary),
         "clonehunter_git_sha": _get_clonehunter_git_sha(),
-        # Dependencies
-        "python_version": platform.python_version(),
-        "numpy_version": _get_pkg_version("numpy"),
-        "torch_version": _get_pkg_version("torch"),
-        "transformers_version": _get_pkg_version("transformers"),
-        "faiss_version": _get_pkg_version("faiss-cpu"),
-        # Scan configuration (affects results/timing)
+        # Runtime
+        "rust_version": _get_rust_version(),
+        "candle_version": _get_candle_version(),
+        # Scan configuration (unchanged — from SCAN_FLAGS)
         "engine": _scan_flag("--engine"),
         "embedder": _scan_flag("--embedder"),
         "index": _scan_flag("--index"),
@@ -256,8 +316,8 @@ def collect_environment() -> dict[str, str]:
         "machine": platform.machine(),
         "processor": platform.processor(),
         "cpu_count": str(os.cpu_count() or "unknown"),
-        # Torch device (resolved from "auto")
-        "torch_device": _get_torch_device(),
+        # Configured (not resolved) embedding device — always "auto" unless --device was passed
+        "resolved_device": _get_resolved_device(first_cold_output),
     }
 
 
@@ -305,12 +365,10 @@ def clone_repo(name: str, url: str, tag: str, expected_sha: str) -> Path:
     return dest
 
 
-def run_scan(repo_path: Path, out_json: Path, cache_path: Path) -> float:
+def run_scan(repo_path: Path, out_json: Path, cache_path: Path, rust_binary: Path) -> float:
     """Run ``clonehunter scan`` and return wall-clock time."""
     cmd = [
-        sys.executable,
-        "-m",
-        "clonehunter",
+        str(rust_binary),
         "scan",
         str(repo_path),
         "--out",
@@ -421,6 +479,7 @@ def parse_metrics(
 # ---------------------------------------------------------------------------
 # Display
 # ---------------------------------------------------------------------------
+
 
 DETECTION_FIELDS = [
     "file_count",
@@ -575,11 +634,15 @@ def print_summary(all_metrics: dict[str, RepoMetrics]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def save_baseline(all_metrics: dict[str, RepoMetrics]) -> None:
+def save_baseline(
+    all_metrics: dict[str, RepoMetrics],
+    rust_binary: Path,
+    first_cold_output: "Path | None" = None,
+) -> None:
     """Save current results as the baseline."""
     data = BenchmarkResult(
         timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
-        environment=collect_environment(),
+        environment=collect_environment(rust_binary, first_cold_output=first_cold_output),
         results={name: asdict(m) for name, m in all_metrics.items()},
     )
     with open(BASELINE_PATH, "w", encoding="utf-8") as f:
@@ -752,6 +815,103 @@ def compare_baseline(
 
 
 # ---------------------------------------------------------------------------
+# Determinism check
+# ---------------------------------------------------------------------------
+
+
+def verify_determinism(name: str, rust_binary: Path) -> bool:
+    """Run one repo twice with independent caches, assert identical results.
+
+    Returns True on PASS, False on FAIL.
+    """
+    url, tag, sha = REPOS[name]
+    repo_path = REPOS_DIR / name
+    if not repo_path.exists():
+        print(f"  [{name}] not cloned — cloning for determinism check...")
+        clone_repo(name, url, tag, sha)
+
+    output_dir = BENCHMARK_DIR / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    results = []
+    for run_idx in (1, 2):
+        cache_dir = BENCHMARK_DIR / "cache" / f"{name}_det{run_idx}"
+        cold_json = output_dir / f"{name}_det{run_idx}_cold.json"
+        warm_json = output_dir / f"{name}_det{run_idx}_warm.json"
+
+        print(f"\n--- Determinism run {run_idx}/2 for '{name}' ---")
+        if cache_dir.exists():
+            shutil.rmtree(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            cold_wall = run_scan(repo_path, cold_json, cache_dir, rust_binary)
+            cold_stats = _parse_json(cold_json)["stats"]
+            print(
+                f"  Cold done in {cold_wall:.1f}s — "
+                f"{cold_stats['finding_count']} findings"
+            )
+            warm_wall = run_scan(repo_path, warm_json, cache_dir, rust_binary)
+            warm_stats = _parse_json(warm_json)["stats"]
+            print(
+                f"  Warm done in {warm_wall:.1f}s — "
+                f"{warm_stats['finding_count']} findings"
+            )
+        except Exception as exc:
+            print(f"  FAILED: {exc}", file=sys.stderr)
+            return False
+
+        metrics = parse_metrics(cold_json, cold_wall, warm_json, warm_wall, repo_path=repo_path)
+        results.append(metrics)
+
+    m1, m2 = results
+
+    ok = True
+    diffs: list[str] = []
+
+    # Check finding counts
+    if m1.finding_count != m2.finding_count:
+        ok = False
+        diffs.append(f"finding_count: {m1.finding_count} vs {m2.finding_count}")
+
+    # Check finding pairs
+    p1, p2 = set(m1.finding_pairs), set(m2.finding_pairs)
+    only1 = p1 - p2
+    only2 = p2 - p1
+    if only1 or only2:
+        ok = False
+        for p in sorted(only1):
+            diffs.append(f"  run1-only pair: {p}")
+        for p in sorted(only2):
+            diffs.append(f"  run2-only pair: {p}")
+
+    # Check scores (tighter tolerance: 1e-6 for same code path, same hardware)
+    if len(m1.finding_scores) == len(m2.finding_scores):
+        score_diffs = [abs(a - b) for a, b in zip(m1.finding_scores, m2.finding_scores, strict=True)]
+        max_score_diff = max(score_diffs) if score_diffs else 0.0
+        if max_score_diff > 1e-6:
+            ok = False
+            diffs.append(f"max score diff: {max_score_diff:.8f} (threshold 1e-6)")
+        else:
+            print(f"\n  Score check: max diff = {max_score_diff:.2e}")
+    else:
+        ok = False
+        diffs.append(
+            f"score count mismatch: {len(m1.finding_scores)} vs {len(m2.finding_scores)}"
+        )
+
+    print("\n" + "=" * 60)
+    if ok:
+        print(f"DETERMINISM: PASS  ({name}, {m1.finding_count} findings)")
+    else:
+        print(f"DETERMINISM: FAIL  ({name})")
+        for d in diffs:
+            print(f"  {d}")
+    print("=" * 60)
+    return ok
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -786,6 +946,16 @@ def main() -> None:
         default=0.30,
         help="Timing regression tolerance as fraction (default: 0.30 = 30%%)",
     )
+    parser.add_argument(
+        "--build-release",
+        action="store_true",
+        help="Run 'cargo build --release' before the benchmark",
+    )
+    parser.add_argument(
+        "--verify-determinism",
+        action="store_true",
+        help="Run first selected repo twice with independent caches and assert identical results",
+    )
     args = parser.parse_args()
 
     selected = args.repos or list(REPOS.keys())
@@ -793,6 +963,26 @@ def main() -> None:
     print("=" * 60)
     print("CloneHunter Benchmark")
     print("=" * 60)
+
+    # Optionally build the Rust binary first
+    if args.build_release:
+        print("\n--- Building Rust binary (--build-release) ---")
+        result = subprocess.run(
+            ["cargo", "build", "--release"],
+            cwd=BENCHMARK_DIR.parent,
+        )
+        if result.returncode != 0:
+            sys.exit(result.returncode)
+
+    # Locate the Rust binary
+    rust_binary = find_rust_binary()
+    print(f"\nRust binary: {rust_binary}")
+
+    # Determinism check mode: run first repo twice, compare, then exit
+    if args.verify_determinism:
+        det_name = selected[0]
+        ok = verify_determinism(det_name, rust_binary)
+        sys.exit(0 if ok else 1)
 
     # 1. Clone repos
     if not args.skip_clone:
@@ -828,6 +1018,7 @@ def main() -> None:
     all_metrics: dict[str, RepoMetrics] = {}
     output_dir = BENCHMARK_DIR / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
+    first_cold_output: Path | None = None
 
     for name in selected:
         repo_path = REPOS_DIR / name
@@ -846,7 +1037,7 @@ def main() -> None:
             shutil.rmtree(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
         try:
-            cold_wall = run_scan(repo_path, cold_json, cache_dir)
+            cold_wall = run_scan(repo_path, cold_json, cache_dir, rust_binary)
             cold_data = _parse_json(cold_json)
             cold_stats = cold_data["stats"]
             print(
@@ -855,6 +1046,8 @@ def main() -> None:
                 f"cache: {cold_stats.get('cache_hits', 0)} hits / "
                 f"{cold_stats.get('cache_misses', 0)} misses"
             )
+            if first_cold_output is None:
+                first_cold_output = cold_json
         except Exception as exc:
             print(f"  [{name}] Cold run FAILED: {exc}", file=sys.stderr)
             continue
@@ -862,7 +1055,7 @@ def main() -> None:
         # --- Warm run: reuse the cache populated by the cold run ---
         print(f"\n--- Scanning {name} (warm — cached embeddings) ---")
         try:
-            warm_wall = run_scan(repo_path, warm_json, cache_dir)
+            warm_wall = run_scan(repo_path, warm_json, cache_dir, rust_binary)
             warm_data = _parse_json(warm_json)
             warm_stats = warm_data["stats"]
             print(
@@ -887,7 +1080,7 @@ def main() -> None:
 
     # 4. Save / compare baseline
     if args.save_baseline:
-        save_baseline(all_metrics)
+        save_baseline(all_metrics, rust_binary, first_cold_output)
 
     if args.compare_baseline:
         baseline = load_baseline()
