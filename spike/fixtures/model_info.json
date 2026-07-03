@@ -1,0 +1,29 @@
+{
+  "model": "microsoft/codebert-base",
+  "revision": "3b0952feddeffad0063f274080e3c23d75e7eb39",
+  "device": "cpu",
+  "max_length": 256,
+  "embedding_dim": 768,
+  "corpus_size": 205,
+  "determinism_pass": true,
+  "fixture_hashes": {
+    "01_simple.py": "4b8c04ef12258e80f523c475470be173928fd491a7d48b85c192d8bc29425edb",
+    "02_with_docstring.py": "677519af7e9f44fb2caa0a5ac8552e5ca9d44a7497c84a511f5dddd5030a29af",
+    "03_class_methods.py": "731609f77a47a9bd34aa8e449ac1860feb181f37a0e0a31b25b7fed163f91389",
+    "04_async_func.py": "e9829e662bd08686a65ebb75993eed13acc023a394f66131b35ee8dd2a00da4d",
+    "05_nested.py": "0cde8150ee9912f3b8754878031e91ea2166362dcb9fad47fa57c91b3b4df3f5",
+    "06_decorated.py": "a7f190671a97ed117ac6c8c9b2b152aeea7e2b1b96f56089a13994987a2d1712",
+    "07_async_decorated.py": "b0e56448de4f75206dab334f066193f62682dfbddaee8e491723ca9d03f485fd",
+    "08_edge_cases.py": "c64919cbf9085719fbd7e73ee96cc982d5de136cfc88ed0ffbfdf6da9231d36e",
+    "09_lambda_default.py": "07c396c8f84a5cff40d690c40d46c0a744b3d4ed1305933aca77a90975cfebb0",
+    "10_comprehension.py": "0866a8bb0ba102dc0d174fe99ee7b15fcf84f575c16993cf24e5b3a134cecaf6",
+    "11_with_comments.py": "da028f1d1429f4410d6e80546bc8698cfbdde111df01128d7675a906dd324ace",
+    "12_near_max_tokens.py": "e89af63bd4e6940890e091624e65b9c19bef009b58e98f32d8d93b1bbaaa7f20",
+    "13_minimal.py": "a09c60aea4e48e5034bc54d8787274f36538ce5d25f6e9fe6c7c4c6eb84329ab",
+    "14_comment_before_docstring.py": "565f5dbd055cf7e4b323f9fd798b551500e183a20a334ccb2229e8e65ba287b1",
+    "15_unicode.py": "2c3b86f18f8b5422613c0d1980b7c2b7066652125d11b2d4fcc65e3c6efb16af",
+    "16_no_trailing_newline.py": "7eafea9fd0d3f266cdbc46c39b721d9d861ef5991edf23bde37ee3d51f62d73b",
+    "17_invalid_syntax.py": "de2274e415ad19e5a81fcc5f13e70875dd42f35f947619c7cbc4977ea7685530",
+    "18_comment_variant.py": "f0ef087fa22b987fd5d663999649c911760c578474bb2d6b6455e38da301f71d"
+  }
+}
