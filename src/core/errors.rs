@@ -4,7 +4,6 @@ use thiserror::Error;
 /// Other error types (EmbeddingError, CacheError, ParseError, etc.)
 /// are defined in their respective modules.
 #[derive(Debug, Error)]
-#[allow(dead_code)] // Used starting T3 (config_loader); until then, allow
 pub(crate) enum ConfigError {
     #[error("invalid value for {field}: {reason}")]
     InvalidValue { field: String, reason: String },

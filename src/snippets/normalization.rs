@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use tree_sitter::{Language as TsLanguage, Node, Parser};
 
 /// A pending replacement over a byte range in the source string.

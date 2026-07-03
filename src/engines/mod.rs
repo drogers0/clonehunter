@@ -1,14 +1,12 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 pub(crate) mod pipeline;
 mod semantic;
 mod sonarqube;
 
 pub(crate) use semantic::SemanticEngine;
-// SonarError is consumed by T12 (CLI error handling); allow until then.
+pub(crate) use sonarqube::SonarQubeEngine;
+// SonarError only needed by T14 test port
 #[allow(unused_imports)]
-pub(crate) use sonarqube::{SonarError, SonarQubeEngine};
+pub(crate) use sonarqube::SonarError;
 
 use thiserror::Error;
 

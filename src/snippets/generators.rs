@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use crate::core::config::WindowConfig;
 use crate::core::types::{FunctionRef, SnippetKind, SnippetRef};
 use crate::io::fingerprints::hash_text;

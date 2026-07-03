@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use candle_core::{D, DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::xlm_roberta::{Config as XLMConfig, XLMRobertaModel};
@@ -170,7 +167,9 @@ pub(crate) struct CodeBertEmbedder {
     tokenizer: Tokenizer,
     device: Device,
     config: EmbedderConfig,
+    #[allow(dead_code)] // reserved for T14 test port (dim() method)
     hidden_size: usize,
+    #[allow(dead_code)] // reserved for T14 test port (take_degradations)
     degradations: Vec<Degradation>,
 }
 
@@ -198,6 +197,7 @@ impl CodeBertEmbedder {
     }
 
     /// Drain accumulated degradation events (device fallback, etc.).
+    #[allow(dead_code)] // reserved for T14 test port
     pub(crate) fn take_degradations(&mut self) -> Vec<Degradation> {
         std::mem::take(&mut self.degradations)
     }

@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use crate::core::types::CandidateMatch;
 
 /// Maximum similarity across a group of candidate matches.

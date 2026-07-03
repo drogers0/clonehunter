@@ -1,6 +1,3 @@
-// Items used starting T5–T11; allow dead_code until T12 wires cli::run to the pipeline.
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -147,6 +144,7 @@ pub(crate) struct ScanRequest {
 
 /// Classification of a graceful degradation event (Phase 0 DD3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // ParseSkip/CacheSelfHeal reserved for T14 test port
 pub(crate) enum DegradationKind {
     DeviceFallback,
     IndexFallback,
@@ -158,7 +156,9 @@ pub(crate) enum DegradationKind {
 /// Logged via `tracing::warn!` and surfaced in stats/reports.
 #[derive(Debug, Clone)]
 pub(crate) struct Degradation {
+    #[allow(dead_code)] // consumed by T14 test port
     pub kind: DegradationKind,
+    #[allow(dead_code)] // consumed by T14 test port
     pub message: String,
 }
 

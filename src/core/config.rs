@@ -1,10 +1,8 @@
-// Items used starting T5–T12; allow dead_code until T12 wires cli::run to the pipeline.
-#![allow(dead_code)]
-
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 /// Which detection engine to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum EngineName {
     Semantic,
@@ -12,7 +10,7 @@ pub(crate) enum EngineName {
 }
 
 /// Which embedder to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum EmbedderName {
     Codebert,
@@ -21,7 +19,7 @@ pub(crate) enum EmbedderName {
 }
 
 /// Which vector index to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum IndexName {
     Brute,
@@ -29,7 +27,7 @@ pub(crate) enum IndexName {
 }
 
 /// Which compute device to target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum DeviceName {
     Auto,

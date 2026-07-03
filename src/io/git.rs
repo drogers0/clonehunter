@@ -1,6 +1,3 @@
-// Items here are used starting T12 (diff command); allow dead_code until then.
-#![allow(dead_code)]
-
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;

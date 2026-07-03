@@ -1,6 +1,3 @@
-// Items here are used starting T10–T12; allow dead_code until then.
-#![allow(dead_code)]
-
 use serde::Deserialize;
 use std::path::Path;
 

@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
@@ -37,6 +34,7 @@ pub(crate) struct EmbeddingCache {
     /// (matching the plan API and Python's duck-typed interface) while rusqlite
     /// requires `&mut Connection` for transactions.
     conn: RefCell<Connection>,
+    #[allow(dead_code)] // reserved for T14 test port (self-heal re-open)
     db_path: PathBuf,
     root: PathBuf,
     degradations: Vec<Degradation>,
@@ -139,6 +137,7 @@ impl EmbeddingCache {
 
     /// Path of the SQLite database file (used in tests and diagnostics).
     #[cfg(test)]
+    #[allow(dead_code)] // reserved for T14 test port
     pub(crate) fn db_path(&self) -> &Path {
         &self.db_path
     }

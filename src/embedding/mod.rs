@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 mod cache;
 mod codebert;
 mod stub;
@@ -32,6 +29,7 @@ pub(crate) enum EmbeddingError {
     #[error("inference failed: {0}")]
     Inference(String),
     #[error("device error: {0}")]
+    #[allow(dead_code)] // reserved for T14 test port
     Device(String),
     #[error("cache error: {0}")]
     Cache(String),
@@ -49,6 +47,7 @@ pub(crate) trait Embedder: Send {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError>;
 
     /// Embedding dimension (e.g. 768 for codebert-base, 16 for stub).
+    #[allow(dead_code)] // reserved for T14 test port
     fn dim(&self) -> usize;
 }
 

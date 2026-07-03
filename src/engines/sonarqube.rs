@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use std::collections::BTreeMap;
 
 use thiserror::Error;

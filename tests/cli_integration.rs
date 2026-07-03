@@ -1,0 +1,321 @@
+// Integration tests for the `clonehunter` binary.
+// All tests use CLONEHUNTER_EMBEDDER=stub to avoid downloading model weights.
+
+use assert_cmd::Command;
+use predicates::prelude::*;
+use std::fs;
+use tempfile::TempDir;
+
+// ── Fixture helpers ───────────────────────────────────────────────────────────
+
+/// Two Python files containing identical functions so the stub embedder detects them.
+fn make_dup_fixture() -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let code = "def compute(x, y):\n    result = x + y\n    result = result * 2\n    result = result - 1\n    return result\n\n\ndef helper(items):\n    output = []\n    for item in items:\n        if item > 0:\n            output.append(item)\n    return output\n";
+    fs::write(dir.path().join("file_a.py"), code).unwrap();
+    fs::write(dir.path().join("file_b.py"), code).unwrap();
+    dir
+}
+
+fn ch() -> Command {
+    let mut cmd = Command::cargo_bin("clonehunter").unwrap();
+    cmd.env("CLONEHUNTER_EMBEDDER", "stub");
+    cmd
+}
+
+// ── JSON output ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_scan_produces_json_report() {
+    let fixture = make_dup_fixture();
+    let out = fixture.path().join("report.json");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    assert!(out.exists(), "report.json must exist");
+    let content = fs::read_to_string(&out).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
+    assert!(v.get("findings").is_some(), "JSON must have 'findings' key");
+    assert!(
+        v.get("schema_version").is_some(),
+        "JSON must have 'schema_version'"
+    );
+    assert!(v.get("stats").is_some(), "JSON must have 'stats'");
+}
+
+// ── HTML output ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_scan_produces_html_report() {
+    let fixture = make_dup_fixture();
+    let out = fixture.path().join("report.html");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "html",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    assert!(out.exists(), "report.html must exist");
+    let content = fs::read_to_string(&out).unwrap();
+    assert!(
+        content.contains("CloneHunter Report"),
+        "HTML must contain page header"
+    );
+}
+
+// ── SARIF output ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_scan_produces_sarif_report() {
+    let fixture = make_dup_fixture();
+    let out = fixture.path().join("report.sarif");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "sarif",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    assert!(out.exists(), "report.sarif must exist");
+    let content = fs::read_to_string(&out).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&content).expect("valid SARIF JSON");
+    assert_eq!(v["version"], "2.1.0", "SARIF version must be 2.1.0");
+}
+
+// ── Default format / output path ─────────────────────────────────────────────
+
+#[test]
+fn test_scan_default_format_is_html() {
+    let fixture = make_dup_fixture();
+    // No --format or --out → should write clonehunter_report.html in CWD
+    ch().current_dir(fixture.path())
+        .arg("scan")
+        .arg(".")
+        .assert()
+        .success();
+    assert!(
+        fixture.path().join("clonehunter_report.html").exists(),
+        "default output must be clonehunter_report.html"
+    );
+}
+
+#[test]
+fn test_scan_default_out_derives_from_format() {
+    let fixture = make_dup_fixture();
+    ch().current_dir(fixture.path())
+        .args(["scan", ".", "--format", "json"])
+        .assert()
+        .success();
+    assert!(
+        fixture.path().join("clonehunter_report.json").exists(),
+        "--format json without --out must write clonehunter_report.json"
+    );
+}
+
+// ── Repotype filtering ────────────────────────────────────────────────────────
+
+#[test]
+fn test_scan_repotype_python() {
+    let fixture = make_dup_fixture();
+    // Add a non-Python file
+    fs::write(fixture.path().join("lib.rs"), "fn main() {}").unwrap();
+    let out = fixture.path().join("report.json");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--repotype",
+        "python",
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    let content = fs::read_to_string(&out).unwrap();
+    // Rust file should not appear in findings
+    assert!(
+        !content.contains("lib.rs"),
+        "--repotype python must exclude .rs files"
+    );
+}
+
+#[test]
+fn test_scan_monorepo_default() {
+    let fixture = make_dup_fixture();
+    fs::write(
+        fixture.path().join("script.js"),
+        "function foo() { return 1; }\n",
+    )
+    .unwrap();
+    let out = fixture.path().join("report.json");
+    // No --repotype → monorepo default, scans both .py and .js
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    let content = fs::read_to_string(&out).unwrap();
+    // Stats must reference > 0 files (both .py and .js were collected)
+    let v: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let file_count = v["stats"]["file_count"].as_u64().unwrap_or(0);
+    assert!(
+        file_count >= 3,
+        "monorepo default must collect .py and .js files (got {file_count})"
+    );
+}
+
+// ── Engine errors ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_scan_sonarqube_error() {
+    let fixture = make_dup_fixture();
+    let out = fixture.path().join("report.json");
+    // No CLONEHUNTER_SONAR_REPORT → SonarQube engine should fail
+    Command::cargo_bin("clonehunter")
+        .unwrap()
+        .env_remove("CLONEHUNTER_SONAR_REPORT")
+        .args([
+            "scan",
+            fixture.path().to_str().unwrap(),
+            "--engine",
+            "sonarqube",
+            "--format",
+            "json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+}
+
+// ── Diff command ──────────────────────────────────────────────────────────────
+
+fn init_git_repo(dir: &std::path::Path) {
+    let run = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .expect("git command");
+    };
+    run(&["init"]);
+    run(&["config", "user.email", "test@test.com"]);
+    run(&["config", "user.name", "Test"]);
+}
+
+#[test]
+fn test_diff_end_to_end() {
+    let dir = TempDir::new().unwrap();
+    init_git_repo(dir.path());
+
+    let code =
+        "def compute(x, y):\n    result = x + y\n    result = result * 2\n    return result\n";
+    let file_a = dir.path().join("a.py");
+    let file_b = dir.path().join("b.py");
+    fs::write(&file_a, code).unwrap();
+    fs::write(&file_b, code).unwrap();
+
+    let run_git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir.path())
+            .output()
+            .expect("git command");
+    };
+    run_git(&["add", "."]);
+    run_git(&["commit", "-m", "init"]);
+
+    // Modify b.py (tracked changed file)
+    fs::write(&file_b, format!("{code}\n# modified\n")).unwrap();
+
+    let out = dir.path().join("diff.json");
+    ch().current_dir(dir.path())
+        .env("CLONEHUNTER_EMBEDDER", "stub")
+        .args([
+            "diff",
+            "--base",
+            "HEAD",
+            "--format",
+            "json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    assert!(out.exists(), "diff report must be written");
+    let content = fs::read_to_string(&out).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
+    assert!(
+        v.get("findings").is_some(),
+        "diff report must have findings key"
+    );
+}
+
+#[test]
+fn test_diff_includes_untracked() {
+    let dir = TempDir::new().unwrap();
+    init_git_repo(dir.path());
+
+    let code = "def foo(x):\n    return x + 1\n\n\ndef bar(x):\n    return x + 1\n";
+    let committed = dir.path().join("committed.py");
+    fs::write(&committed, code).unwrap();
+
+    let run_git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir.path())
+            .output()
+            .expect("git command");
+    };
+    run_git(&["add", "."]);
+    run_git(&["commit", "-m", "init"]);
+
+    // Untracked new file
+    let untracked = dir.path().join("untracked.py");
+    fs::write(&untracked, code).unwrap();
+
+    let out = dir.path().join("diff.json");
+    ch().current_dir(dir.path())
+        .args([
+            "diff",
+            "--base",
+            "HEAD",
+            "--format",
+            "json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    assert!(out.exists());
+}
+
+#[test]
+fn test_diff_outside_git_fails() {
+    let dir = TempDir::new().unwrap(); // plain dir, no git repo
+    ch().current_dir(dir.path())
+        .args(["diff", "--format", "json", "--out", "out.json"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("changed files").or(predicate::str::contains("git")));
+}

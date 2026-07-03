@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use tree_sitter::{Language as TsLanguage, Node, Parser};
 
 use crate::core::types::{FileRef, FunctionRef};

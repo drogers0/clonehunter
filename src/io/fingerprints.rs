@@ -1,6 +1,3 @@
-// allow dead_code until T12 wires cli::run to the pipeline
-#![allow(dead_code)]
-
 use sha2::{Digest, Sha256};
 
 /// SHA-256 hex digest of UTF-8 encoded text.
