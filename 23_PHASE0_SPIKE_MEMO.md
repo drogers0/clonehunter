@@ -127,6 +127,32 @@ The T1c result forces a choice:
 
 ---
 
+## T1c RESOLUTION — Orchestrator sign-off (2026-07-03)
+
+**Verdict: CONDITIONAL GO → GO.** The T1c NO-GO was measured against the wrong yardstick and against a normalizer weaker than the approved plan specifies:
+
+1. **Wrong yardstick.** The project decision (locked) is to **re-freeze a new Rust baseline**, not to match the old Python `ast.unparse` baseline (which is infeasible in pure Rust). Memo "Option A" (reimplement `ast.unparse` in Rust) exists only to match the discarded baseline → **rejected as over-engineering.**
+2. **Spike under-implemented DD7.** DD7 / "Constraints on later phases" #3 specify the **analysis text strips comments** (comments survive only in *display text*). The spike's `normalize.rs` kept comments (plain source passthrough), so its measurement tested a weaker normalizer than the plan. Root cause of all 4 flips is comment preservation (see Root Cause Analysis above).
+3. **`lexical_similarity` tokenizes on `[A-Za-z0-9_]+`** — quote style and whitespace produce no tokens, so once comments are stripped the only residual `ast.unparse` differences (quotes, whitespace, re-indent) cannot change the identifier-token set.
+
+**Empirical confirmation** (comment-stripped Rust-style analysis text vs the Python lexical matrix, all 205 fixtures / 20,910 pairs, no candle recompile):
+
+| Metric | Spike (comments kept) | Resolved (comments stripped) |
+|---|---|---|
+| Near-threshold lexical flips (0.50 gate) | **4** | **0** |
+| The 4 flip pairs (22,51)(51,52)(115,116)(201,204) | py 0.50 / rust 0.16–0.37 | py 0.50 / **rust 0.50 (diff 0.0000)** |
+| Max lexical diff | 0.5946 | 0.3095 (non-boundary; absorbed by re-freeze) |
+| Mean lexical diff | 0.0065 | 0.0011 |
+
+**LOCKED normalization contract (for T5/T6/T9):**
+- **Analysis text** (drives embeddings, `SnippetRef.text`, cache keys, lexical tokens): strip docstrings (→ `pass`) + **strip comments** + source passthrough (preserve whitespace/quotes; NO `ast.unparse`-style re-emit).
+- **Display text** (reporters/diffs only): docstrings→`pass`, comments preserved.
+- Re-freeze the baseline at T13; residual quote/whitespace deltas are non-boundary and expected.
+
+**Overall Phase 0: GO.** T1a PASS, T1b PASS, T1c GO (resolved). Proceed to Phase 1.
+
+---
+
 ## Candle Stack Validation Summary
 
 The candle inference stack is validated for production use:
