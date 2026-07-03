@@ -1,0 +1,55 @@
+# CloneHunter Configuration
+# Place this file as `clonehunter.toml` in your project root.
+# All values shown are the defaults; omit any you don't need to override.
+#
+# Migration from pyproject.toml:
+#   Move your [tool.clonehunter] section into a standalone clonehunter.toml.
+#   Remove the [tool.clonehunter] prefix — top-level keys go directly
+#   in the file. Nested sections like [tool.clonehunter.thresholds] become
+#   just [thresholds].
+
+engine = "semantic"
+include_globs = ["**/*.py"]
+exclude_globs = [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/__pycache__/**",
+    "**/site-packages/**",
+]
+cluster_findings = false
+cluster_min_size = 2
+
+[thresholds]
+func = 0.92
+win = 0.90
+exp = 0.90
+min_window_hits = 1
+lexical_min_ratio = 0.5
+lexical_weight = 0.3
+
+[windows]
+window_lines = 40
+stride_lines = 6
+min_nonempty = 4
+
+[expansion]
+enabled = false
+depth = 1
+max_chars = 4000
+
+[index]
+name = "brute"
+top_k = 25
+faiss_nlist = 128
+faiss_nprobe = 8
+
+[embedder]
+name = "codebert"
+model_name = "microsoft/codebert-base"
+revision = "3b0952feddeffad0063f274080e3c23d75e7eb39"
+max_length = 256
+batch_size = 16
+device = "auto"
+
+[cache]
+path = "~/.cache/clonehunter"
