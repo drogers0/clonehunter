@@ -673,4 +673,375 @@ mod tests {
         let merged = merge_spans_adjacent(&[(1, 5), (7, 10)]);
         assert_eq!(merged.len(), 2, "spans with gap must not be merged");
     }
+
+    // ── DD9 edge-case ports ──────────────────────────────────────────────────
+
+    /// Port of Python test_html_reporter_marks_hidden_duplicated_lines.
+    /// Three WIN pairs over a 60-line function: before(1-10), mid(20-30), after(40-50).
+    /// Evidence union spans 1-50 on each side.  best_match picks mid (highest sim=0.99).
+    /// hidden_before=10 (lines 1-10 before the rendered mid window) → "<10 lines not shown>".
+    /// hidden_after=11 (lines 40-50 after mid window) → "<11 lines not shown>".
+    /// Each marker appears exactly twice (once per column in the hidden-line row).
+    #[test]
+    fn marks_hidden_duplicated_lines() {
+        use crate::core::config::Thresholds;
+        use crate::similarity::rollup_findings;
+
+        let file_a = FileRef {
+            path: "a.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let file_b = FileRef {
+            path: "b.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let code_a: String = (1usize..=60)
+            .map(|i| format!("a{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let code_b: String = (1usize..=60)
+            .map(|i| format!("b{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let fn_a = FunctionRef {
+            file: file_a,
+            qualified_name: "a".into(),
+            start_line: 1,
+            end_line: 60,
+            code: code_a,
+            code_hash: "ca".into(),
+        };
+        let fn_b = FunctionRef {
+            file: file_b,
+            qualified_name: "b".into(),
+            start_line: 1,
+            end_line: 60,
+            code: code_b,
+            code_hash: "cb".into(),
+        };
+
+        let make_win =
+            |func: &FunctionRef, start: usize, end: usize, hash: &str, text: &str| SnippetRef {
+                kind: SnippetKind::Win,
+                function: func.clone(),
+                start_line: start,
+                end_line: end,
+                text: text.to_string(),
+                display_text: text.to_string(),
+                snippet_hash: hash.to_string(),
+            };
+
+        let before_a = make_win(&fn_a, 1, 10, "ba", "pre");
+        let before_b = make_win(&fn_b, 1, 10, "bb", "pre");
+        let mid_a = make_win(&fn_a, 20, 30, "ma", "mid");
+        let mid_b = make_win(&fn_b, 20, 30, "mb", "mid");
+        let after_a = make_win(&fn_a, 40, 50, "aa", "post");
+        let after_b = make_win(&fn_b, 40, 50, "ab", "post");
+
+        let thresholds = Thresholds {
+            func: 0.9,
+            win: 0.9,
+            exp: 0.9,
+            min_window_hits: 3, // 3 WIN pairs → "min_window_hits" reason
+            lexical_min_ratio: 0.0,
+            lexical_weight: 0.3,
+        };
+        let matches = vec![
+            CandidateMatch {
+                snippet_a: before_a,
+                snippet_b: before_b,
+                similarity: 0.91,
+                evidence: "".into(),
+            },
+            CandidateMatch {
+                snippet_a: mid_a,
+                snippet_b: mid_b,
+                similarity: 0.99,
+                evidence: "".into(),
+            },
+            CandidateMatch {
+                snippet_a: after_a,
+                snippet_b: after_b,
+                similarity: 0.92,
+                evidence: "".into(),
+            },
+        ];
+        let findings = rollup_findings(matches, &thresholds);
+        assert_eq!(findings.len(), 1, "expected 1 finding");
+
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&make_result(findings), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+
+        // Evidence bounds = union of all WIN spans → 1-50 for both sides.
+        assert!(content.contains("a.py:1-50"), "header must show a.py:1-50");
+        assert!(content.contains("b.py:1-50"), "header must show b.py:1-50");
+        // Before the rendered mid window (1-10 = 10 lines); after (40-50 = 11 lines).
+        assert_eq!(
+            content.matches("&lt;10 lines not shown&gt;").count(),
+            2,
+            "<10 lines not shown> must appear exactly twice"
+        );
+        assert_eq!(
+            content.matches("&lt;11 lines not shown&gt;").count(),
+            2,
+            "<11 lines not shown> must appear exactly twice"
+        );
+    }
+
+    /// Port of Python test_html_reporter_diff_numbers_survive_blank_line_stripping.
+    /// Code "line1\n\nline3\nline4" starting at line 10 (A) / 50 (B).
+    /// After blank-line stripping, "line3" retains its true offset (i=2 from start):
+    /// absolute line 12 for A, 52 for B — not the running post-strip index (11/51).
+    #[test]
+    fn diff_numbers_survive_blank_line_stripping() {
+        let code = "line1\n\nline3\nline4";
+        let file_a = FileRef {
+            path: "a.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let file_b = FileRef {
+            path: "b.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let fn_a = FunctionRef {
+            file: file_a,
+            qualified_name: "a".into(),
+            start_line: 10,
+            end_line: 13,
+            code: code.into(),
+            code_hash: "a".into(),
+        };
+        let fn_b = FunctionRef {
+            file: file_b,
+            qualified_name: "b".into(),
+            start_line: 50,
+            end_line: 53,
+            code: code.into(),
+            code_hash: "b".into(),
+        };
+        let snip_a = SnippetRef {
+            kind: SnippetKind::Func,
+            function: fn_a.clone(),
+            start_line: 10,
+            end_line: 13,
+            text: code.into(),
+            display_text: code.into(),
+            snippet_hash: "sa".into(),
+        };
+        let snip_b = SnippetRef {
+            kind: SnippetKind::Func,
+            function: fn_b.clone(),
+            start_line: 50,
+            end_line: 53,
+            text: code.into(),
+            display_text: code.into(),
+            snippet_hash: "sb".into(),
+        };
+        let finding = Finding {
+            function_a: fn_a,
+            function_b: fn_b,
+            score: 1.0,
+            duplicated_lines: 4,
+            evidence: vec![CandidateMatch {
+                snippet_a: snip_a,
+                snippet_b: snip_b,
+                similarity: 1.0,
+                evidence: "".into(),
+            }],
+            reasons: vec!["func".into()],
+            metadata: BTreeMap::new(),
+        };
+
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&make_result(vec![finding]), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+
+        // "line3" is at enumerate offset 2 from start=10 → absolute line 12 (A), 52 (B).
+        assert!(
+            content.contains(">12</td>"),
+            "line3 must carry line number 12"
+        );
+        assert!(
+            content.contains(">52</td>"),
+            "line3 must carry line number 52"
+        );
+        assert!(
+            !content.contains(">11</td>"),
+            "running-offset 11 must not appear"
+        );
+        assert!(
+            !content.contains(">51</td>"),
+            "running-offset 51 must not appear"
+        );
+    }
+
+    /// Port of Python test_html_reporter_self_clone_evidence_bounds_disjoint.
+    /// Two overlapping WIN pairs within the same function.
+    /// After rollup+SelfCloneOccurrences, span_a=(1800,1825) and span_b=(2100,2125).
+    #[test]
+    fn self_clone_evidence_bounds_disjoint() {
+        use crate::core::config::Thresholds;
+        use crate::similarity::rollup_findings;
+
+        let file = FileRef {
+            path: "app/service.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let func = FunctionRef {
+            file,
+            qualified_name: "f".into(),
+            start_line: 1,
+            end_line: 3000,
+            code: "pass".into(),
+            code_hash: "c".into(),
+        };
+
+        let make_win = |start: usize, end: usize, hash: &str| SnippetRef {
+            kind: SnippetKind::Win,
+            function: func.clone(),
+            start_line: start,
+            end_line: end,
+            text: "s".into(),
+            display_text: "s".into(),
+            snippet_hash: hash.to_string(),
+        };
+
+        let early_1 = make_win(1800, 1820, "w1");
+        let late_1 = make_win(2100, 2120, "w2");
+        let late_2 = make_win(2105, 2125, "w3");
+        let early_2 = make_win(1805, 1825, "w4");
+
+        let thresholds = Thresholds {
+            func: 0.9,
+            win: 0.9,
+            exp: 0.9,
+            min_window_hits: 2,
+            lexical_min_ratio: 0.0,
+            lexical_weight: 0.3,
+        };
+        let matches = vec![
+            CandidateMatch {
+                snippet_a: early_1,
+                snippet_b: late_1,
+                similarity: 0.9,
+                evidence: "".into(),
+            },
+            CandidateMatch {
+                snippet_a: late_2,
+                snippet_b: early_2,
+                similarity: 0.9,
+                evidence: "".into(),
+            },
+        ];
+        let findings = rollup_findings(matches, &thresholds);
+        assert!(!findings.is_empty(), "expected at least one finding");
+
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&make_result(findings), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+
+        // SelfCloneOccurrences merges (1800-1820)+(1805-1825)→(1800,1825)
+        // and (2100-2120)+(2105-2125)→(2100,2125).
+        assert!(
+            content.contains("app/service.py:1800-1825"),
+            "span A must be 1800-1825"
+        );
+        assert!(
+            content.contains("app/service.py:2100-2125"),
+            "span B must be 2100-2125"
+        );
+    }
+
+    /// Port of Python test_html_reporter_nway_chained_self_clone_bounds_disjoint.
+    /// Three chained occurrences: r1(1000-1020)↔r2(2000-2020) and r3(2900-2920)↔r2b(2005-2025).
+    /// best_match selects r1↔r2 (sim=0.95 > 0.90).
+    /// Header must show (1000-1020) and (2000-2025) — NOT the min/max envelope (1000-2025).
+    #[test]
+    fn nway_chained_self_clone_bounds_disjoint() {
+        use crate::core::config::Thresholds;
+        use crate::similarity::rollup_findings;
+
+        let file = FileRef {
+            path: "app/nway.py".into(),
+            content_hash: "h".into(),
+            language: Language::Python,
+        };
+        let func = FunctionRef {
+            file,
+            qualified_name: "f".into(),
+            start_line: 1,
+            end_line: 3000,
+            code: "pass".into(),
+            code_hash: "c".into(),
+        };
+
+        let make_win = |start: usize, end: usize, hash: &str| SnippetRef {
+            kind: SnippetKind::Win,
+            function: func.clone(),
+            start_line: start,
+            end_line: end,
+            text: "s".into(),
+            display_text: "s".into(),
+            snippet_hash: hash.to_string(),
+        };
+
+        let r1 = make_win(1000, 1020, "r1");
+        let r2 = make_win(2000, 2020, "r2");
+        let r3 = make_win(2900, 2920, "r3");
+        let r2b = make_win(2005, 2025, "r2b");
+
+        let thresholds = Thresholds {
+            func: 0.9,
+            win: 0.9,
+            exp: 0.9,
+            min_window_hits: 2,
+            lexical_min_ratio: 0.0,
+            lexical_weight: 0.3,
+        };
+        let matches = vec![
+            CandidateMatch {
+                snippet_a: r1,
+                snippet_b: r2,
+                similarity: 0.95,
+                evidence: "".into(),
+            },
+            CandidateMatch {
+                snippet_a: r3,
+                snippet_b: r2b,
+                similarity: 0.90,
+                evidence: "".into(),
+            },
+        ];
+        let findings = rollup_findings(matches, &thresholds);
+        assert_eq!(findings.len(), 1, "expected exactly one finding");
+
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&make_result(findings), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+
+        // best_match = r1↔r2 (sim=0.95). occurrence_for(1000,1020)→(1000,1020);
+        // occurrence_for(2000,2020)→(2000,2025) (merged with r2b 2005-2025).
+        assert!(
+            content.contains("app/nway.py:1000-1020"),
+            "span A must be 1000-1020"
+        );
+        assert!(
+            content.contains("app/nway.py:2000-2025"),
+            "span B must be 2000-2025 (r2 merged with r2b)"
+        );
+        assert!(
+            !content.contains("app/nway.py:1000-2025"),
+            "must NOT show min/max envelope 1000-2025"
+        );
+    }
 }

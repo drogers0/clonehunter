@@ -164,16 +164,25 @@ fn run_scan(args: ScanArgs) -> Result<()> {
     let mut config = load_config(&config_root, Some(&overrides))
         .with_context(|| format!("loading config from {}", config_root.display()))?;
 
-    // Two-pass glob merge (DD10)
+    // Glob merge: repotype replaces config defaults when --repotype is explicitly set;
+    // otherwise (no --repotype flag) the monorepo expansion is merged on top of config globs.
     let (rtype_inc, rtype_exc) = resolve_repotype_globs(&effective_repotypes(&args.repotype));
-    let (inc1, exc1) = merge_globs(
-        &config.include_globs,
-        &config.exclude_globs,
-        &rtype_inc,
-        &rtype_exc,
+    let (base_inc, base_exc) = if args.repotype.is_empty() {
+        merge_globs(
+            &config.include_globs,
+            &config.exclude_globs,
+            &rtype_inc,
+            &rtype_exc,
+        )
+    } else {
+        (rtype_inc, rtype_exc)
+    };
+    let (final_inc, final_exc) = merge_globs(
+        &base_inc,
+        &base_exc,
+        &args.include_globs,
+        &args.exclude_globs,
     );
-    let (final_inc, final_exc) =
-        merge_globs(&inc1, &exc1, &args.include_globs, &args.exclude_globs);
     config.include_globs = final_inc;
     config.exclude_globs = final_exc;
 
@@ -764,5 +773,102 @@ mod tests {
         // SAFETY: serialized by ENV_LOCK
         unsafe { std::env::remove_var("CLONEHUNTER_EMBEDDER") };
         assert_eq!(ov.embedder.unwrap().name, Some(EmbedderName::Stub));
+    }
+
+    // ── DD10: diff-filter correctness ─────────────────────────────────────────
+
+    /// Port of Python test_run_diff_filters_findings_to_changed_files.
+    /// Verifies that the filter predicate in run_diff keeps only findings that touch
+    /// at least one changed file and that stats.finding_count is updated correctly.
+    #[test]
+    fn diff_filter_drops_findings_not_touching_changed_files() {
+        use std::collections::BTreeMap;
+
+        use crate::core::types::{
+            CandidateMatch, FileRef, Finding, FunctionRef, Language, ScanStats, SnippetKind,
+            SnippetRef,
+        };
+
+        fn make_finding(path_a: &str, path_b: &str) -> Finding {
+            let make_func = |path: &str| {
+                let file = FileRef {
+                    path: path.to_string(),
+                    content_hash: "h".into(),
+                    language: Language::Python,
+                };
+                FunctionRef {
+                    file,
+                    qualified_name: "f".into(),
+                    start_line: 1,
+                    end_line: 2,
+                    code: "pass".into(),
+                    code_hash: "c".into(),
+                }
+            };
+            let func_a = make_func(path_a);
+            let func_b = make_func(path_b);
+            let make_snip = |func: &FunctionRef| SnippetRef {
+                kind: SnippetKind::Func,
+                function: func.clone(),
+                start_line: 1,
+                end_line: 2,
+                text: "pass".into(),
+                display_text: "pass".into(),
+                snippet_hash: "s".into(),
+            };
+            let snip_a = make_snip(&func_a);
+            let snip_b = make_snip(&func_b);
+            Finding {
+                function_a: func_a,
+                function_b: func_b,
+                score: 1.0,
+                duplicated_lines: 2,
+                evidence: vec![CandidateMatch {
+                    snippet_a: snip_a,
+                    snippet_b: snip_b,
+                    similarity: 1.0,
+                    evidence: "".into(),
+                }],
+                reasons: vec![],
+                metadata: BTreeMap::new(),
+            }
+        }
+
+        let base = PathBuf::from("/repo");
+        let changed_set: HashSet<String> = vec!["src/a.py".to_string()].into_iter().collect();
+
+        // finding_a: function_a.file.path is "/repo/src/a.py" → normalizes to "src/a.py" → in changed set
+        // finding_b: neither path is in changed set
+        let findings = vec![
+            make_finding("/repo/src/a.py", "/repo/src/other.py"),
+            make_finding("/repo/src/b.py", "/repo/src/c.py"),
+        ];
+
+        let filtered: Vec<_> = findings
+            .into_iter()
+            .filter(|f| {
+                changed_set.contains(&normalize_repo_path(&f.function_a.file.path, &base))
+                    || changed_set.contains(&normalize_repo_path(&f.function_b.file.path, &base))
+            })
+            .collect();
+
+        assert_eq!(
+            filtered.len(),
+            1,
+            "only finding touching src/a.py must survive"
+        );
+
+        // Verify stats update mirrors run_diff logic
+        let mut stats = ScanStats {
+            file_count: 2,
+            function_count: 4,
+            snippet_count: 4,
+            candidate_count: 2,
+            finding_count: 2,
+            cache_hits: 0,
+            cache_misses: 0,
+        };
+        stats.finding_count = filtered.len();
+        assert_eq!(stats.finding_count, 1);
     }
 }

@@ -319,3 +319,102 @@ fn test_diff_outside_git_fails() {
         .failure()
         .stderr(predicate::str::contains("changed files").or(predicate::str::contains("git")));
 }
+
+// ── Config-root walk-up ───────────────────────────────────────────────────────
+
+/// Port of Python test_run_scan_loads_config_from_repo_root_when_path_is_nested.
+///
+/// Proves that config-root walk-up finds `clonehunter.toml` at the repo root when
+/// the scan path points to a nested sub-directory.
+///
+/// Mechanism: a root-level `clonehunter.toml` sets all thresholds to 0.0 and
+/// lexical_min_ratio=0.0.  With those settings, the stub embedder produces findings
+/// even for snippets with random similarity (any composite ≥ 0.0 passes).
+/// Without walk-up, the default threshold 0.92 would suppress all stub findings.
+///
+/// The two Python files intentionally differ (different function names) so their
+/// snippet_hashes differ and the self-hash filter does not skip them.
+#[test]
+fn test_scan_config_root_walk_up() {
+    // Build temp tree:
+    //   root/
+    //     clonehunter.toml   ← all thresholds 0.0
+    //     src/pkg/
+    //       file_a.py
+    //       file_b.py
+    let root = TempDir::new().unwrap();
+    let pkg = root.path().join("src").join("pkg");
+    fs::create_dir_all(&pkg).unwrap();
+
+    // Config: thresholds all 0.0 so stub finds anything with any similarity.
+    fs::write(
+        root.path().join("clonehunter.toml"),
+        "[thresholds]\nfunc = 0.0\nwin = 0.0\nexp = 0.0\nlexical_min_ratio = 0.0\n",
+    )
+    .unwrap();
+
+    // Two files with nearly-identical bodies but different function names
+    // → different snippet_hashes → not filtered by self-hash filter.
+    let body =
+        "    result = x + y\n    result = result * 2\n    result = result - 1\n    return result\n";
+    fs::write(pkg.join("file_a.py"), format!("def compute(x, y):\n{body}")).unwrap();
+    fs::write(
+        pkg.join("file_b.py"),
+        format!("def calculate(x, y):\n{body}"),
+    )
+    .unwrap();
+
+    let out = root.path().join("report.json");
+    ch().args([
+        "scan",
+        pkg.to_str().unwrap(), // scan the nested dir, not root
+        "--repotype",
+        "python",
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+
+    let content = fs::read_to_string(&out).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
+    let finding_count = v["stats"]["finding_count"].as_u64().unwrap_or(0);
+    assert!(
+        finding_count > 0,
+        "config-root walk-up must load threshold=0.0 and produce findings (got {finding_count})"
+    );
+}
+
+// ── --repotype none ───────────────────────────────────────────────────────────
+
+/// Port of Python test_cli_glob_merge.py's repotype=none behaviour.
+///
+/// `--repotype none` emits an empty preset list, which collapses to no include globs.
+/// With no globs, collect_files returns 0 files → finding_count=0 and file_count=0.
+#[test]
+fn test_repotype_none_collects_no_files() {
+    let fixture = make_dup_fixture();
+    let out = fixture.path().join("report.json");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--repotype",
+        "none",
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+
+    let content = fs::read_to_string(&out).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
+    let file_count = v["stats"]["file_count"].as_u64().unwrap_or(999);
+    assert_eq!(
+        file_count, 0,
+        "--repotype none must collect 0 files (got {file_count})"
+    );
+}

@@ -1,0 +1,205 @@
+---
+source: tests/golden_fixtures.rs
+assertion_line: 62
+expression: "&value"
+---
+{
+  "config": {
+    "cache": {
+      "path": "~/.cache/clonehunter"
+    },
+    "cluster_findings": false,
+    "cluster_min_size": 2,
+    "embedder": {
+      "batch_size": 16,
+      "device": "auto",
+      "max_length": 256,
+      "model_name": "microsoft/codebert-base",
+      "name": "stub",
+      "revision": "[REVISION]"
+    },
+    "engine": "semantic",
+    "exclude_globs": [
+      "**/.venv/**",
+      "**/venv/**",
+      "**/__pycache__/**",
+      "**/site-packages/**",
+      "**/build/**",
+      "**/out/**",
+      "**/bin/**",
+      "**/obj/**",
+      "**/cmake-build-*/**",
+      "**/packages/**",
+      "**/.vs/**",
+      "**/vendor/**",
+      "**/dist/**",
+      "**/.git/**",
+      "**/target/**",
+      "**/.gradle/**",
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/coverage/**",
+      "**/storage/**",
+      "**/bootstrap/cache/**",
+      "**/tmp/**",
+      "**/log/**",
+      "**/.build/**",
+      "**/DerivedData/**"
+    ],
+    "expansion": {
+      "depth": 1,
+      "enabled": false,
+      "max_chars": 4000
+    },
+    "include_globs": [
+      "**/*.py",
+      "**/*.c",
+      "**/*.cc",
+      "**/*.cpp",
+      "**/*.cxx",
+      "**/*.h",
+      "**/*.hh",
+      "**/*.hpp",
+      "**/*.hxx",
+      "**/*.cs",
+      "**/*.vb",
+      "**/*.fs",
+      "**/*.go",
+      "**/*.java",
+      "**/*.kt",
+      "**/*.kts",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.ts",
+      "**/*.php",
+      "**/*.jsx",
+      "**/*.tsx",
+      "**/*.rb",
+      "**/*.rake",
+      "**/*.rs",
+      "**/*.swift"
+    ],
+    "index": {
+      "faiss_nlist": 128,
+      "faiss_nprobe": 8,
+      "name": "brute",
+      "top_k": 25
+    },
+    "thresholds": {
+      "exp": 0.9,
+      "func": 0.92,
+      "lexical_min_ratio": 0.5,
+      "lexical_weight": 0.3,
+      "min_window_hits": 1,
+      "win": 0.9
+    },
+    "windows": {
+      "min_nonempty": 4,
+      "stride_lines": 6,
+      "window_lines": 40
+    }
+  },
+  "findings": [
+    {
+      "compare": {
+        "diff": "",
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "similarity": 1.0,
+        "span_a": {
+          "end_line": 5,
+          "start_line": 1
+        },
+        "span_b": {
+          "end_line": 5,
+          "start_line": 1
+        }
+      },
+      "duplicated_lines": 5,
+      "function_a": {
+        "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
+        "end_line": 5,
+        "file": {
+          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+          "language": "python",
+          "path": "[PATH]"
+        },
+        "qualified_name": "compute",
+        "start_line": 1
+      },
+      "function_b": {
+        "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
+        "end_line": 5,
+        "file": {
+          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+          "language": "python",
+          "path": "[PATH]"
+        },
+        "qualified_name": "compute",
+        "start_line": 1
+      },
+      "metadata": {},
+      "reasons": [
+        "func_threshold"
+      ],
+      "score": 1.0
+    },
+    {
+      "compare": {
+        "diff": "",
+        "kind_a": "FUNC",
+        "kind_b": "FUNC",
+        "similarity": 1.0,
+        "span_a": {
+          "end_line": 13,
+          "start_line": 8
+        },
+        "span_b": {
+          "end_line": 13,
+          "start_line": 8
+        }
+      },
+      "duplicated_lines": 6,
+      "function_a": {
+        "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
+        "end_line": 13,
+        "file": {
+          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+          "language": "python",
+          "path": "[PATH]"
+        },
+        "qualified_name": "helper",
+        "start_line": 8
+      },
+      "function_b": {
+        "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
+        "end_line": 13,
+        "file": {
+          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+          "language": "python",
+          "path": "[PATH]"
+        },
+        "qualified_name": "helper",
+        "start_line": 8
+      },
+      "metadata": {},
+      "reasons": [
+        "func_threshold"
+      ],
+      "score": 1.0
+    }
+  ],
+  "schema_version": "[VERSION]",
+  "stats": {
+    "cache_hits": 0,
+    "cache_misses": 8,
+    "candidate_count": 24,
+    "file_count": 2,
+    "finding_count": 2,
+    "function_count": 4,
+    "snippet_count": 8
+  },
+  "timing": "[TIMING]"
+}
