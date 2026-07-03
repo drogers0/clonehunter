@@ -83,7 +83,7 @@ pub(crate) struct SnippetRef {
 /// An embedding vector for a snippet.
 ///
 /// Uses `f32` (not `f64`) — candle tensors are f32, matching PyTorch's actual precision.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Embedding {
     pub vector: Vec<f32>,
     pub dim: usize,
