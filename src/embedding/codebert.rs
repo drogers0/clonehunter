@@ -333,7 +333,11 @@ fn hf_cache_root() -> Option<std::path::PathBuf> {
 
 /// Check the local HF cache for a file at the specified (model, revision).
 ///
-/// Path: `{hf_cache}/hub/models--{model--name}/snapshots/{revision}/{filename}`
+/// Tries two path forms:
+/// 1. `snapshots/{revision}/{filename}` — works when `revision` is a pinned commit SHA.
+/// 2. If that fails, reads `refs/{revision}` (a text file containing the resolved commit SHA)
+///    and retries with the SHA — works when `revision` is a branch name like "main", because
+///    `huggingface_hub` (Python) writes `refs/main → <commit-sha>` at download time.
 fn find_in_local_hf_cache(
     model_name: &str,
     revision: &str,
@@ -341,12 +345,27 @@ fn find_in_local_hf_cache(
 ) -> Option<std::path::PathBuf> {
     let cache_base = hf_cache_root()?.join("hub");
     let dir_name = format!("models--{}", model_name.replace('/', "--"));
-    let path = cache_base
-        .join(dir_name)
-        .join("snapshots")
-        .join(revision)
-        .join(filename);
-    if path.exists() { Some(path) } else { None }
+    let model_dir = cache_base.join(&dir_name);
+
+    // 1. Direct lookup (works for pinned SHAs)
+    let direct = model_dir.join("snapshots").join(revision).join(filename);
+    if direct.exists() {
+        return Some(direct);
+    }
+
+    // 2. Branch-name resolution via refs/ (works after Python `huggingface_hub` download)
+    let refs_path = model_dir.join("refs").join(revision);
+    if let Ok(sha) = std::fs::read_to_string(&refs_path) {
+        let sha = sha.trim();
+        if !sha.is_empty() {
+            let resolved = model_dir.join("snapshots").join(sha).join(filename);
+            if resolved.exists() {
+                return Some(resolved);
+            }
+        }
+    }
+
+    None
 }
 
 /// Download a file from HuggingFace Hub (same `(model, revision)` pair — DD2).
@@ -354,7 +373,10 @@ fn find_in_local_hf_cache(
 /// Checks the local HF cache first (same logic as Phase-0 spike) to avoid
 /// network round-trips when the model is already downloaded. Falls back to
 /// hf-hub API download if not found locally.
-fn download_file(
+///
+/// `pub(crate)` so sibling embedding backends (e.g. `bert.rs`) can reuse the
+/// same HF cache lookup + download logic without duplicating it.
+pub(crate) fn download_file(
     model_name: &str,
     revision: &str,
     filename: &str,

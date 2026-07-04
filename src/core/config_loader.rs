@@ -456,7 +456,7 @@ name = "brute"
         assert_eq!(config.embedder.name, EmbedderName::Faster);
         assert_eq!(
             config.embedder.model_name,
-            "isuruwijesiri/all-MiniLM-L6-v2-code-search-512"
+            "sentence-transformers/all-MiniLM-L6-v2"
         );
         assert_eq!(config.embedder.max_length, 512);
         assert_eq!(config.embedder.batch_size, 32);
@@ -477,7 +477,7 @@ name = "brute"
         assert_eq!(config.embedder.name, EmbedderName::Faster);
         assert_eq!(
             config.embedder.model_name,
-            "isuruwijesiri/all-MiniLM-L6-v2-code-search-512"
+            "sentence-transformers/all-MiniLM-L6-v2"
         );
         assert_eq!(config.embedder.batch_size, 64); // explicit wins over preset
     }

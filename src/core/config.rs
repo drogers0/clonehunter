@@ -187,8 +187,11 @@ pub(crate) fn embedder_preset(name: EmbedderName) -> Option<EmbedderPreset> {
             batch_size: 16,
         }),
         EmbedderName::Faster => Some(EmbedderPreset {
-            // revision = "main" — this model was not spike-validated; "main" is the Python behavior
-            model_name: "isuruwijesiri/all-MiniLM-L6-v2-code-search-512",
+            // sentence-transformers/all-MiniLM-L6-v2: 22M params, 384-dim, BERT-family.
+            // ~5× smaller than CodeBERT → ~5× faster inference in candle.
+            // Uses candle's BertModel (not XLMRobertaModel — BERT vs RoBERTa architectures differ).
+            // revision = "main" — prototype; re-freeze at a pinned SHA before shipping.
+            model_name: "sentence-transformers/all-MiniLM-L6-v2",
             revision: "main",
             max_length: 512,
             batch_size: 32,
@@ -291,10 +294,7 @@ mod tests {
     #[test]
     fn faster_preset_values() {
         let p = embedder_preset(EmbedderName::Faster).unwrap();
-        assert_eq!(
-            p.model_name,
-            "isuruwijesiri/all-MiniLM-L6-v2-code-search-512"
-        );
+        assert_eq!(p.model_name, "sentence-transformers/all-MiniLM-L6-v2");
         assert_eq!(p.revision, "main");
         assert_eq!(p.max_length, 512);
         assert_eq!(p.batch_size, 32);
