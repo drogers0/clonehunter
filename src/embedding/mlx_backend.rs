@@ -232,6 +232,22 @@ unsafe impl Send for MlxEmbedder {}
 
 impl MlxEmbedder {
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
+        // Check and log Metal availability via mlx-c FFI
+        let metal_available = {
+            unsafe extern "C" {
+                fn mlx_metal_is_available(res: *mut bool) -> std::ffi::c_int;
+            }
+            let mut res: bool = false;
+            let rc = unsafe { mlx_metal_is_available(&mut res) };
+            rc == 0 && res
+        };
+        tracing::info!(metal_available, "MLX device check");
+        if metal_available {
+            tracing::info!("MLX Metal GPU is available — using GPU");
+        } else {
+            tracing::warn!("MLX Metal GPU NOT available — falling back to CPU");
+        }
+
         let tokenizer = load_tokenizer(config)?;
 
         let weights_path = super::codebert::download_file(
