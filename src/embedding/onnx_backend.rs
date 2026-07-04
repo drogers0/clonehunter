@@ -14,14 +14,23 @@
 //! 2. `~/.cache/clonehunter/onnx/codebert-base/model.onnx` (default export location)
 //!
 //! ## Execution provider selection
-//! - **CPU** (always): `OnnxEmbedder::new(config)`
-//! - **CoreML** (macOS, `--features onnx-coreml`): `OnnxEmbedder::new_coreml(config)`,
-//!   falls back to CPU if CoreML EP registration fails
+//! - **CPU** (always): `OnnxEmbedder::new(config)`. Uses the dynamic-shape export.
+//! - **CoreML** (macOS, `--features onnx-coreml`): `OnnxEmbedder::new_coreml(config)`.
+//!   Appends the CoreML EP with the ML Program backend (see `build_coreml_session`)
+//!   and loads the fixed-sequence-length export; falls back to CPU if registration
+//!   fails. Confirmed working with exact detection parity (578 findings on the
+//!   `click` benchmark), but slower than the CPU EP for CodeBERT-size batches —
+//!   per-inference CoreML dispatch overhead outweighs the accelerator benefit.
 //!
 //! ## ONNX export note
-//! Exported from `microsoft/codebert-base @ 3b0952fed…` via `torch.onnx.export` (dynamo),
-//! opset 18, external-data format: `model.onnx` (1.3 MB graph) + `model.onnx.data`
-//! (476 MB weights). Both files must reside in the same directory.
+//! - **CPU (default):** `microsoft/codebert-base @ 3b0952fed…` via `torch.onnx.export`
+//!   (dynamo), opset 18, external-data format: `model.onnx` (1.3 MB graph) +
+//!   `model.onnx.data` (476 MB weights) at `~/.cache/clonehunter/onnx/codebert-base/`.
+//! - **CoreML:** a *fixed-sequence-length* (seq=256, dynamic batch) re-export at
+//!   `~/.cache/clonehunter/onnx/codebert-base-static/model.onnx` (single 473 MB file,
+//!   TorchScript exporter). The dynamic-shape graph fails to compile to an ML Program
+//!   (MIL error -14); fixing the sequence length resolves it. Masked mean-pooling
+//!   makes the fixed-length embeddings identical to the dynamic ones.
 
 use std::path::PathBuf;
 
@@ -74,11 +83,20 @@ impl OnnxEmbedder {
     }
 
     fn new_with_ep(config: &EmbedderConfig, try_coreml: bool) -> Result<Self, EmbeddingError> {
-        let model_path = resolve_model_path()?;
+        let model_path = resolve_model_path(try_coreml)?;
         tracing::info!(path = %model_path.display(), try_coreml, "loading ONNX model");
 
         let (session, ep) = build_session(&model_path, try_coreml)?;
-        let tokenizer = load_tokenizer(config)?;
+        // The CoreML path loads the fixed-sequence-length export, which requires
+        // every input padded to exactly `max_length`. Masked mean-pooling makes
+        // this numerically identical to batch-longest padding (pad tokens have
+        // attention mask 0 and are excluded from both attention and the pool).
+        let fixed_len = if try_coreml {
+            Some(config.max_length)
+        } else {
+            None
+        };
+        let tokenizer = load_tokenizer(config, fixed_len)?;
 
         Ok(Self {
             session,
@@ -114,7 +132,7 @@ impl Embedder for OnnxEmbedder {
 
 // ── Model path resolution ─────────────────────────────────────────────────────
 
-fn resolve_model_path() -> Result<PathBuf, EmbeddingError> {
+fn resolve_model_path(prefer_static: bool) -> Result<PathBuf, EmbeddingError> {
     if let Ok(p) = std::env::var("CLONEHUNTER_ONNX_MODEL") {
         let path = PathBuf::from(&p);
         if path.exists() {
@@ -123,6 +141,16 @@ fn resolve_model_path() -> Result<PathBuf, EmbeddingError> {
         return Err(EmbeddingError::ModelLoad(format!(
             "CLONEHUNTER_ONNX_MODEL={p} does not exist"
         )));
+    }
+
+    // CoreML needs the fixed-sequence-length export (dynamic-shape graphs fail to
+    // compile to an ML Program). Prefer it when present; fall back to the dynamic
+    // model otherwise.
+    if prefer_static {
+        let static_path = default_onnx_static_model_path();
+        if static_path.exists() {
+            return Ok(static_path);
+        }
     }
 
     let default = default_onnx_model_path();
@@ -142,6 +170,13 @@ pub(crate) fn default_onnx_model_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".cache/clonehunter/onnx/codebert-base/model.onnx")
+}
+
+/// Fixed-sequence-length export used by the CoreML EP (see `export_static.py`).
+pub(crate) fn default_onnx_static_model_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".cache/clonehunter/onnx/codebert-base-static/model.onnx")
 }
 
 // ── Session construction ──────────────────────────────────────────────────────
@@ -174,10 +209,42 @@ fn build_session(
 
 #[cfg(feature = "onnx-coreml")]
 fn build_coreml_session(model_path: &std::path::Path) -> ort::Result<ort::session::Session> {
-    use ort::execution_providers::CoreMLExecutionProvider;
-    ort::session::Session::builder()?
-        .with_execution_providers([CoreMLExecutionProvider::default().build()])?
-        .commit_from_file(model_path)
+    use ort::AsPointer;
+
+    // ORT 1.20 CoreML flag (coreml_provider_factory.h). rc.9's safe
+    // `CoreMLExecutionProvider` wrapper only exposes the legacy NeuralNetwork
+    // backend (flags 0x001/0x002/0x004), which cannot run our dynamic-shape
+    // transformer graph — CoreML fails at inference with error code -1. We append
+    // the EP by hand with COREML_FLAG_CREATE_MLPROGRAM so ORT emits an ML Program
+    // model, which supports the ops and dynamic sequence lengths CodeBERT needs.
+    // Unsupported nodes still fall back to CPU automatically (ORT EP partitioning).
+    const COREML_FLAG_CREATE_MLPROGRAM: u32 = 0x010;
+
+    // Exported by the statically-linked onnxruntime (ort declares the same symbol
+    // under `all(not(load-dynamic), coreml)`). Appends the CoreML EP to the given
+    // session options; returns a null OrtStatusPtr on success.
+    unsafe extern "C" {
+        fn OrtSessionOptionsAppendExecutionProvider_CoreML(
+            options: *mut ort::sys::OrtSessionOptions,
+            flags: u32,
+        ) -> ort::sys::OrtStatusPtr;
+    }
+
+    let mut builder = ort::session::Session::builder()?;
+    // SAFETY: `builder.ptr_mut()` is a valid, non-null OrtSessionOptions pointer for
+    // the lifetime of `builder`; the extern only reads it and appends an EP entry.
+    let status = unsafe {
+        OrtSessionOptionsAppendExecutionProvider_CoreML(
+            builder.ptr_mut(),
+            COREML_FLAG_CREATE_MLPROGRAM,
+        )
+    };
+    if !status.is_null() {
+        return Err(ort::Error::new(
+            "CoreML MLProgram EP registration returned an error status",
+        ));
+    }
+    builder.commit_from_file(model_path)
 }
 
 #[cfg(not(feature = "onnx-coreml"))]
@@ -189,7 +256,10 @@ fn build_coreml_session(
 
 // ── Tokenizer loading ─────────────────────────────────────────────────────────
 
-fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> {
+fn load_tokenizer(
+    config: &EmbedderConfig,
+    fixed_len: Option<usize>,
+) -> Result<Tokenizer, EmbeddingError> {
     if config.model_name != CODEBERT_MODEL || config.revision != CODEBERT_REVISION {
         return Err(EmbeddingError::Tokenizer(
             "OnnxEmbedder only supports microsoft/codebert-base @ pinned revision; \
@@ -201,8 +271,13 @@ fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> 
     let mut tokenizer = Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES)
         .map_err(|e| EmbeddingError::Tokenizer(format!("bundled tokenizer: {e}")))?;
 
+    // Fixed padding for the CoreML static-shape model; batch-longest otherwise.
+    let strategy = match fixed_len {
+        Some(n) => PaddingStrategy::Fixed(n),
+        None => PaddingStrategy::BatchLongest,
+    };
     tokenizer.with_padding(Some(PaddingParams {
-        strategy: PaddingStrategy::BatchLongest,
+        strategy,
         pad_id: 1,
         pad_token: "<pad>".into(),
         ..Default::default()
