@@ -1,5 +1,7 @@
 mod cache;
 mod codebert;
+#[cfg(feature = "onnx")]
+mod onnx_backend;
 mod stub;
 
 use std::collections::HashMap;
@@ -12,6 +14,8 @@ use crate::io::fingerprints::embed_cache_key;
 
 pub(crate) use cache::EmbeddingCache;
 pub(crate) use codebert::CodeBertEmbedder;
+#[cfg(feature = "onnx")]
+pub(crate) use onnx_backend::OnnxEmbedder;
 pub(crate) use stub::StubEmbedder;
 
 // ── Error types (DD5) ─────────────────────────────────────────────────────────
@@ -65,6 +69,28 @@ pub(crate) fn create_embedder(
         EmbedderName::Stub => Ok(Box::new(StubEmbedder::new(16))),
         EmbedderName::Codebert | EmbedderName::Faster => {
             Ok(Box::new(CodeBertEmbedder::new(config)?))
+        }
+        EmbedderName::Onnx => {
+            #[cfg(feature = "onnx")]
+            {
+                // Check CLONEHUNTER_ONNX_COREML=1 to enable CoreML EP attempt
+                let use_coreml = std::env::var("CLONEHUNTER_ONNX_COREML")
+                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                    .unwrap_or(false);
+                if use_coreml {
+                    Ok(Box::new(OnnxEmbedder::new_coreml(config)?))
+                } else {
+                    Ok(Box::new(OnnxEmbedder::new(config)?))
+                }
+            }
+            #[cfg(not(feature = "onnx"))]
+            {
+                Err(EmbeddingError::ModelLoad(
+                    "EmbedderName::Onnx requires the `onnx` cargo feature: \
+                     cargo build --features onnx"
+                        .into(),
+                ))
+            }
         }
     }
 }

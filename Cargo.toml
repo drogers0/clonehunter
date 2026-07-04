@@ -76,6 +76,12 @@ dirs = "5"
 # Progress
 indicatif = "0.17"
 
+# ONNX Runtime (optional — feature "onnx")
+# download-binaries: downloads prebuilt libonnxruntime on first cargo build (no manual install)
+# copy-dylibs: copies the dylib next to the binary for easy distribution
+# ndarray: disabled — we use (shape, &[T]) tuples to pass tensors without ndarray version conflict
+ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, features = ["download-binaries", "copy-dylibs"] }
+
 [dev-dependencies]
 tempfile = "3"
 assert_cmd = "2"
@@ -91,6 +97,14 @@ mkl = ["candle-core/mkl", "candle-nn/mkl", "candle-transformers/mkl"]
 # GPU backends (opt-in; numerics not part of the frozen CPU baseline).
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+# ONNX Runtime backend (prototype / experimental).
+# Enables EmbedderName::Onnx which routes through ort (ONNX Runtime 1.24).
+# Requires a pre-exported model.onnx (+ model.onnx.data) at
+#   CLONEHUNTER_ONNX_MODEL env var OR ~/.cache/clonehunter/onnx/codebert-base/model.onnx
+# Build: cargo build --release --features onnx
+# CoreML EP (macOS): cargo build --release --features onnx-coreml
+onnx = ["dep:ort"]
+onnx-coreml = ["onnx", "ort/coreml"]
 
 [profile.release]
 lto = true
