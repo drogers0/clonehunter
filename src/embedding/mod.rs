@@ -1,6 +1,8 @@
 mod bert;
 mod cache;
 mod codebert;
+#[cfg(feature = "mlx")]
+mod mlx_backend;
 #[cfg(feature = "onnx")]
 mod onnx_backend;
 mod stub;
@@ -16,6 +18,8 @@ use crate::io::fingerprints::embed_cache_key;
 pub(crate) use bert::BertEmbedder;
 pub(crate) use cache::EmbeddingCache;
 pub(crate) use codebert::CodeBertEmbedder;
+#[cfg(feature = "mlx")]
+pub(crate) use mlx_backend::MlxEmbedder;
 #[cfg(feature = "onnx")]
 pub(crate) use onnx_backend::OnnxEmbedder;
 pub(crate) use stub::StubEmbedder;
@@ -74,6 +78,20 @@ pub(crate) fn create_embedder(
         // Using XLMRobertaModel for BERT-family weights (e.g. MiniLM) was broken — the
         // weight key layout and position-ID handling differ. BertEmbedder fixes this.
         EmbedderName::Faster => Ok(Box::new(BertEmbedder::new(config)?)),
+        EmbedderName::Mlx => {
+            #[cfg(feature = "mlx")]
+            {
+                Ok(Box::new(MlxEmbedder::new(config)?))
+            }
+            #[cfg(not(feature = "mlx"))]
+            {
+                Err(EmbeddingError::ModelLoad(
+                    "EmbedderName::Mlx requires the `mlx` cargo feature: \
+                     cargo build --features mlx"
+                        .into(),
+                ))
+            }
+        }
         EmbedderName::Onnx => {
             #[cfg(feature = "onnx")]
             {

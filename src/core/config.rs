@@ -19,6 +19,9 @@ pub(crate) enum EmbedderName {
     /// ONNX Runtime backend (experimental). Requires `--features onnx` build and a
     /// pre-exported model.onnx at CLONEHUNTER_ONNX_MODEL or the default cache path.
     Onnx,
+    /// Apple MLX backend (experimental). Requires `--features mlx` build.
+    /// Apple Silicon only. Uses Metal GPU for inference.
+    Mlx,
 }
 
 /// Which vector index to use.
@@ -199,6 +202,13 @@ pub(crate) fn embedder_preset(name: EmbedderName) -> Option<EmbedderPreset> {
         EmbedderName::Stub => None, // No preset; stub uses whatever defaults are in place
         EmbedderName::Onnx => Some(EmbedderPreset {
             // Same model as codebert; ONNX backend does its own weight loading
+            model_name: "microsoft/codebert-base",
+            revision: CODEBERT_REVISION,
+            max_length: 256,
+            batch_size: 16,
+        }),
+        EmbedderName::Mlx => Some(EmbedderPreset {
+            // Same model as codebert; MLX backend loads from safetensors
             model_name: "microsoft/codebert-base",
             revision: CODEBERT_REVISION,
             max_length: 256,

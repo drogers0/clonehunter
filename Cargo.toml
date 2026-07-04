@@ -82,6 +82,10 @@ indicatif = "0.17"
 # ndarray: disabled — we use (shape, &[T]) tuples to pass tensors without ndarray version conflict
 ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, features = ["download-binaries", "copy-dylibs"] }
 
+# Apple MLX backend (optional — feature "mlx")
+# Compiles MLX C++ from source via cmake; Apple Silicon only.
+mlx-rs = { version = "0.25", optional = true, default-features = false, features = ["safetensors"] }
+
 [dev-dependencies]
 tempfile = "3"
 assert_cmd = "2"
@@ -105,6 +109,16 @@ metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
 # CoreML EP (macOS): cargo build --release --features onnx-coreml
 onnx = ["dep:ort"]
 onnx-coreml = ["onnx", "ort/coreml"]
+# Apple MLX backend (prototype / experimental). Apple Silicon only.
+# Compiles the MLX C++ library from source (cmake required). ~10-20 min first build.
+# Build: cargo build --release --features mlx
+mlx = ["dep:mlx-rs"]
+mlx-metal = ["mlx", "mlx-rs/metal"]
+
+[patch.crates-io]
+# Patched to remove "metal" from default features, allowing build without Xcode.app.
+# With mlx-metal feature, the metal feature is added back explicitly.
+mlx-sys = { path = "vendor/mlx-sys-0.2.0" }
 
 [profile.release]
 lto = true
