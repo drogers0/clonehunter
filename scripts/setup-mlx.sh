@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Pinned MLX version — validated for detection parity (578 findings, 2.88e-12 numerics)
+# Pinned MLX (Python/C++) wheel version — validated for detection parity
+# (578 findings, 4.47e-13 numerics vs PyTorch).
+#
+# Version pairing (intentional — do NOT "sync" these blindly): the Rust crate
+# `mlx-rs = "=0.25.3"` in Cargo.toml versions INDEPENDENTLY of the Python `mlx`
+# package. There is no Python `mlx` 0.25.3 on PyPI (the 0.25.x line ships only
+# 0.25.2). mlx-rs 0.25.3's bindings are ABI-compatible with the C++ library in
+# the mlx==0.25.2 wheel — this is the tested, working pairing. Re-validate parity
+# before changing either pin.
 MLX_VERSION="0.25.2"
 INSTALL_DIR="${CLONEHUNTER_MLX_DIR:-$HOME/.local/share/clonehunter/mlx}"
 
@@ -17,21 +25,26 @@ if ! command -v uv &>/dev/null && ! command -v python3 &>/dev/null; then
     echo "       Install uv: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
 fi
-# MLX requires Python 3.11+ (matches README; validated configuration).
-if command -v python3 &>/dev/null; then
-    python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" \
-        || { echo "ERROR: Python 3.11+ required (found $(python3 --version 2>&1)); see README."; exit 1; }
-fi
-
 # Note: do not name this TMPDIR — that shadows the system variable mktemp/venv read.
+# trap ensures the temp venv is removed even on an early `set -e` exit.
 CH_TMPDIR=$(mktemp -d)
+trap 'rm -rf "${CH_TMPDIR:-}"' EXIT
 TMPVENV="$CH_TMPDIR/mlx-env"
 
 if command -v uv &>/dev/null; then
     uv venv "$TMPVENV" --quiet
-    VIRTUAL_ENV="$TMPVENV" uv pip install --quiet "mlx==$MLX_VERSION"
 else
     python3 -m venv "$TMPVENV"
+fi
+
+# Require Python 3.11+ (matches README) — checked on the VENV interpreter so it
+# covers both the uv and python3 paths (uv may select a Python not on PATH).
+"$TMPVENV/bin/python3" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" \
+    || { echo "ERROR: Python 3.11+ required (venv has $("$TMPVENV/bin/python3" --version 2>&1)); see README."; exit 1; }
+
+if command -v uv &>/dev/null; then
+    VIRTUAL_ENV="$TMPVENV" uv pip install --quiet "mlx==$MLX_VERSION"
+else
     "$TMPVENV/bin/pip" install --quiet "mlx==$MLX_VERSION"
 fi
 
@@ -55,8 +68,7 @@ if [ -f "$CMAKE_FILE" ]; then
     sed -i '' 's|/Applications/Xcode[^;]*Accelerate.framework|-framework Accelerate|g' "$CMAKE_FILE"
 fi
 
-# 5. Clean up temp venv
-rm -rf "$CH_TMPDIR"
+# 5. Temp venv is removed by the EXIT trap set above.
 
 echo ""
 echo "=== MLX prebuilt installed to: $INSTALL_DIR ==="

@@ -85,6 +85,10 @@ ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, feat
 # Apple MLX backend (optional — feature "mlx")
 # Setup: ./scripts/setup-mlx.sh
 # Build: MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
+# Version pairing: this Rust crate (0.25.3) versions independently of the Python
+# `mlx` package. scripts/setup-mlx.sh installs the mlx==0.25.2 wheel (there is no
+# Python mlx 0.25.3); 0.25.3 bindings + 0.25.2 C++ lib is the validated pairing
+# (578 findings, 4.47e-13). Re-validate parity before bumping either.
 mlx-rs = { version = "=0.25.3", optional = true, default-features = false, features = ["safetensors"] }
 
 [dev-dependencies]
