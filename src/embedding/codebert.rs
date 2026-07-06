@@ -82,31 +82,15 @@ pub(crate) fn resolve_device(requested: DeviceName) -> (Device, Option<Degradati
     match requested {
         DeviceName::Cpu => (Device::Cpu, None),
 
-        DeviceName::Mps => {
-            #[cfg(feature = "metal")]
-            {
-                match Device::new_metal(0) {
-                    Ok(d) => (d, None),
-                    Err(e) => (
-                        Device::Cpu,
-                        Some(Degradation {
-                            kind: DegradationKind::DeviceFallback,
-                            message: format!("Metal device unavailable ({e}), falling back to CPU"),
-                        }),
-                    ),
-                }
-            }
-            #[cfg(not(feature = "metal"))]
-            {
-                (
-                    Device::Cpu,
-                    Some(Degradation {
-                        kind: DegradationKind::DeviceFallback,
-                        message: "Metal support not compiled, falling back to CPU".into(),
-                    }),
-                )
-            }
-        }
+        DeviceName::Mps => (
+            Device::Cpu,
+            Some(Degradation {
+                kind: DegradationKind::DeviceFallback,
+                message:
+                    "Metal support not compiled (use --features mlx for GPU), falling back to CPU"
+                        .into(),
+            }),
+        ),
 
         DeviceName::Cuda => {
             #[cfg(feature = "cuda")]
@@ -135,10 +119,6 @@ pub(crate) fn resolve_device(requested: DeviceName) -> (Device, Option<Degradati
         }
 
         DeviceName::Auto => {
-            #[cfg(feature = "metal")]
-            if let Ok(d) = Device::new_metal(0) {
-                return (d, None);
-            }
             #[cfg(feature = "cuda")]
             if let Ok(d) = Device::new_cuda(0) {
                 return (d, None);
@@ -512,7 +492,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "metal"))]
     fn resolve_device_explicit_mps_without_feature() {
         let (device, deg) = resolve_device(DeviceName::Mps);
         assert!(matches!(device, Device::Cpu));
@@ -540,9 +519,9 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+    #[cfg(not(feature = "cuda"))]
     fn resolve_device_auto_cpu() {
-        // Without metal/cuda features, Auto resolves to CPU with no degradation
+        // Without cuda feature, Auto resolves to CPU with no degradation
         let (device, deg) = resolve_device(DeviceName::Auto);
         assert!(matches!(device, Device::Cpu));
         assert!(deg.is_none(), "Auto→CPU should not record a degradation");
