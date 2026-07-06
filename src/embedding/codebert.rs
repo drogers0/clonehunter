@@ -73,11 +73,11 @@ impl From<CodeBertJson> for XLMConfig {
 
 /// Map `DeviceName` → `candle_core::Device` with graceful fallback to CPU (DD4).
 ///
-/// Metal/CUDA availability is determined by fallible `Device::new_metal/new_cuda` constructors,
-/// NOT by `candle_core::utils::metal_is_available()` / `cuda_is_available()` which are
-/// compile-time feature checks, not runtime GPU probes.
+/// CUDA availability is determined by the fallible `Device::new_cuda` constructor (runtime
+/// probe), not by `candle_core::utils::cuda_is_available()` (compile-time feature check).
 ///
-/// `Auto` → Metal → CUDA → CPU. Auto→CPU is not recorded as a degradation.
+/// `Auto` → CUDA (if `--features cuda`) → CPU. Auto→CPU is not recorded as a degradation.
+/// `Mps` always falls back to CPU with a degradation (use `--features mlx` for Metal GPU).
 pub(crate) fn resolve_device(requested: DeviceName) -> (Device, Option<Degradation>) {
     match requested {
         DeviceName::Cpu => (Device::Cpu, None),
@@ -354,7 +354,7 @@ fn find_in_local_hf_cache(
 /// network round-trips when the model is already downloaded. Falls back to
 /// hf-hub API download if not found locally.
 ///
-/// `pub(crate)` so sibling embedding backends (e.g. `bert.rs`) can reuse the
+/// `pub(crate)` so sibling embedding backends (e.g. `mlx_backend.rs`) can reuse the
 /// same HF cache lookup + download logic without duplicating it.
 pub(crate) fn download_file(
     model_name: &str,

@@ -89,8 +89,18 @@ as a single statically-linked binary (no runtime dylib). It requires a pre-expor
 # Build
 cargo build --release --features onnx
 
-# Export model (requires PyTorch + transformers)
-# python benchmark/export_onnx.py  # generates ~/.cache/clonehunter/onnx/codebert-base/
+# Export model (requires PyTorch + transformers):
+#   python -c "
+#     from transformers import AutoModel
+#     import torch
+#     model = AutoModel.from_pretrained('microsoft/codebert-base')
+#     dummy = torch.zeros(1, 8, dtype=torch.long)
+#     torch.onnx.export(model, (dummy, dummy, dummy),
+#       '~/.cache/clonehunter/onnx/codebert-base/model.onnx',
+#       input_names=['input_ids','attention_mask','token_type_ids'],
+#       output_names=['last_hidden_state'], opset_version=18,
+#       dynamic_axes={n: {0:'batch',1:'seq'} for n in
+#                     ['input_ids','attention_mask','token_type_ids','last_hidden_state']})"
 
 # Run
 ./target/release/clonehunter scan . --embedder onnx
