@@ -99,22 +99,17 @@ insta = { version = "1", features = ["json", "redactions"] }
 
 [features]
 default = []
-# CPU BLAS backends (pick per platform): Apple Accelerate on macOS, Intel MKL on x86_64.
-# Closes most of candle's naive-gemm CPU slowdown for transformer inference.
+# Apple Accelerate BLAS (macOS): free ~1.5× speedup for candle-CPU inference.
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
-mkl = ["candle-core/mkl", "candle-nn/mkl", "candle-transformers/mkl"]
-# GPU backends (opt-in; numerics not part of the frozen CPU baseline).
+# NVIDIA CUDA backend (Linux GPU, the fastest tier — 13.6s on RTX 5090).
+# Build: cargo build --release --features cuda --device cuda
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
-# ONNX Runtime backend (prototype / experimental).
-# Enables EmbedderName::Onnx which routes through ort (ONNX Runtime 1.24).
+# ONNX Runtime backend (CPU-only, single static binary, fast portable option).
+# Enables EmbedderName::Onnx which routes through ort (ORT 1.20, statically linked).
 # Requires a pre-exported model.onnx (+ model.onnx.data) at
 #   CLONEHUNTER_ONNX_MODEL env var OR ~/.cache/clonehunter/onnx/codebert-base/model.onnx
 # Build: cargo build --release --features onnx
-# CoreML EP (macOS): cargo build --release --features onnx-coreml
 onnx = ["dep:ort"]
-onnx-coreml = ["onnx", "ort/coreml"]
-onnx-cuda = ["onnx", "ort/cuda"]
 # Apple MLX backend. Apple Silicon + prebuilt MLX required.
 # Setup: ./scripts/setup-mlx.sh
 # Build: MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx

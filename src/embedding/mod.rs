@@ -1,4 +1,3 @@
-mod bert;
 mod cache;
 mod codebert;
 #[cfg(feature = "mlx")]
@@ -15,7 +14,6 @@ use crate::core::config::{EmbedderConfig, EmbedderName};
 use crate::core::types::{Embedding, SnippetRef};
 use crate::io::fingerprints::embed_cache_key;
 
-pub(crate) use bert::BertEmbedder;
 pub(crate) use cache::EmbeddingCache;
 pub(crate) use codebert::CodeBertEmbedder;
 #[cfg(feature = "mlx")]
@@ -74,10 +72,6 @@ pub(crate) fn create_embedder(
     match config.name {
         EmbedderName::Stub => Ok(Box::new(StubEmbedder::new(16))),
         EmbedderName::Codebert => Ok(Box::new(CodeBertEmbedder::new(config)?)),
-        // `faster` routes through the candle BERT path (BertModel), not XLMRobertaModel.
-        // Using XLMRobertaModel for BERT-family weights (e.g. MiniLM) was broken — the
-        // weight key layout and position-ID handling differ. BertEmbedder fixes this.
-        EmbedderName::Faster => Ok(Box::new(BertEmbedder::new(config)?)),
         EmbedderName::Mlx => {
             #[cfg(feature = "mlx")]
             {
@@ -95,21 +89,7 @@ pub(crate) fn create_embedder(
         EmbedderName::Onnx => {
             #[cfg(feature = "onnx")]
             {
-                // Check CLONEHUNTER_ONNX_CUDA=1 to enable CUDA EP attempt
-                let use_cuda = std::env::var("CLONEHUNTER_ONNX_CUDA")
-                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                    .unwrap_or(false);
-                // Check CLONEHUNTER_ONNX_COREML=1 to enable CoreML EP attempt
-                let use_coreml = std::env::var("CLONEHUNTER_ONNX_COREML")
-                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                    .unwrap_or(false);
-                if use_cuda {
-                    Ok(Box::new(OnnxEmbedder::new_cuda(config)?))
-                } else if use_coreml {
-                    Ok(Box::new(OnnxEmbedder::new_coreml(config)?))
-                } else {
-                    Ok(Box::new(OnnxEmbedder::new(config)?))
-                }
+                Ok(Box::new(OnnxEmbedder::new(config)?))
             }
             #[cfg(not(feature = "onnx"))]
             {
