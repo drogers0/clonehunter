@@ -19,10 +19,6 @@ const HEAD_DIM: usize = 64;
 const LAYER_NORM_EPS: f32 = 1e-5;
 const PAD_TOKEN_ID: i32 = 1;
 
-fn ie(e: impl std::fmt::Display) -> String {
-    format!("{e}")
-}
-
 fn linear(x: &Array, weight: &Array, bias: &Array) -> Array {
     &x.matmul(&weight.t()).unwrap() + bias
 }

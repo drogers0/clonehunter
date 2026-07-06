@@ -9,11 +9,23 @@ echo "=== CloneHunter MLX Setup ==="
 echo "MLX version: $MLX_VERSION"
 echo "Install dir:  $INSTALL_DIR"
 
-# 1. Create temp venv and install mlx
-# Uses uv if available (required for mlx==0.25.2 which is no longer on the live
-# PyPI index but is available from uv's local cache).
-TMPDIR=$(mktemp -d)
-TMPVENV="$TMPDIR/mlx-env"
+# 1. Create a temp venv and install the pinned MLX wheel.
+# mlx==0.25.2 is on PyPI with prebuilt macOS-arm64 wheels. We prefer uv (fast,
+# reliable resolver) and fall back to python3 -m venv + pip.
+if ! command -v uv &>/dev/null && ! command -v python3 &>/dev/null; then
+    echo "ERROR: need either 'uv' or 'python3' to fetch the MLX wheel."
+    echo "       Install uv: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
+# MLX requires Python 3.11+ (matches README; validated configuration).
+if command -v python3 &>/dev/null; then
+    python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" \
+        || { echo "ERROR: Python 3.11+ required (found $(python3 --version 2>&1)); see README."; exit 1; }
+fi
+
+# Note: do not name this TMPDIR — that shadows the system variable mktemp/venv read.
+CH_TMPDIR=$(mktemp -d)
+TMPVENV="$CH_TMPDIR/mlx-env"
 
 if command -v uv &>/dev/null; then
     uv venv "$TMPVENV" --quiet
@@ -44,7 +56,7 @@ if [ -f "$CMAKE_FILE" ]; then
 fi
 
 # 5. Clean up temp venv
-rm -rf "$TMPDIR"
+rm -rf "$CH_TMPDIR"
 
 echo ""
 echo "=== MLX prebuilt installed to: $INSTALL_DIR ==="
