@@ -42,8 +42,6 @@ pub(crate) struct ThresholdsOverride {
 pub(crate) struct IndexOverride {
     pub name: Option<IndexName>,
     pub top_k: Option<usize>,
-    pub faiss_nlist: Option<usize>,
-    pub faiss_nprobe: Option<usize>,
 }
 
 #[derive(Deserialize, Default)]
@@ -231,12 +229,6 @@ pub(crate) fn apply_overrides(
         if let Some(v) = i.top_k {
             config.index.top_k = v;
         }
-        if let Some(v) = i.faiss_nlist {
-            config.index.faiss_nlist = v;
-        }
-        if let Some(v) = i.faiss_nprobe {
-            config.index.faiss_nprobe = v;
-        }
     }
 
     if let Some(ref c) = ov.cache {
@@ -349,8 +341,6 @@ pub(crate) fn validate_config(config: &CloneHunterConfig) -> Result<(), ConfigEr
 
     // Index
     positive("index.top_k", config.index.top_k)?;
-    positive("index.faiss_nlist", config.index.faiss_nlist)?;
-    positive("index.faiss_nprobe", config.index.faiss_nprobe)?;
 
     // Windows
     positive("windows.window_lines", config.windows.window_lines)?;

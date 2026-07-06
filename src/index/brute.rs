@@ -41,7 +41,7 @@ impl VectorIndex for BruteIndex {
             self.norms = None;
             return;
         }
-        let dim = vectors[0].dim;
+        let dim = vectors[0].vector.len();
         let n = vectors.len();
         // Build (N, D) matrix — f32 to match Python's np.float32
         let mut data = Vec::with_capacity(n * dim);
@@ -116,8 +116,7 @@ mod tests {
     use crate::core::types::Embedding;
 
     fn emb(v: Vec<f32>) -> Embedding {
-        let dim = v.len();
-        Embedding { vector: v, dim }
+        Embedding { vector: v }
     }
 
     fn ids(n: usize) -> Vec<String> {

@@ -166,8 +166,7 @@ mod tests {
     }
 
     fn emb(v: Vec<f32>) -> Embedding {
-        let dim = v.len();
-        Embedding { vector: v, dim }
+        Embedding { vector: v }
     }
 
     fn default_thresholds() -> Thresholds {

@@ -80,10 +80,10 @@ pub(crate) struct SnippetRef {
 /// An embedding vector for a snippet.
 ///
 /// Uses `f32` (not `f64`) — candle tensors are f32, matching PyTorch's actual precision.
+/// Dimensionality is `vector.len()` — there is no separate `dim` field to keep in sync.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Embedding {
     pub vector: Vec<f32>,
-    pub dim: usize,
 }
 
 /// A candidate clone pair produced by the index before rollup.
@@ -143,22 +143,19 @@ pub(crate) struct ScanRequest {
 }
 
 /// Classification of a graceful degradation event (Phase 0 DD3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // ParseSkip/CacheSelfHeal reserved for T14 test port
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum DegradationKind {
     DeviceFallback,
     IndexFallback,
-    ParseSkip,
     CacheSelfHeal,
 }
 
 /// A graceful degradation event (Phase 0 DD3).
-/// Logged via `tracing::warn!` and surfaced in stats/reports.
-#[derive(Debug, Clone)]
+/// Logged via `tracing::warn!` in the pipeline and surfaced in JSON/HTML reports.
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct Degradation {
-    #[allow(dead_code)] // consumed by T14 test port
     pub kind: DegradationKind,
-    #[allow(dead_code)] // consumed by T14 test port
     pub message: String,
 }
 

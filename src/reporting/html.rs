@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write as IoWrite};
 
 use similar::TextDiff;
 
-use crate::core::types::{CandidateMatch, Finding, ScanResult};
+use crate::core::types::{CandidateMatch, Degradation, Finding, ScanResult};
 use crate::reporting::ReportError;
 use crate::reporting::compare::{CompareData, select_compare};
 use crate::reporting::schema::SCHEMA_VERSION;
@@ -13,6 +13,7 @@ pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), Repo
     let rows: Vec<String> = result.findings.iter().map(render_finding).collect();
     let rows_html = rows.join("\n");
     let finding_count = result.findings.len();
+    let degradations_html = render_degradations(&result.degradations);
     let doc = format!(
         r#"<!doctype html>
 <html lang="en">
@@ -50,12 +51,16 @@ pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), Repo
     .diff_add {{ background: #e6ffed; }}
     .diff_chg {{ background: #fff5b1; }}
     .diff_sub {{ background: #ffeef0; }}
+    .degradations {{ background: #fff5b1; border: 1px solid #e0c000; border-radius: 6px;
+      padding: 8px 12px; margin-bottom: 12px; }}
+    .degradations ul {{ margin: 4px 0 0; padding-left: 20px; }}
   </style>
 </head>
 <body>
   <h1>CloneHunter Report</h1>
   <p>Schema: {SCHEMA_VERSION}</p>
   <p>Findings: {finding_count}</p>
+  {degradations_html}
   <div class="controls">
     <label for="sort-findings">Sort findings:</label>
     <select id="sort-findings">
@@ -112,6 +117,19 @@ pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), Repo
 }
 
 // ─── Per-finding rendering ────────────────────────────────────────────────────
+
+/// Render a warning banner listing graceful-degradation events. Empty string when there are none.
+fn render_degradations(degradations: &[Degradation]) -> String {
+    if degradations.is_empty() {
+        return String::new();
+    }
+    let mut items = String::new();
+    for d in degradations {
+        use std::fmt::Write as _;
+        let _ = write!(items, "<li>{:?}: {}</li>", d.kind, html_escape(&d.message));
+    }
+    format!(r#"<div class="degradations"><strong>⚠ Degradations</strong><ul>{items}</ul></div>"#)
+}
 
 fn render_finding(finding: &Finding) -> String {
     let func_a = &finding.function_a;
@@ -500,6 +518,24 @@ mod tests {
             timing: BTreeMap::new(),
             degradations: vec![],
         }
+    }
+
+    #[test]
+    fn render_degradations_empty_is_blank() {
+        assert_eq!(render_degradations(&[]), "");
+    }
+
+    #[test]
+    fn render_degradations_lists_events_escaped() {
+        use crate::core::types::{Degradation, DegradationKind};
+        let html = render_degradations(&[Degradation {
+            kind: DegradationKind::DeviceFallback,
+            message: "CUDA <unavailable> & slow".into(),
+        }]);
+        assert!(html.contains("class=\"degradations\""));
+        assert!(html.contains("DeviceFallback"));
+        // message is HTML-escaped
+        assert!(html.contains("CUDA &lt;unavailable&gt; &amp; slow"));
     }
 
     fn make_finding_with_code(code_a: &str, code_b: &str) -> Finding {

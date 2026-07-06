@@ -1,6 +1,5 @@
 ---
 source: tests/golden_fixtures.rs
-assertion_line: 99
 expression: "&value"
 ---
 {
@@ -92,7 +91,7 @@ expression: "&value"
       ],
       "tool": {
         "driver": {
-          "informationUri": "https://example.com/clonehunter",
+          "informationUri": "https://github.com/drogers0/clonehunter",
           "name": "CloneHunter",
           "rules": [
             {

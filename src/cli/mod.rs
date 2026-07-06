@@ -13,9 +13,9 @@ use crate::core::config_loader::{
 };
 use crate::core::logging::init_logging;
 use crate::core::types::{ScanRequest, ScanResult};
-use crate::engines::{PipelineError, get_engine};
+use crate::engines::get_engine;
 use crate::io::git;
-use crate::reporting::{ReportError, write_html, write_json, write_sarif};
+use crate::reporting::{write_html, write_json, write_sarif};
 
 use glob_merge::{effective_repotypes, merge_globs, resolve_repotype_globs, validate_repotype};
 
@@ -55,6 +55,8 @@ struct ScanArgs {
     out: Option<String>,
 
     // Override args
+    /// Detection engine. Note: `sonarqube` reads findings from CLONEHUNTER_SONAR_REPORT and
+    /// ignores scan paths and every tuning flag.
     #[arg(long, value_enum)]
     engine: Option<EngineName>,
     #[arg(long, value_enum)]
@@ -135,6 +137,8 @@ struct DiffArgs {
     out: Option<String>,
 
     // Override args (same as scan; no tuning surface for diff)
+    /// Detection engine. Note: `sonarqube` reads findings from CLONEHUNTER_SONAR_REPORT and
+    /// ignores scan paths and every tuning flag.
     #[arg(long, value_enum)]
     engine: Option<EngineName>,
     #[arg(long, value_enum)]
@@ -191,7 +195,7 @@ fn run_scan(args: ScanArgs) -> Result<()> {
             paths: args.path.clone(),
             config,
         })
-        .map_err(map_pipeline_error)?;
+        .map_err(into_anyhow)?;
 
     let out_path = resolve_out_path(&args.format, args.out.as_deref());
     write_report(&result, &args.format, &out_path)?;
@@ -227,7 +231,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
                 paths: vec![],
                 config,
             })
-            .map_err(map_pipeline_error)?;
+            .map_err(into_anyhow)?;
         write_report(&result, &args.format, &out_path)?;
         eprintln!("clonehunter: 0 findings (no changes) → {out_path}");
         return Ok(());
@@ -240,7 +244,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
             paths: requested_paths,
             config,
         })
-        .map_err(map_pipeline_error)?;
+        .map_err(into_anyhow)?;
 
     let changed_set: HashSet<String> = changed
         .iter()
@@ -289,14 +293,7 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
         device: args.device,
         ..Default::default()
     };
-    // CLONEHUNTER_EMBEDDER env var: only if no explicit --embedder (DD13)
-    if emb.name.is_none() {
-        if let Ok(val) = std::env::var("CLONEHUNTER_EMBEDDER") {
-            if val.trim().eq_ignore_ascii_case("stub") {
-                emb.name = Some(EmbedderName::Stub);
-            }
-        }
-    }
+    apply_embedder_env(&mut emb);
     if emb.name.is_some() || emb.device.is_some() {
         ov.embedder = Some(emb);
     }
@@ -368,13 +365,7 @@ fn build_diff_overrides(args: &DiffArgs) -> ConfigOverride {
         device: args.device,
         ..Default::default()
     };
-    if emb.name.is_none() {
-        if let Ok(val) = std::env::var("CLONEHUNTER_EMBEDDER") {
-            if val.trim().eq_ignore_ascii_case("stub") {
-                emb.name = Some(EmbedderName::Stub);
-            }
-        }
-    }
+    apply_embedder_env(&mut emb);
     if emb.name.is_some() || emb.device.is_some() {
         ov.embedder = Some(emb);
     }
@@ -387,6 +378,17 @@ fn build_diff_overrides(args: &DiffArgs) -> ConfigOverride {
     }
 
     ov
+}
+
+/// Apply the `CLONEHUNTER_EMBEDDER=stub` env override — only when `--embedder` was not passed (DD13).
+fn apply_embedder_env(emb: &mut EmbedderOverride) {
+    if emb.name.is_none() {
+        if let Ok(val) = std::env::var("CLONEHUNTER_EMBEDDER") {
+            if val.trim().eq_ignore_ascii_case("stub") {
+                emb.name = Some(EmbedderName::Stub);
+            }
+        }
+    }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -460,18 +462,15 @@ fn resolve_out_path(format: &str, out: Option<&str>) -> String {
 
 fn write_report(result: &ScanResult, format: &str, out_path: &str) -> Result<()> {
     match format {
-        "json" => write_json(result, out_path).map_err(map_report_error),
-        "html" => write_html(result, out_path).map_err(map_report_error),
-        "sarif" => write_sarif(result, out_path).map_err(map_report_error),
+        "json" => write_json(result, out_path).map_err(into_anyhow),
+        "html" => write_html(result, out_path).map_err(into_anyhow),
+        "sarif" => write_sarif(result, out_path).map_err(into_anyhow),
         _ => bail!("unsupported format: {format}"),
     }
 }
 
-fn map_pipeline_error(e: PipelineError) -> anyhow::Error {
-    anyhow::anyhow!("{e}")
-}
-
-fn map_report_error(e: ReportError) -> anyhow::Error {
+/// Flatten any subsystem error into an `anyhow::Error` by its `Display` string.
+fn into_anyhow(e: impl std::fmt::Display) -> anyhow::Error {
     anyhow::anyhow!("{e}")
 }
 

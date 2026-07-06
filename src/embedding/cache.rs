@@ -34,8 +34,6 @@ pub(crate) struct EmbeddingCache {
     /// (matching the plan API and Python's duck-typed interface) while rusqlite
     /// requires `&mut Connection` for transactions.
     conn: RefCell<Connection>,
-    #[allow(dead_code)] // reserved for T14 test port (self-heal re-open)
-    db_path: PathBuf,
     root: PathBuf,
     degradations: Vec<Degradation>,
 }
@@ -50,7 +48,6 @@ impl EmbeddingCache {
         let conn = open_with_self_heal(&db_path, &mut degradations)?;
         Ok(Self {
             conn: RefCell::new(conn),
-            db_path,
             root: root_path,
             degradations,
         })
@@ -81,14 +78,14 @@ impl EmbeddingCache {
                 let (key, dim, blob) = row?;
                 let vector = blob_to_vec(&blob);
                 // Guard against corrupt BLOBs: a truncated blob produces fewer floats
-                // than `dim`, which would cause dimension-mismatch panics in T8.
+                // than the stored `dim` column, which would cause dimension-mismatch panics.
                 debug_assert!(
                     vector.len() == dim,
                     "BLOB length mismatch: got {} floats, expected dim={}",
                     vector.len(),
                     dim
                 );
-                results.insert(key, Embedding { vector, dim });
+                results.insert(key, Embedding { vector });
             }
         }
 
@@ -123,7 +120,7 @@ impl EmbeddingCache {
             )?;
             for (key, emb) in items {
                 let blob = vec_to_blob(&emb.vector);
-                stmt.execute(rusqlite::params![key, emb.dim as i64, blob])?;
+                stmt.execute(rusqlite::params![key, emb.vector.len() as i64, blob])?;
             }
         }
         tx.commit()?;
@@ -133,13 +130,6 @@ impl EmbeddingCache {
     /// Drain accumulated degradation events (cache self-heal, etc.).
     pub(crate) fn take_degradations(&mut self) -> Vec<Degradation> {
         std::mem::take(&mut self.degradations)
-    }
-
-    /// Path of the SQLite database file (used in tests and diagnostics).
-    #[cfg(test)]
-    #[allow(dead_code)] // reserved for T14 test port
-    pub(crate) fn db_path(&self) -> &Path {
-        &self.db_path
     }
 
     /// Lazily migrate legacy `{safe_key}.json` files into SQLite.
@@ -166,13 +156,7 @@ impl EmbeddingCache {
                             if vector.len() != dim as usize {
                                 continue;
                             }
-                            found.insert(
-                                key.to_owned(),
-                                Embedding {
-                                    vector,
-                                    dim: dim as usize,
-                                },
-                            );
+                            found.insert(key.to_owned(), Embedding { vector });
                         }
                     }
                 }
@@ -203,24 +187,7 @@ fn blob_to_vec(blob: &[u8]) -> Vec<f32> {
 
 /// Expand a leading `~` to the user's home directory.
 fn expand_tilde(path: &str) -> Result<PathBuf, CacheError> {
-    if let Some(rest) = path.strip_prefix("~/") {
-        let home = dirs::home_dir().ok_or_else(|| {
-            CacheError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("cannot resolve home directory for cache path '{path}'"),
-            ))
-        })?;
-        Ok(home.join(rest))
-    } else if path == "~" {
-        dirs::home_dir().ok_or_else(|| {
-            CacheError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("cannot resolve home directory for cache path '{path}'"),
-            ))
-        })
-    } else {
-        Ok(PathBuf::from(path))
-    }
+    expand_tilde_with_home(path, dirs::home_dir())
 }
 
 /// Current Unix timestamp (seconds) for backup file names.
@@ -329,15 +296,11 @@ fn rename_with_wal(db_path: &Path, backup: &Path) {
     }
 }
 
-// ── tilde expansion helper exposed for unit testing ───────────────────────────
+// ── tilde expansion core (parameterized on home dir for testability) ──────────
 
-/// Expand a `~`-prefixed path given an explicit home dir (None → error).
-/// Exposed for testing the home-dir-None edge case without touching env vars.
-#[cfg(test)]
-pub(crate) fn expand_tilde_with_home(
-    path: &str,
-    home: Option<PathBuf>,
-) -> Result<PathBuf, CacheError> {
+/// Expand a `~`-prefixed path given an explicit home dir (None → error for `~` paths).
+/// `expand_tilde` calls this with `dirs::home_dir()`; tests pass a fixed home / None.
+fn expand_tilde_with_home(path: &str, home: Option<PathBuf>) -> Result<PathBuf, CacheError> {
     if let Some(rest) = path.strip_prefix("~/") {
         let home = home.ok_or_else(|| {
             CacheError::Io(std::io::Error::new(
@@ -364,11 +327,7 @@ mod tests {
     use tempfile::TempDir;
 
     fn make_embedding(values: Vec<f32>) -> Embedding {
-        let dim = values.len();
-        Embedding {
-            vector: values,
-            dim,
-        }
+        Embedding { vector: values }
     }
 
     fn cache_in(dir: &TempDir) -> EmbeddingCache {
@@ -388,7 +347,6 @@ mod tests {
         assert_eq!(result.len(), 1);
         // f32 → LE bytes → f32 is lossless for finite values (DD6)
         assert_eq!(result["key1"].vector, emb.vector);
-        assert_eq!(result["key1"].dim, emb.dim);
     }
 
     #[test]
@@ -482,7 +440,7 @@ mod tests {
         // First read: should migrate from JSON to SQLite
         let result = cache.get_many(&[key]).unwrap();
         assert!(result.contains_key(key), "legacy JSON should be migrated");
-        assert_eq!(result[key].dim, 3);
+        assert_eq!(result[key].vector.len(), 3);
 
         // Second read: should come from SQLite (JSON still present, but SQLite has it now)
         let result2 = cache.get_many(&[key]).unwrap();

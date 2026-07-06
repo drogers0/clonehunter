@@ -1,6 +1,5 @@
 ---
 source: tests/golden_fixtures.rs
-assertion_line: 62
 expression: "&value"
 ---
 {
@@ -82,8 +81,6 @@ expression: "&value"
       "**/*.swift"
     ],
     "index": {
-      "faiss_nlist": 128,
-      "faiss_nprobe": 8,
       "name": "brute",
       "top_k": 25
     },
@@ -101,6 +98,7 @@ expression: "&value"
       "window_lines": 40
     }
   },
+  "degradations": [],
   "findings": [
     {
       "compare": {

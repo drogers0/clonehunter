@@ -17,7 +17,7 @@ pub(crate) fn write_sarif(result: &ScanResult, out_path: &str) -> Result<(), Rep
             "tool": {
                 "driver": {
                     "name": "CloneHunter",
-                    "informationUri": "https://example.com/clonehunter",
+                    "informationUri": "https://github.com/drogers0/clonehunter",
                     "rules": [{
                         "id": "clonehunter",
                         "name": "SemanticClone",

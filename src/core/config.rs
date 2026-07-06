@@ -32,12 +32,14 @@ pub(crate) enum IndexName {
 }
 
 /// Which compute device to target.
+///
+/// No `Mps` variant: candle's Metal path was removed (MLX is the Apple-GPU backend and selects
+/// Metal automatically). `--device` is `auto|cpu|cuda`; the candle backend uses CUDA (Linux) or CPU.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum DeviceName {
     Auto,
     Cpu,
-    Mps,
     Cuda,
 }
 
@@ -106,8 +108,6 @@ impl Default for Thresholds {
 pub(crate) struct IndexConfig {
     pub name: IndexName,
     pub top_k: usize,
-    pub faiss_nlist: usize,
-    pub faiss_nprobe: usize,
 }
 
 impl Default for IndexConfig {
@@ -115,8 +115,6 @@ impl Default for IndexConfig {
         Self {
             name: IndexName::Brute,
             top_k: 25,
-            faiss_nlist: 128,
-            faiss_nprobe: 8,
         }
     }
 }
@@ -182,27 +180,15 @@ pub(crate) struct EmbedderPreset {
 /// any explicit field overrides on top.
 pub(crate) fn embedder_preset(name: EmbedderName) -> Option<EmbedderPreset> {
     match name {
-        EmbedderName::Codebert => Some(EmbedderPreset {
+        // All three real backends embed the same codebert-base weights (onnx via its own
+        // ONNX export, mlx via safetensors) → identical preset.
+        EmbedderName::Codebert | EmbedderName::Onnx | EmbedderName::Mlx => Some(EmbedderPreset {
             model_name: "microsoft/codebert-base",
             revision: CODEBERT_REVISION,
             max_length: 256,
             batch_size: 16,
         }),
         EmbedderName::Stub => None, // No preset; stub uses whatever defaults are in place
-        EmbedderName::Onnx => Some(EmbedderPreset {
-            // Same model as codebert; ONNX backend does its own weight loading
-            model_name: "microsoft/codebert-base",
-            revision: CODEBERT_REVISION,
-            max_length: 256,
-            batch_size: 16,
-        }),
-        EmbedderName::Mlx => Some(EmbedderPreset {
-            // Same model as codebert; MLX backend loads from safetensors
-            model_name: "microsoft/codebert-base",
-            revision: CODEBERT_REVISION,
-            max_length: 256,
-            batch_size: 16,
-        }),
     }
 }
 
@@ -267,8 +253,6 @@ mod tests {
         assert_eq!(c.expansion.max_chars, 4000);
         assert_eq!(c.index.name, IndexName::Brute);
         assert_eq!(c.index.top_k, 25);
-        assert_eq!(c.index.faiss_nlist, 128);
-        assert_eq!(c.index.faiss_nprobe, 8);
         assert_eq!(c.embedder.name, EmbedderName::Codebert);
         assert_eq!(c.embedder.model_name, "microsoft/codebert-base");
         assert_eq!(c.embedder.revision, CODEBERT_REVISION);

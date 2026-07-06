@@ -6,7 +6,7 @@ use crate::core::types::{CandidateMatch, Finding, SnippetKind, SnippetRef};
 use super::lexical::lexical_similarity;
 use super::occurrences::{SelfCloneOccurrences, is_self_clone};
 use super::ranking::kind_rank;
-use super::scoring::{best_score, best_score_refs};
+use super::scoring::best_score;
 
 /// Roll up candidate matches into findings, one per function pair.
 ///
@@ -116,10 +116,10 @@ fn compute_reasons(matches: &[CandidateMatch], thresholds: &Thresholds) -> Vec<S
         .collect();
 
     let mut reasons = Vec::new();
-    if !func_hits.is_empty() && best_score_refs(&func_hits) >= thresholds.func {
+    if !func_hits.is_empty() && best_score(func_hits.iter().copied()) >= thresholds.func {
         reasons.push("func_threshold".into());
     }
-    if !exp_hits.is_empty() && best_score_refs(&exp_hits) >= thresholds.exp {
+    if !exp_hits.is_empty() && best_score(exp_hits.iter().copied()) >= thresholds.exp {
         reasons.push("exp_threshold".into());
     }
     if win_hits.len() >= thresholds.min_window_hits {

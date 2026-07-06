@@ -10,7 +10,7 @@ Two subcommands, both defined with clap derive in [src/cli/mod.rs](src/cli/mod.r
 
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]   # default format: html; default out: clonehunter_report.<ext>
-    --engine semantic|sonarqube   --embedder codebert|stub|onnx|mlx   --index brute|faiss   --device auto|cpu|mps|cuda
+    --engine semantic|sonarqube   --embedder codebert|stub|onnx|mlx   --index brute|faiss   --device auto|cpu|cuda
     --threshold-func/-win/-exp FLOAT   --min-window-hits INT   --lexical-min-ratio/-weight FLOAT
     --window-lines/-stride-lines/-min-nonempty INT   --expand-calls [--expand-depth/-max-chars INT]
     --cache-path PATH   --cluster [--cluster-min-size INT]
@@ -82,7 +82,10 @@ Grounded in how the code actually behaves — respect these when changing it:
 - **Self-match filtering is two-layered:** retrieval skips a snippet matching its own `snippet_hash`; rollup keeps *same-function* self-clones only when line ranges are disjoint and drops *same-file cross-function* range overlaps as containment.
 - **Finding *order* is not stable across rayon runs** (par_iter is unordered); scores/pairs are identical, only ordering drifts. The benchmark sorts before comparing — do the same in any parity check.
 - **Non-python files get WIN snippets only** (FUNC/EXP derive from python functions), so cross-language detection is window-based; `stats.function_count` counts python functions only.
-- **`--index faiss`** is not implemented; the flag is accepted for CLI compatibility but always uses the brute index.
+- **`--index faiss`** is not implemented; the flag is accepted for CLI compatibility but always uses the brute index. (The former `faiss_nlist`/`faiss_nprobe` config knobs were removed — they were dead.)
+- **`--engine sonarqube` ignores scan paths and tuning flags.** It sources findings entirely from the `CLONEHUNTER_SONAR_REPORT` JSON; the scan `paths`, thresholds, globs, and embedder/device flags have no effect (a `tracing::warn!` is emitted to make this visible).
+- **`--device` is `auto|cpu|cuda`** (no `mps`): candle's Metal path was removed. On Apple Silicon use `--embedder mlx` for the Metal GPU; the candle backend runs CPU (or CUDA on Linux).
+- **Graceful degradations are surfaced.** GPU→CPU device fallback and cache self-heal events are logged to stderr (`tracing::warn!`) and included in the JSON report (`degradations: [{kind, message}]`) and the HTML report header banner.
 - **f32 precision.** Rust uses f32 for embedding arithmetic (candle default); Python used f64 (torch default). Near-equal embeddings (cosine ~1.0) may produce different top-k ordering. The re-frozen `benchmark/baseline.json` is the Rust detection contract.
 - **Normalization differs from Python `ast.unparse`.** Rust strips tree-sitter comment nodes; Python normalized via `ast.unparse`. The re-frozen baseline documents all divergences (Cat-A through Cat-E).
 - **Snippet text ≠ source.** Embeddings, hashes, lexical tokens, and the rendered diff all operate on the normalized (comment-stripped) form; `FunctionRef.code` keeps the original.

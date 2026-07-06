@@ -24,6 +24,12 @@ pub(crate) struct SonarQubeEngine;
 
 impl Engine for SonarQubeEngine {
     fn scan(&self, _request: &ScanRequest) -> Result<ScanResult, PipelineError> {
+        // The sonarqube engine sources findings entirely from CLONEHUNTER_SONAR_REPORT;
+        // scan paths and every tuning flag on the request are ignored. Warn so a user who
+        // passed `scan ./src --engine sonarqube ...` isn't misled into thinking they took effect.
+        tracing::warn!(
+            "sonarqube engine reads findings from CLONEHUNTER_SONAR_REPORT; scan paths and tuning flags are ignored"
+        );
         Ok(scan_sonarqube(None)?)
     }
 }

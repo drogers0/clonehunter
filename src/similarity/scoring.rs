@@ -1,14 +1,18 @@
 use crate::core::types::CandidateMatch;
 
 /// Maximum similarity across a group of candidate matches.
-/// Returns 0.0 for an empty slice, matching Python's `best_score`.
-pub(crate) fn best_score(matches: &[CandidateMatch]) -> f64 {
-    matches.iter().map(|m| m.similarity).fold(0.0_f64, f64::max)
-}
-
-/// Variant accepting a slice of references (avoids cloning in `compute_reasons`).
-pub(super) fn best_score_refs(matches: &[&CandidateMatch]) -> f64 {
-    matches.iter().map(|m| m.similarity).fold(0.0_f64, f64::max)
+/// Returns 0.0 for an empty iterator, matching Python's `best_score`.
+///
+/// Generic over any iterator of `&CandidateMatch`, so both `&[CandidateMatch]` (owned slices)
+/// and reference collections (`Vec<&CandidateMatch>` via `.iter().copied()`) share one impl.
+pub(crate) fn best_score<'a, I>(matches: I) -> f64
+where
+    I: IntoIterator<Item = &'a CandidateMatch>,
+{
+    matches
+        .into_iter()
+        .map(|m| m.similarity)
+        .fold(0.0_f64, f64::max)
 }
 
 #[cfg(test)]
@@ -61,15 +65,11 @@ mod tests {
     }
 
     #[test]
-    fn test_best_score_refs_empty() {
-        assert_eq!(best_score_refs(&[]), 0.0);
-    }
-
-    #[test]
-    fn test_best_score_refs_max() {
+    fn test_best_score_over_refs() {
+        // Same generic accepts a Vec<&CandidateMatch> via .iter().copied().
         let m1 = make_match(0.7);
         let m2 = make_match(0.95);
-        let refs = vec![&m1, &m2];
-        assert!((best_score_refs(&refs) - 0.95).abs() < 1e-9);
+        let refs = [&m1, &m2];
+        assert!((best_score(refs.iter().copied()) - 0.95).abs() < 1e-9);
     }
 }

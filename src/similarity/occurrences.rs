@@ -69,14 +69,11 @@ impl SelfCloneOccurrences {
     }
 
     /// Linear scan to find the merged occurrence containing a given span.
-    /// Returns -1 for spans that don't map to any occurrence (unreachable for well-formed data).
-    fn index_of(&self, start: usize, end: usize) -> isize {
-        for (i, &(o_start, o_end)) in self.occ.iter().enumerate() {
-            if o_start <= start && end <= o_end {
-                return i as isize;
-            }
-        }
-        -1
+    /// Returns `None` for spans that don't map to any occurrence (unreachable for well-formed data).
+    fn index_of(&self, start: usize, end: usize) -> Option<usize> {
+        self.occ
+            .iter()
+            .position(|&(o_start, o_end)| o_start <= start && end <= o_end)
     }
 
     /// Union-find with path halving (exact match of Python's `_find`).
@@ -88,13 +85,13 @@ impl SelfCloneOccurrences {
         i
     }
 
-    /// Union by minimum index (smaller index becomes the root).
-    fn union(&mut self, a: isize, b: isize) {
-        if a < 0 || b < 0 {
+    /// Union by minimum index (smaller index becomes the root). No-op if either span is unmapped.
+    fn union(&mut self, a: Option<usize>, b: Option<usize>) {
+        let (Some(a), Some(b)) = (a, b) else {
             return;
-        }
-        let ra = self.find(a as usize);
-        let rb = self.find(b as usize);
+        };
+        let ra = self.find(a);
+        let rb = self.find(b);
         if ra != rb {
             self.parent[ra.max(rb)] = ra.min(rb);
         }
@@ -102,11 +99,9 @@ impl SelfCloneOccurrences {
 
     /// The merged occurrence that contains the given span.
     pub(crate) fn occurrence_for(&self, start: usize, end: usize) -> Interval {
-        let i = self.index_of(start, end);
-        if i >= 0 {
-            self.occ[i as usize]
-        } else {
-            (start, end)
+        match self.index_of(start, end) {
+            Some(i) => self.occ[i],
+            None => (start, end),
         }
     }
 

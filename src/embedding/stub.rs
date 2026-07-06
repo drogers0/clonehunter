@@ -37,10 +37,7 @@ impl StubEmbedder {
         let norm = values.iter().map(|v| v * v).sum::<f64>().sqrt();
         let norm = if norm == 0.0 { 1.0 } else { norm };
         let vector: Vec<f32> = values.iter().map(|v| (*v / norm) as f32).collect();
-        Embedding {
-            vector,
-            dim: self.dim,
-        }
+        Embedding { vector }
     }
 }
 
@@ -48,41 +45,12 @@ impl Embedder for StubEmbedder {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
         Ok(snippets.iter().map(|s| self.embed_one(&s.text)).collect())
     }
-
-    fn dim(&self) -> usize {
-        self.dim
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind};
-
-    fn make_snippet(text: &str) -> SnippetRef {
-        let file = FileRef {
-            path: "test.py".into(),
-            content_hash: "abc".into(),
-            language: Language::Python,
-        };
-        let func = FunctionRef {
-            file,
-            qualified_name: "test_func".into(),
-            start_line: 1,
-            end_line: 5,
-            code: text.into(),
-            code_hash: "abc".into(),
-        };
-        SnippetRef {
-            kind: SnippetKind::Func,
-            function: func,
-            start_line: 1,
-            end_line: 5,
-            text: text.into(),
-            display_text: text.into(),
-            snippet_hash: crate::io::fingerprints::hash_text(text),
-        }
-    }
+    use crate::test_support::make_snippet;
 
     #[test]
     fn stub_deterministic() {
@@ -108,7 +76,6 @@ mod tests {
         let stub = StubEmbedder::new(16);
         let s = make_snippet("x = 1");
         let result = stub.embed(&[&s]).unwrap();
-        assert_eq!(result[0].dim, 16);
         assert_eq!(result[0].vector.len(), 16);
     }
 
@@ -151,5 +118,12 @@ mod tests {
         let stub = StubEmbedder::new(16);
         let result = stub.embed(&[]).unwrap();
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn stub_has_no_degradations() {
+        // The default trait impl returns none — only backends that can degrade override it.
+        let mut stub = StubEmbedder::new(16);
+        assert!(stub.take_degradations().is_empty());
     }
 }

@@ -17,6 +17,7 @@ pub(crate) fn write_json(result: &ScanResult, out_path: &str) -> Result<(), Repo
         "stats": serde_json::to_value(&result.stats)?,
         "config": result.config_snapshot,
         "timing": result.timing,
+        "degradations": serde_json::to_value(&result.degradations)?,
     });
     let file = File::create(out_path)?;
     serde_json::to_writer_pretty(BufWriter::new(file), &payload)?;
@@ -216,6 +217,43 @@ mod tests {
         assert!(v.get("stats").is_some());
         assert!(v.get("config").is_some());
         assert!(v.get("timing").is_some());
+    }
+
+    #[test]
+    fn json_degradations_serialized() {
+        use crate::core::types::{Degradation, DegradationKind};
+        let dir = TempDir::new().unwrap();
+        let out = dir
+            .path()
+            .join("report.json")
+            .to_string_lossy()
+            .into_owned();
+        let mut result = make_scan_result_empty();
+        result.degradations.push(Degradation {
+            kind: DegradationKind::DeviceFallback,
+            message: "CUDA unavailable, falling back to CPU".into(),
+        });
+        write_json(&result, &out).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        let degs = v.get("degradations").and_then(|d| d.as_array()).unwrap();
+        assert_eq!(degs.len(), 1);
+        assert_eq!(degs[0]["kind"], "device_fallback");
+        assert_eq!(degs[0]["message"], "CUDA unavailable, falling back to CPU");
+    }
+
+    #[test]
+    fn json_degradations_empty_by_default() {
+        let dir = TempDir::new().unwrap();
+        let out = dir
+            .path()
+            .join("report.json")
+            .to_string_lossy()
+            .into_owned();
+        write_json(&make_scan_result_empty(), &out).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        assert_eq!(v["degradations"], serde_json::json!([]));
     }
 
     #[test]

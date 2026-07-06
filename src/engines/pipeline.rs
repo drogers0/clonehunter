@@ -70,7 +70,7 @@ pub(crate) fn run_pipeline(
     // ── Stage 4: embed ────────────────────────────────────────────────────────
     let t = Instant::now();
     info!("Stage 4: embedding {} snippets", snippets.len());
-    let embedder = create_embedder(&config.embedder)?;
+    let mut embedder = create_embedder(&config.embedder)?;
     let mut cache = EmbeddingCache::new(&config.cache.path)
         .map_err(|e| EmbeddingError::Cache(e.to_string()))?;
     // DD15: stub embedder gets its own cache namespace (matches Python "stub"/"0"/0 override)
@@ -87,6 +87,9 @@ pub(crate) fn run_pipeline(
     let snippet_refs: Vec<&_> = snippets.iter().collect();
     let (embeddings, cache_hits, cache_misses) =
         embed_with_cache(&snippet_refs, embedder.as_ref(), &cache, &cache_config)?;
+    // Surface graceful degradations (e.g. GPU→CPU device fallback) that would otherwise be
+    // silently lost — the embedder accumulates them at construction, the cache during self-heal.
+    degradations.extend(embedder.take_degradations());
     degradations.extend(cache.take_degradations());
     info!(
         "  → embedded ({} hits, {} misses)",
@@ -132,6 +135,11 @@ pub(crate) fn run_pipeline(
         cache_misses,
     };
     let config_snapshot = serde_json::to_value(config)?; // DD7: full config
+
+    // Emit each degradation to stderr so it is visible regardless of report format.
+    for d in &degradations {
+        tracing::warn!(kind = ?d.kind, "degradation: {}", d.message);
+    }
 
     Ok(ScanResult {
         findings,

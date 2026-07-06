@@ -256,7 +256,7 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
                                   # repeatable preset globs
   --include-globs GLOB   # repeatable; merged with config includes
   --exclude-globs GLOB   # repeatable; merged with config excludes
-  --device auto|cpu|mps|cuda
+  --device auto|cpu|cuda
 
 clonehunter diff --base REF [--format json|html|sarif] [--out FILE]
 ```

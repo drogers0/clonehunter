@@ -4,6 +4,7 @@ mod codebert;
 mod mlx_backend;
 #[cfg(feature = "onnx")]
 mod onnx_backend;
+mod shared;
 mod stub;
 
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::core::config::{EmbedderConfig, EmbedderName};
-use crate::core::types::{Embedding, SnippetRef};
+use crate::core::types::{Degradation, Embedding, SnippetRef};
 use crate::io::fingerprints::embed_cache_key;
 
 pub(crate) use cache::EmbeddingCache;
@@ -36,9 +37,6 @@ pub(crate) enum EmbeddingError {
     Tokenizer(String),
     #[error("inference failed: {0}")]
     Inference(String),
-    #[error("device error: {0}")]
-    #[allow(dead_code)] // reserved for T14 test port
-    Device(String),
     #[error("cache error: {0}")]
     Cache(String),
 }
@@ -54,9 +52,11 @@ pub(crate) trait Embedder: Send {
     /// Embed a batch of snippet references. Returns one `Embedding` per snippet in input order.
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError>;
 
-    /// Embedding dimension (e.g. 768 for codebert-base, 16 for stub).
-    #[allow(dead_code)] // reserved for T14 test port
-    fn dim(&self) -> usize;
+    /// Drain accumulated graceful-degradation events (e.g. GPU→CPU device fallback).
+    /// Default: no degradations. Only backends that can degrade (CodeBert) override this.
+    fn take_degradations(&mut self) -> Vec<Degradation> {
+        Vec::new()
+    }
 }
 
 // ── Factory (Step 7.6) ────────────────────────────────────────────────────────
@@ -205,33 +205,8 @@ pub(crate) fn embed_with_cache(
 mod tests {
     use super::*;
     use crate::core::config::EmbedderConfig;
-    use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind};
+    use crate::test_support::make_snippet;
     use tempfile::TempDir;
-
-    fn make_snippet(text: &str) -> SnippetRef {
-        let file = FileRef {
-            path: "test.py".into(),
-            content_hash: "abc".into(),
-            language: Language::Python,
-        };
-        let func = FunctionRef {
-            file,
-            qualified_name: "f".into(),
-            start_line: 1,
-            end_line: 3,
-            code: text.into(),
-            code_hash: "c".into(),
-        };
-        SnippetRef {
-            kind: SnippetKind::Func,
-            function: func,
-            start_line: 1,
-            end_line: 3,
-            text: text.into(),
-            display_text: text.into(),
-            snippet_hash: crate::io::fingerprints::hash_text(text),
-        }
-    }
 
     fn stub_config(_cache_dir: &TempDir) -> EmbedderConfig {
         EmbedderConfig {
@@ -382,9 +357,6 @@ mod tests {
         impl Embedder for BrokenEmbedder {
             fn embed(&self, _: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
                 Ok(vec![]) // Always returns empty — mismatch with any non-empty input
-            }
-            fn dim(&self) -> usize {
-                16
             }
         }
 

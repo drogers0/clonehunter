@@ -4,9 +4,6 @@ mod sonarqube;
 
 pub(crate) use semantic::SemanticEngine;
 pub(crate) use sonarqube::SonarQubeEngine;
-// SonarError only needed by T14 test port
-#[allow(unused_imports)]
-pub(crate) use sonarqube::SonarError;
 
 use thiserror::Error;
 

@@ -23,18 +23,13 @@
 
 use std::path::PathBuf;
 
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::Tokenizer;
 
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
 use crate::core::types::{Embedding, SnippetRef};
 
+use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
 use super::{Embedder, EmbeddingError};
-
-/// Bundled tokenizer.json shared with `CodeBertEmbedder`.
-const CODEBERT_TOKENIZER_BYTES: &[u8] = include_bytes!("tokenizer.json");
-
-/// Codebert model name string.
-const CODEBERT_MODEL: &str = "microsoft/codebert-base";
 
 // ── OnnxEmbedder ──────────────────────────────────────────────────────────────
 
@@ -70,26 +65,17 @@ impl OnnxEmbedder {
     }
 }
 
-// SAFETY: ort rc.9 Session is Send + Sync (SharedSessionInner is Send + Sync).
+// SAFETY: the `Embedder` trait only requires `Send` (the boxed embedder is moved into the
+// single-threaded pipeline; it is never shared across threads, so `Sync` is not needed).
+// `Session` is immutable after construction and `session.run()` takes `&self`, so moving the
+// embedder between threads is sound.
 unsafe impl Send for OnnxEmbedder {}
-unsafe impl Sync for OnnxEmbedder {}
 
 impl Embedder for OnnxEmbedder {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
-        if snippets.is_empty() {
-            return Ok(vec![]);
-        }
-        let mut result = Vec::with_capacity(snippets.len());
-        for chunk in snippets.chunks(self.config.batch_size) {
-            let texts: Vec<&str> = chunk.iter().map(|s| s.text.as_str()).collect();
-            let batch = embed_batch_ort(&self.session, &self.tokenizer, &texts)?;
-            result.extend(batch);
-        }
-        Ok(result)
-    }
-
-    fn dim(&self) -> usize {
-        768
+        chunked_embed(snippets, self.config.batch_size, |texts| {
+            embed_batch_ort(&self.session, &self.tokenizer, texts)
+        })
     }
 }
 
@@ -135,24 +121,7 @@ fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> 
                 .into(),
         ));
     }
-
-    let mut tokenizer = Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES)
-        .map_err(|e| EmbeddingError::Tokenizer(format!("bundled tokenizer: {e}")))?;
-
-    tokenizer.with_padding(Some(PaddingParams {
-        strategy: PaddingStrategy::BatchLongest,
-        pad_id: 1,
-        pad_token: "<pad>".into(),
-        ..Default::default()
-    }));
-    tokenizer
-        .with_truncation(Some(TruncationParams {
-            max_length: config.max_length,
-            ..Default::default()
-        }))
-        .map_err(|e| EmbeddingError::Tokenizer(format!("truncation config: {e}")))?;
-
-    Ok(tokenizer)
+    bundled_codebert_tokenizer(config.max_length)
 }
 
 // ── Batch inference + mean pooling ────────────────────────────────────────────
@@ -257,10 +226,7 @@ fn embed_batch_ort(
         for v in &mut pooled {
             *v *= scale;
         }
-        embeddings.push(Embedding {
-            dim: h,
-            vector: pooled,
-        });
+        embeddings.push(Embedding { vector: pooled });
     }
 
     Ok(embeddings)
@@ -271,13 +237,6 @@ fn embed_batch_ort(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn bundled_tokenizer_parses() {
-        let tok =
-            Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES).expect("bundled tokenizer must parse");
-        assert!(tok.get_vocab_size(false) > 40_000);
-    }
 
     #[test]
     fn default_model_path_ends_with_model_onnx() {
@@ -331,7 +290,7 @@ mod tests {
 
         let embs = embedder.embed(&snippets).expect("embed should succeed");
         assert_eq!(embs.len(), 2);
-        assert_eq!(embs[0].dim, 768);
+        assert_eq!(embs[0].vector.len(), 768);
 
         let dot: f32 = embs[0]
             .vector

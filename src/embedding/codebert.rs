@@ -2,26 +2,15 @@ use candle_core::{D, DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::xlm_roberta::{Config as XLMConfig, XLMRobertaModel};
 use serde::Deserialize;
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::Tokenizer;
 
 use crate::core::config::{CODEBERT_REVISION, DeviceName, EmbedderConfig};
 use crate::core::types::{Degradation, DegradationKind, Embedding, SnippetRef};
 
+use super::shared::{
+    CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed, configure_codebert_tokenizer,
+};
 use super::{Embedder, EmbeddingError};
-
-/// Pre-generated tokenizer for `microsoft/codebert-base` @ CODEBERT_REVISION.
-///
-/// `microsoft/codebert-base` does not publish `tokenizer.json` on HuggingFace — only
-/// `vocab.json` + `merges.txt`. This tokenizer was generated from Python's
-/// `AutoTokenizer.from_pretrained()` and spike-validated (100% token ID match vs Python).
-///
-/// Used ONLY when `config.model_name == "microsoft/codebert-base"` AND
-/// `config.revision == CODEBERT_REVISION`. For all other models or revisions,
-/// `tokenizer.json` is downloaded via hf-hub so the tokenizer always matches the model.
-const CODEBERT_TOKENIZER_BYTES: &[u8] = include_bytes!("tokenizer.json");
-
-/// `microsoft/codebert-base` model name — identifies when to use the bundled tokenizer.
-const CODEBERT_MODEL: &str = "microsoft/codebert-base";
 
 // ── Intermediate config deserialization ──────────────────────────────────────────
 
@@ -77,20 +66,9 @@ impl From<CodeBertJson> for XLMConfig {
 /// probe), not by `candle_core::utils::cuda_is_available()` (compile-time feature check).
 ///
 /// `Auto` → CUDA (if `--features cuda`) → CPU. Auto→CPU is not recorded as a degradation.
-/// `Mps` always falls back to CPU with a degradation (use `--features mlx` for Metal GPU).
 pub(crate) fn resolve_device(requested: DeviceName) -> (Device, Option<Degradation>) {
     match requested {
         DeviceName::Cpu => (Device::Cpu, None),
-
-        DeviceName::Mps => (
-            Device::Cpu,
-            Some(Degradation {
-                kind: DegradationKind::DeviceFallback,
-                message:
-                    "Metal support not compiled (use --features mlx for GPU), falling back to CPU"
-                        .into(),
-            }),
-        ),
 
         DeviceName::Cuda => {
             #[cfg(feature = "cuda")]
@@ -147,9 +125,6 @@ pub(crate) struct CodeBertEmbedder {
     tokenizer: Tokenizer,
     device: Device,
     config: EmbedderConfig,
-    #[allow(dead_code)] // reserved for T14 test port (dim() method)
-    hidden_size: usize,
-    #[allow(dead_code)] // reserved for T14 test port (take_degradations)
     degradations: Vec<Degradation>,
 }
 
@@ -164,76 +139,48 @@ impl CodeBertEmbedder {
         let tokenizer = load_tokenizer(config)?;
 
         // Load model config + weights (with CPU fallback on load error)
-        let (model, hidden_size, device) = load_model(config, device, &mut degradations)?;
+        let (model, device) = load_model(config, device, &mut degradations)?;
 
         Ok(Self {
             model,
             tokenizer,
             device,
             config: config.clone(),
-            hidden_size,
             degradations,
         })
-    }
-
-    /// Drain accumulated degradation events (device fallback, etc.).
-    #[allow(dead_code)] // reserved for T14 test port
-    pub(crate) fn take_degradations(&mut self) -> Vec<Degradation> {
-        std::mem::take(&mut self.degradations)
     }
 }
 
 impl Embedder for CodeBertEmbedder {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
-        if snippets.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let mut result = Vec::with_capacity(snippets.len());
-        for chunk in snippets.chunks(self.config.batch_size) {
-            let texts: Vec<&str> = chunk.iter().map(|s| s.text.as_str()).collect();
-            let batch_embeddings = embed_batch(&self.model, &self.tokenizer, &self.device, &texts)?;
-            result.extend(batch_embeddings);
-        }
-        Ok(result)
+        chunked_embed(snippets, self.config.batch_size, |texts| {
+            embed_batch(&self.model, &self.tokenizer, &self.device, texts)
+        })
     }
 
-    fn dim(&self) -> usize {
-        self.hidden_size
+    /// Drain device-fallback / model-load degradation events accumulated at construction.
+    fn take_degradations(&mut self) -> Vec<Degradation> {
+        std::mem::take(&mut self.degradations)
     }
 }
 
 // ── Internal loading helpers ──────────────────────────────────────────────────
 
 /// Load tokenizer: bundled bytes for the pinned codebert model, hf-hub otherwise.
+///
+/// Both branches apply the same codebert padding/truncation config via
+/// `configure_codebert_tokenizer` — the single source of truth for that config.
 fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> {
-    let mut tokenizer =
-        if config.model_name == CODEBERT_MODEL && config.revision == CODEBERT_REVISION {
-            // Use bundled tokenizer (3.5 MB, spike-validated at 100% token ID match)
-            Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES)
-                .map_err(|e| EmbeddingError::Tokenizer(format!("bundled tokenizer: {e}")))?
-        } else {
-            // Download tokenizer.json via hf-hub for other models/revisions
-            let path = download_file(&config.model_name, &config.revision, "tokenizer.json")?;
-            Tokenizer::from_file(&path)
-                .map_err(|e| EmbeddingError::Tokenizer(format!("tokenizer from file: {e}")))?
-        };
-
-    // RoBERTa uses pad_id=1 and "<pad>" token (not 0/"[PAD]" as in BERT)
-    tokenizer.with_padding(Some(PaddingParams {
-        strategy: PaddingStrategy::BatchLongest,
-        pad_id: 1,
-        pad_token: "<pad>".into(),
-        ..Default::default()
-    }));
-    tokenizer
-        .with_truncation(Some(TruncationParams {
-            max_length: config.max_length,
-            ..Default::default()
-        }))
-        .map_err(|e| EmbeddingError::Tokenizer(format!("truncation config: {e}")))?;
-
-    Ok(tokenizer)
+    if config.model_name == CODEBERT_MODEL && config.revision == CODEBERT_REVISION {
+        // Use bundled tokenizer (3.5 MB, spike-validated at 100% token ID match)
+        bundled_codebert_tokenizer(config.max_length)
+    } else {
+        // Download tokenizer.json via hf-hub for other models/revisions
+        let path = download_file(&config.model_name, &config.revision, "tokenizer.json")?;
+        let tokenizer = Tokenizer::from_file(&path)
+            .map_err(|e| EmbeddingError::Tokenizer(format!("tokenizer from file: {e}")))?;
+        configure_codebert_tokenizer(tokenizer, config.max_length)
+    }
 }
 
 /// Load model config + weights. Falls back to CPU if load fails on non-CPU device.
@@ -241,26 +188,25 @@ fn load_model(
     config: &EmbedderConfig,
     device: Device,
     degradations: &mut Vec<Degradation>,
-) -> Result<(XLMRobertaModel, usize, Device), EmbeddingError> {
+) -> Result<(XLMRobertaModel, Device), EmbeddingError> {
     // Download config.json (same revision — never mix snapshots, DD2)
     let config_path = download_file(&config.model_name, &config.revision, "config.json")?;
     let config_str = std::fs::read_to_string(&config_path)
         .map_err(|e| EmbeddingError::ModelLoad(format!("read config.json: {e}")))?;
     let codebert_json: CodeBertJson = serde_json::from_str(&config_str)
         .map_err(|e| EmbeddingError::ModelLoad(format!("parse config.json: {e}")))?;
-    let hidden_size = codebert_json.hidden_size;
     let xlm_config: XLMConfig = codebert_json.into();
 
     // Try to load on the requested device; fall back to CPU on failure
     match try_load_weights(config, &device, &xlm_config) {
-        Ok(model) => Ok((model, hidden_size, device)),
+        Ok(model) => Ok((model, device)),
         Err(e) if !matches!(device, Device::Cpu) => {
             degradations.push(Degradation {
                 kind: DegradationKind::DeviceFallback,
                 message: format!("model load failed on {device:?} ({e}), retrying on CPU"),
             });
             let model = try_load_weights(config, &Device::Cpu, &xlm_config)?;
-            Ok((model, hidden_size, Device::Cpu))
+            Ok((model, Device::Cpu))
         }
         Err(e) => Err(e),
     }
@@ -470,10 +416,7 @@ fn embed_batch(
 
     Ok(pooled_vecs
         .into_iter()
-        .map(|v| {
-            let dim = v.len();
-            Embedding { vector: v, dim }
-        })
+        .map(|v| Embedding { vector: v })
         .collect())
 }
 
@@ -489,19 +432,6 @@ mod tests {
         let (device, deg) = resolve_device(DeviceName::Cpu);
         assert!(matches!(device, Device::Cpu));
         assert!(deg.is_none());
-    }
-
-    #[test]
-    fn resolve_device_explicit_mps_without_feature() {
-        let (device, deg) = resolve_device(DeviceName::Mps);
-        assert!(matches!(device, Device::Cpu));
-        let d = deg.expect("should have a degradation");
-        assert_eq!(d.kind, DegradationKind::DeviceFallback);
-        assert!(
-            d.message.contains("Metal"),
-            "message should mention Metal: {}",
-            d.message
-        );
     }
 
     #[test]
@@ -527,19 +457,8 @@ mod tests {
         assert!(deg.is_none(), "Auto→CPU should not record a degradation");
     }
 
-    #[test]
-    fn bundled_tokenizer_bytes_parse() {
-        // Validates that the embedded 3.5 MB tokenizer.json is valid and parseable.
-        // Runs without any external dependencies or network access.
-        let tokenizer = tokenizers::Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES)
-            .expect("bundled CODEBERT_TOKENIZER_BYTES must parse as a valid Tokenizer");
-        // Sanity check: codebert uses a 50265-token RoBERTa vocabulary
-        assert!(
-            tokenizer.get_vocab_size(false) > 40_000,
-            "expected large RoBERTa vocab, got {}",
-            tokenizer.get_vocab_size(false)
-        );
-    }
+    // Bundled-tokenizer parse is covered once in `shared.rs`
+    // (`bundled_tokenizer_parses_with_roberta_vocab`).
 
     /// End-to-end integration test: bundled tokenizer → local HF cache weights → forward pass → pooling.
     ///
@@ -563,7 +482,6 @@ mod tests {
         assert_eq!(config.revision, CODEBERT_REVISION);
 
         let embedder = CodeBertEmbedder::new(&config).expect("real model load should succeed");
-        assert_eq!(embedder.dim(), 768, "codebert-base hidden_size is 768");
 
         let make_snippet = |text: &str| -> SnippetRef {
             let file = FileRef {
@@ -596,8 +514,11 @@ mod tests {
 
         let embeddings = embedder.embed(&snippets).expect("embed should succeed");
         assert_eq!(embeddings.len(), 2);
-        assert_eq!(embeddings[0].vector.len(), 768);
-        assert_eq!(embeddings[0].dim, 768);
+        assert_eq!(
+            embeddings[0].vector.len(),
+            768,
+            "codebert-base hidden_size is 768"
+        );
 
         // Vectors should be non-zero
         let norm0: f32 = embeddings[0]

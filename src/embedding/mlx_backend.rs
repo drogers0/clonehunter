@@ -17,15 +17,13 @@
 use std::collections::HashMap;
 
 use mlx_rs::Array;
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::Tokenizer;
 
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
 use crate::core::types::{Embedding, SnippetRef};
 
+use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
 use super::{Embedder, EmbeddingError};
-
-const CODEBERT_TOKENIZER_BYTES: &[u8] = include_bytes!("tokenizer.json");
-const CODEBERT_MODEL: &str = "microsoft/codebert-base";
 
 const NUM_LAYERS: usize = 12;
 const HIDDEN_SIZE: usize = 768;
@@ -296,20 +294,9 @@ impl MlxEmbedder {
 
 impl Embedder for MlxEmbedder {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
-        if snippets.is_empty() {
-            return Ok(vec![]);
-        }
-        let mut result = Vec::with_capacity(snippets.len());
-        for chunk in snippets.chunks(self.config.batch_size) {
-            let texts: Vec<&str> = chunk.iter().map(|s| s.text.as_str()).collect();
-            let batch = embed_batch_mlx(&self.weights, &self.tokenizer, &texts)?;
-            result.extend(batch);
-        }
-        Ok(result)
-    }
-
-    fn dim(&self) -> usize {
-        HIDDEN_SIZE
+        chunked_embed(snippets, self.config.batch_size, |texts| {
+            embed_batch_mlx(&self.weights, &self.tokenizer, texts)
+        })
     }
 }
 
@@ -321,24 +308,7 @@ fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> 
             "MlxEmbedder only supports microsoft/codebert-base @ pinned revision".into(),
         ));
     }
-
-    let mut tokenizer = Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES)
-        .map_err(|e| EmbeddingError::Tokenizer(format!("bundled tokenizer: {e}")))?;
-
-    tokenizer.with_padding(Some(PaddingParams {
-        strategy: PaddingStrategy::BatchLongest,
-        pad_id: 1,
-        pad_token: "<pad>".into(),
-        ..Default::default()
-    }));
-    tokenizer
-        .with_truncation(Some(TruncationParams {
-            max_length: config.max_length,
-            ..Default::default()
-        }))
-        .map_err(|e| EmbeddingError::Tokenizer(format!("truncation config: {e}")))?;
-
-    Ok(tokenizer)
+    bundled_codebert_tokenizer(config.max_length)
 }
 
 // ── Batch inference ───────────────────────────────────────────────────────────
@@ -389,7 +359,6 @@ fn embed_batch_mlx(
         let start = row * HIDDEN_SIZE;
         let end = start + HIDDEN_SIZE;
         embeddings.push(Embedding {
-            dim: HIDDEN_SIZE,
             vector: pooled_data[start..end].to_vec(),
         });
     }
@@ -402,13 +371,6 @@ fn embed_batch_mlx(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn bundled_tokenizer_parses() {
-        let tok =
-            Tokenizer::from_bytes(CODEBERT_TOKENIZER_BYTES).expect("bundled tokenizer must parse");
-        assert!(tok.get_vocab_size(false) > 40_000);
-    }
 
     /// Run: `cargo test --features mlx -- --ignored --nocapture`
     #[test]
@@ -454,7 +416,7 @@ mod tests {
 
         let embs = embedder.embed(&snippets).expect("embed should succeed");
         assert_eq!(embs.len(), 2);
-        assert_eq!(embs[0].dim, 768);
+        assert_eq!(embs[0].vector.len(), 768);
 
         let dot: f32 = embs[0]
             .vector
