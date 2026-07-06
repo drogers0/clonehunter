@@ -54,6 +54,7 @@ const CODEBERT_MODEL: &str = "microsoft/codebert-base";
 pub(crate) enum OnnxEp {
     Cpu,
     CoreMl,
+    Cuda,
 }
 
 /// ONNX Runtime-backed embedder for `microsoft/codebert-base`.
@@ -72,26 +73,34 @@ pub(crate) struct OnnxEmbedder {
 impl OnnxEmbedder {
     /// Create an OnnxEmbedder with the CPU execution provider.
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
-        Self::new_with_ep(config, false)
+        Self::new_with_ep(config, EpChoice::Cpu)
     }
 
     /// Attempt CoreML EP first; fall back to CPU on any failure.
     ///
     /// Requires `--features onnx-coreml`. Without it compiles but always uses CPU.
     pub(crate) fn new_coreml(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
-        Self::new_with_ep(config, true)
+        Self::new_with_ep(config, EpChoice::CoreMl)
     }
 
-    fn new_with_ep(config: &EmbedderConfig, try_coreml: bool) -> Result<Self, EmbeddingError> {
-        let model_path = resolve_model_path(try_coreml)?;
-        tracing::info!(path = %model_path.display(), try_coreml, "loading ONNX model");
+    /// Attempt CUDA EP first; fall back to CPU on any failure.
+    ///
+    /// Requires `--features onnx-cuda`. Without it compiles but always uses CPU.
+    pub(crate) fn new_cuda(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
+        Self::new_with_ep(config, EpChoice::Cuda)
+    }
 
-        let (session, ep) = build_session(&model_path, try_coreml)?;
+    fn new_with_ep(config: &EmbedderConfig, choice: EpChoice) -> Result<Self, EmbeddingError> {
+        let prefer_static = matches!(choice, EpChoice::CoreMl);
+        let model_path = resolve_model_path(prefer_static)?;
+        tracing::info!(path = %model_path.display(), ?choice, "loading ONNX model");
+
+        let (session, ep) = build_session(&model_path, choice)?;
         // The CoreML path loads the fixed-sequence-length export, which requires
         // every input padded to exactly `max_length`. Masked mean-pooling makes
         // this numerically identical to batch-longest padding (pad tokens have
         // attention mask 0 and are excluded from both attention and the pool).
-        let fixed_len = if try_coreml {
+        let fixed_len = if prefer_static {
             Some(config.max_length)
         } else {
             None
@@ -179,24 +188,47 @@ pub(crate) fn default_onnx_static_model_path() -> PathBuf {
         .join(".cache/clonehunter/onnx/codebert-base-static/model.onnx")
 }
 
+// ── EP selection ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum EpChoice {
+    Cpu,
+    CoreMl,
+    Cuda,
+}
+
 // ── Session construction ──────────────────────────────────────────────────────
 
 fn build_session(
     model_path: &std::path::Path,
-    try_coreml: bool,
+    choice: EpChoice,
 ) -> Result<(ort::session::Session, OnnxEp), EmbeddingError> {
     let map_load = |e: ort::Error| EmbeddingError::ModelLoad(format!("ort: {e}"));
 
-    if try_coreml {
-        match build_coreml_session(model_path) {
-            Ok(s) => {
-                tracing::info!("ONNX Runtime: CoreML EP active");
-                return Ok((s, OnnxEp::CoreMl));
-            }
-            Err(e) => {
-                tracing::warn!("CoreML EP unavailable ({e}), falling back to CPU");
+    match choice {
+        EpChoice::CoreMl => {
+            match build_coreml_session(model_path) {
+                Ok(s) => {
+                    tracing::info!("ONNX Runtime: CoreML EP active");
+                    return Ok((s, OnnxEp::CoreMl));
+                }
+                Err(e) => {
+                    tracing::warn!("CoreML EP unavailable ({e}), falling back to CPU");
+                }
             }
         }
+        EpChoice::Cuda => {
+            match build_cuda_session(model_path) {
+                Ok(s) => {
+                    tracing::info!("ONNX Runtime: CUDA EP active");
+                    return Ok((s, OnnxEp::Cuda));
+                }
+                Err(e) => {
+                    tracing::warn!("CUDA EP unavailable ({e}), falling back to CPU");
+                }
+            }
+        }
+        EpChoice::Cpu => {}
     }
 
     let session = ort::session::Session::builder()
@@ -252,6 +284,21 @@ fn build_coreml_session(
     _model_path: &std::path::Path,
 ) -> Result<ort::session::Session, ort::Error> {
     Err(ort::Error::new("onnx-coreml feature not compiled"))
+}
+
+#[cfg(feature = "onnx-cuda")]
+fn build_cuda_session(model_path: &std::path::Path) -> ort::Result<ort::session::Session> {
+    let cuda_ep = ort::execution_providers::CUDAExecutionProvider::default().build();
+    ort::session::Session::builder()?
+        .with_execution_providers([cuda_ep])?
+        .commit_from_file(model_path)
+}
+
+#[cfg(not(feature = "onnx-cuda"))]
+fn build_cuda_session(
+    _model_path: &std::path::Path,
+) -> Result<ort::session::Session, ort::Error> {
+    Err(ort::Error::new("onnx-cuda feature not compiled"))
 }
 
 // ── Tokenizer loading ─────────────────────────────────────────────────────────

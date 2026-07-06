@@ -114,6 +114,7 @@ metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
 # CoreML EP (macOS): cargo build --release --features onnx-coreml
 onnx = ["dep:ort"]
 onnx-coreml = ["onnx", "ort/coreml"]
+onnx-cuda = ["onnx", "ort/cuda"]
 # Apple MLX backend. Apple Silicon + prebuilt MLX required.
 # Setup: ./scripts/setup-mlx.sh
 # Build: MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx

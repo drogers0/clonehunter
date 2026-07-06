@@ -95,11 +95,17 @@ pub(crate) fn create_embedder(
         EmbedderName::Onnx => {
             #[cfg(feature = "onnx")]
             {
+                // Check CLONEHUNTER_ONNX_CUDA=1 to enable CUDA EP attempt
+                let use_cuda = std::env::var("CLONEHUNTER_ONNX_CUDA")
+                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                    .unwrap_or(false);
                 // Check CLONEHUNTER_ONNX_COREML=1 to enable CoreML EP attempt
                 let use_coreml = std::env::var("CLONEHUNTER_ONNX_COREML")
                     .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
                     .unwrap_or(false);
-                if use_coreml {
+                if use_cuda {
+                    Ok(Box::new(OnnxEmbedder::new_cuda(config)?))
+                } else if use_coreml {
                     Ok(Box::new(OnnxEmbedder::new_coreml(config)?))
                 } else {
                     Ok(Box::new(OnnxEmbedder::new(config)?))
