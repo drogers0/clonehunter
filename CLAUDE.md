@@ -88,6 +88,10 @@ Grounded in how the code actually behaves — respect these when changing it:
 - **Normalization differs from Python `ast.unparse`.** Rust strips tree-sitter comment nodes; Python normalized via `ast.unparse`. The re-frozen baseline documents all divergences (Cat-A through Cat-E).
 - **Snippet text ≠ source.** Embeddings, hashes, lexical tokens, and the rendered diff all operate on the normalized (comment-stripped) form; `FunctionRef.code` keeps the original.
 - **Report format contract:** `tests/snapshots/` golden files lock the JSON/SARIF schema. After any intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures` then review and accept the new snapshots.
+- **`--embedder mlx`** requires `--features mlx` build with a prebuilt MLX library
+  (Apple Silicon only). NOT a single binary — requires libmlx.dylib + mlx.metallib
+  sidecar (~101 MB). Setup: `./scripts/setup-mlx.sh`. Fastest backend (~46s click,
+  beats PyTorch-MPS) with exact frozen-baseline parity and best numerics (2.88e-12).
 
 ## Working in this repo
 
@@ -103,7 +107,7 @@ This project uses **cargo**. There is no CI workflow for pushes — local valida
 - **Fast dev loop without model download:** `CLONEHUNTER_EMBEDDER=stub cargo run -- scan .`. The stub embedder is deterministic and covers the detection pipeline; reach for `codebert` only when embedding quality is under test.
 - **Run with real embedder:** `cargo run --release -- scan . --format html` (downloads ~440 MB on first run, cached in `~/.cache/huggingface/hub/`).
 - **Update golden snapshots** after an intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures`.
-- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine).
+- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `MLX_SYS_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
 - **Merge convention:** PRs are **squash-merged to `master`**.
 
 ## The frozen Rust baseline (detection contract)

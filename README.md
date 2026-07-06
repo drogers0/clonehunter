@@ -44,6 +44,32 @@ cargo build --release
 > and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the local cache.
 > Use `--embedder stub` for instant runs without any model download.
 
+### Apple MLX backend (Apple Silicon, optional)
+
+The MLX backend uses Apple's Metal GPU for embedding inference. It is the fastest
+backend (~46s vs ~50s PyTorch-MPS on the click benchmark) with exact detection parity.
+
+**Requirements:** Apple Silicon Mac, Python 3.11+ (for setup only, not at runtime).
+
+```bash
+# One-time setup: download and install prebuilt MLX library
+./scripts/setup-mlx.sh
+
+# Build with MLX support
+MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
+
+# Fix runtime library path
+install_name_tool -add_rpath ~/.local/share/clonehunter/mlx/lib target/release/clonehunter
+
+# Run with MLX
+./target/release/clonehunter scan . --embedder mlx
+```
+
+> **Note:** The MLX build is not a single binary — it requires `libmlx.dylib` (~16 MB) and
+> `mlx.metallib` (~85 MB) at runtime. If you see `Library not loaded: @rpath/libmlx.dylib`,
+> run the `install_name_tool` command above or set
+> `DYLD_LIBRARY_PATH=~/.local/share/clonehunter/mlx/lib`.
+
 ---
 
 ## Quickstart
@@ -163,7 +189,7 @@ By default, CLI scans apply the `monorepo` repotype preset unless overridden wit
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
   --engine semantic|sonarqube
-  --embedder codebert|faster|stub
+  --embedder codebert|faster|stub|onnx|mlx
   --index brute|faiss
   --threshold-func FLOAT
   --threshold-win FLOAT
@@ -248,6 +274,8 @@ clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_repor
 * The `faster` embedder preset uses XLM-RoBERTa architecture; loading BERT-family weights may fail — use `codebert` (the default) if `faster` fails.
 * FAISS index is not implemented; the `--index faiss` flag is accepted for CLI compatibility but always uses the brute-force index.
 * Embedding arithmetic uses f32 (candle default); near-equal cosine scores may differ slightly from the Python baseline.
+* The `mlx` embedder backend is Apple Silicon only and requires a sidecar library (~101 MB).
+  See the [Apple MLX backend](#apple-mlx-backend-apple-silicon-optional) section for build instructions.
 
 ---
 

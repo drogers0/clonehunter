@@ -19,8 +19,8 @@ pub(crate) enum EmbedderName {
     /// ONNX Runtime backend (experimental). Requires `--features onnx` build and a
     /// pre-exported model.onnx at CLONEHUNTER_ONNX_MODEL or the default cache path.
     Onnx,
-    /// Apple MLX backend (experimental). Requires `--features mlx` build.
-    /// Apple Silicon only. Uses Metal GPU for inference.
+    /// Apple MLX backend. Requires `--features mlx` build and prebuilt
+    /// libmlx.dylib (see scripts/setup-mlx.sh). Apple Silicon only; uses Metal GPU.
     Mlx,
 }
 

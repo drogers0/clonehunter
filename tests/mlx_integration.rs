@@ -1,8 +1,11 @@
 #![allow(clippy::needless_borrows_for_generic_args, dead_code, unused_variables)]
 #![cfg(feature = "mlx")]
 
-//! Numeric parity test: MLX embeddings vs PyTorch CPU reference.
-//! Run: `cargo test --features mlx --test mlx_parity -- --nocapture --test-threads=1`
+//! MLX backend integration tests.
+//!
+//! Smoke test runs with `cargo test --features mlx` (needs only the dylib link).
+//! Parity test requires model weights + fixtures:
+//!   `cargo test --features mlx --test mlx_integration -- --ignored --nocapture --test-threads=1`
 
 use mlx_rs::Array;
 use std::collections::HashMap;
@@ -195,7 +198,26 @@ struct FixtureEntry {
     embedding: Vec<f64>,
 }
 
+/// Smoke test: MLX array ops work (validates the mlx-rs link is functional).
+/// NOT #[ignore] — needs only the prebuilt dylib, not model weights.
 #[test]
+fn mlx_array_smoke() {
+    let a = Array::from_slice(&[1.0f32, 2.0, 3.0, 4.0], &[2, 2]);
+    let b = Array::from_slice(&[5.0f32, 6.0, 7.0, 8.0], &[2, 2]);
+    let c = a.matmul(&b).unwrap();
+    c.eval().unwrap();
+    let data: &[f32] = c.as_slice();
+    assert_eq!(data, &[19.0, 22.0, 43.0, 50.0]);
+}
+
+/// Numeric parity: MLX embeddings match PyTorch CPU reference within tolerance.
+/// Uses spike/fixtures/python_embeddings.json (205 entries, committed to repo).
+/// Asserts determinism (two passes produce identical results).
+/// Reports max cosine diff and max absolute diff (informational, no threshold assert —
+/// the spike validated 2.88e-12 but we don't assert a numeric bound because it
+/// depends on hardware/driver version).
+#[test]
+#[ignore]
 fn mlx_parity_vs_pytorch() {
     // Load model weights
     let home = dirs::home_dir().unwrap();
@@ -224,6 +246,10 @@ fn mlx_parity_vs_pytorch() {
 
     // Load PyTorch reference embeddings
     let fixture_path = std::path::Path::new("spike/fixtures/python_embeddings.json");
+    if !fixture_path.exists() {
+        eprintln!("Skipping: fixtures not found at {}", fixture_path.display());
+        return;
+    }
     let fixture_data = std::fs::read_to_string(fixture_path).unwrap();
     let fixtures: Vec<FixtureEntry> = serde_json::from_str(&fixture_data).unwrap();
 
