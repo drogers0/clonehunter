@@ -10,7 +10,7 @@ Two subcommands, both defined with clap derive in [src/cli/mod.rs](src/cli/mod.r
 
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]   # default format: html; default out: clonehunter_report.<ext>
-    --engine semantic|sonarqube   --embedder codebert|faster|stub   --index brute|faiss   --device auto|cpu|mps|cuda
+    --engine semantic|sonarqube   --embedder codebert|stub|onnx|mlx   --index brute|faiss   --device auto|cpu|mps|cuda
     --threshold-func/-win/-exp FLOAT   --min-window-hits INT   --lexical-min-ratio/-weight FLOAT
     --window-lines/-stride-lines/-min-nonempty INT   --expand-calls [--expand-depth/-max-chars INT]
     --cache-path PATH   --cluster [--cluster-min-size INT]
@@ -28,7 +28,7 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
 1. **collect files** — [src/io/fs.rs](src/io/fs.rs) `collect_files(paths, include_globs, exclude_globs)` → `Result<Vec<FileRef>>`. `.py` → `Language::Python`, everything else → `Language::Text`.
 2. **extract units** — python files → `extract_functions` (tree-sitter CST walk) go into *both* `python_functions` and `window_units`; every other file → one whole-file unit into `window_units` only.
 3. **generate snippets** — FUNC (one per function) + WIN (sliding windows over every unit) + EXP (call-expansion, only if `expansion.enabled`), concatenated into one list. Each snippet's `text` is **tree-sitter comment-stripped** (analysis text); `display_text` keeps comments.
-4. **embed** — `StubEmbedder` if `embedder.name==stub` else `CodeBertEmbedder` (candle XLMRobertaModel); results memoized in SQLite [src/embedding/cache.rs](src/embedding/cache.rs). Only cache-misses are embedded, in `batch_size` batches.
+4. **embed** — `StubEmbedder` if `embedder.name==stub` else `CodeBertEmbedder` (candle XLMRobertaModel), `OnnxEmbedder` (`--features onnx`), or `MlxEmbedder` (`--features mlx`); results memoized in SQLite [src/embedding/cache.rs](src/embedding/cache.rs). Only cache-misses are embedded, in `batch_size` batches.
 5. **similarity** — build the brute index, `retrieve_candidates` → `rollup_findings` → optional clustering.
 6. **assemble** — `ScanResult { findings, stats, config_snapshot, timing, degradations }` → the matching reporter.
 
@@ -42,7 +42,7 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
 - [src/io/](src/io/) — `fs.rs` (`collect_files`: globset+walkdir, early dir pruning, canonical-path dedupe). `git.rs` (`changed_files(base, paths, cwd)` = `git diff --name-only <base>` ∪ `git ls-files --others`). `fingerprints.rs` (`hash_text` = SHA-256 hex, `embed_cache_key = sha256("{model}:{revision}:{max_tokens}:{snippet_hash}")`).
 - [src/parsing/](src/parsing/) — `python_ast.rs` (`extract_functions`: tree-sitter CST walk with class/func name stack for dotted qualified name, handles `async def`, nested functions, decorators; swallows all parse errors → `[]`). `text_units.rs` (non-python file → one whole-file `FunctionRef`).
 - [src/snippets/](src/snippets/) — `normalization.rs` (`normalize_analysis`: tree-sitter comment-strip + passthrough; `normalize_display`: docstrings→pass, comments preserved). `generators.rs` (`generate_function_snippets` FUNC, `generate_window_snippets` WIN — window emitted only when non-empty-line count ≥ `min_nonempty`). `expansion.rs` (`expand_calls` BFS-inlines called helper bodies up to `depth`/`max_chars`; resolves names, `self`/`cls` methods, local classes, imports, constructors via per-file ImportMap).
-- [src/embedding/](src/embedding/) — `codebert.rs` (`CodeBertEmbedder`: candle `XLMRobertaModel`, bundled `tokenizer.json` @ pinned CODEBERT_REVISION, local HF cache lookup, CPU fallback on error; mean-pools `last_hidden_state` with attention mask). `stub.rs` (`StubEmbedder`: deterministic 16-dim SHA-256 embedder using f64 arithmetic for parity). `cache.rs` (`EmbeddingCache`: SQLite WAL, self-healing on version mismatch/corruption, chunked IN reads, legacy JSON migration). `mod.rs` (`Embedder` trait, `create_embedder`, `embed_with_cache`).
+- [src/embedding/](src/embedding/) — `codebert.rs` (`CodeBertEmbedder`: candle `XLMRobertaModel`, bundled `tokenizer.json` @ pinned CODEBERT_REVISION, local HF cache lookup, CPU fallback on error; mean-pools `last_hidden_state` with attention mask). `stub.rs` (`StubEmbedder`: deterministic 16-dim SHA-256 embedder using f64 arithmetic for parity). `cache.rs` (`EmbeddingCache`: SQLite WAL, self-healing on version mismatch/corruption, chunked IN reads, legacy JSON migration). `mod.rs` (`Embedder` trait, `create_embedder`, `embed_with_cache`). `onnx_backend.rs` (ORT CPU, `--features onnx`). `mlx_backend.rs` (Apple Metal GPU, `--features mlx`).
 - [src/index/](src/index/) — `brute.rs` (cosine via ndarray f32 matrix → f64 cast, `argsort` with `partial_cmp` stable sort). `mod.rs` (`VectorIndex` trait: `build(&mut self, ids, embeddings)` + `query(&self, embedding, top_k) -> Vec<(String, f64)>`).
 - [src/similarity/](src/similarity/) — **the heart** (same logic as Python, rayon replaces multiprocessing).
   - `candidates.rs` (`retrieve_candidates`: rayon par_iter, shared `&dyn VectorIndex` (pre-built by pipeline); applies composite score + lexical gate + per-kind threshold; **skips `neighbor_id == snip.snippet_hash`** self-match).
@@ -83,7 +83,6 @@ Grounded in how the code actually behaves — respect these when changing it:
 - **Finding *order* is not stable across rayon runs** (par_iter is unordered); scores/pairs are identical, only ordering drifts. The benchmark sorts before comparing — do the same in any parity check.
 - **Non-python files get WIN snippets only** (FUNC/EXP derive from python functions), so cross-language detection is window-based; `stats.function_count` counts python functions only.
 - **`--index faiss`** is not implemented; the flag is accepted for CLI compatibility but always uses the brute index.
-- **`faster` embedder preset** uses the XLM-RoBERTa architecture; loading BERT-family (MiniLM) weights may fail at runtime. Use `codebert` (the default) if `faster` fails.
 - **f32 precision.** Rust uses f32 for embedding arithmetic (candle default); Python used f64 (torch default). Near-equal embeddings (cosine ~1.0) may produce different top-k ordering. The re-frozen `benchmark/baseline.json` is the Rust detection contract.
 - **Normalization differs from Python `ast.unparse`.** Rust strips tree-sitter comment nodes; Python normalized via `ast.unparse`. The re-frozen baseline documents all divergences (Cat-A through Cat-E).
 - **Snippet text ≠ source.** Embeddings, hashes, lexical tokens, and the rendered diff all operate on the normalized (comment-stripped) form; `FunctionRef.code` keeps the original.
@@ -107,7 +106,7 @@ This project uses **cargo**. There is no CI workflow for pushes — local valida
 - **Fast dev loop without model download:** `CLONEHUNTER_EMBEDDER=stub cargo run -- scan .`. The stub embedder is deterministic and covers the detection pipeline; reach for `codebert` only when embedding quality is under test.
 - **Run with real embedder:** `cargo run --release -- scan . --format html` (downloads ~440 MB on first run, cached in `~/.cache/huggingface/hub/`).
 - **Update golden snapshots** after an intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures`.
-- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `MLX_SYS_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
+- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `CLONEHUNTER_ONNX_MODEL=<path>` (override ONNX model path for `--embedder onnx`); `MLX_SYS_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
 - **Merge convention:** PRs are **squash-merged to `master`**.
 
 ## The frozen Rust baseline (detection contract)

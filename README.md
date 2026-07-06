@@ -15,9 +15,7 @@ Download the pre-built binary for your platform from [GitHub Releases](https://g
 | Platform | File |
 |---|---|
 | macOS (Apple Silicon) | `clonehunter-aarch64-apple-darwin.tar.gz` |
-| macOS (Intel) | `clonehunter-x86_64-apple-darwin.tar.gz` |
 | Linux x86_64 | `clonehunter-x86_64-unknown-linux-musl.tar.gz` |
-| Windows x86_64 | `clonehunter-x86_64-pc-windows-msvc.zip` |
 
 ```bash
 # macOS / Linux example
@@ -44,6 +42,17 @@ cargo build --release
 > and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the local cache.
 > Use `--embedder stub` for instant runs without any model download.
 
+### Embedding backend support matrix
+
+| Platform | Recommended backend | Build flag | Speed (click benchmark) |
+|---|---|---|---|
+| macOS arm64 + Metal GPU | MLX (opt-in sidecar) | `--features mlx` | ~46s |
+| macOS arm64, no sidecar | candle-CPU + Accelerate | `--features accelerate` | ~750s |
+| Linux x86_64 / arm64, CPU | ORT CPU (`--embedder onnx`) | `--features onnx` | ~357s |
+| Linux x86_64 / arm64, NVIDIA GPU | candle-CUDA | `--features cuda` | ~14s |
+
+The default build (no features) uses candle-CPU and works everywhere.
+
 ### Apple MLX backend (Apple Silicon, optional)
 
 The MLX backend uses Apple's Metal GPU for embedding inference. It is the fastest
@@ -69,6 +78,33 @@ install_name_tool -add_rpath ~/.local/share/clonehunter/mlx/lib target/release/c
 > `mlx.metallib` (~85 MB) at runtime. If you see `Library not loaded: @rpath/libmlx.dylib`,
 > run the `install_name_tool` command above or set
 > `DYLD_LIBRARY_PATH=~/.local/share/clonehunter/mlx/lib`.
+
+### ONNX Runtime backend (CPU, optional)
+
+The ORT backend is the fast CPU-only alternative — ~3× faster than candle-CPU and ships
+as a single statically-linked binary (no runtime dylib). It requires a pre-exported
+`model.onnx`.
+
+```bash
+# Build
+cargo build --release --features onnx
+
+# Export model (requires PyTorch + transformers)
+# python benchmark/export_onnx.py  # generates ~/.cache/clonehunter/onnx/codebert-base/
+
+# Run
+./target/release/clonehunter scan . --embedder onnx
+```
+
+### NVIDIA CUDA backend (Linux, optional)
+
+```bash
+# Build (requires CUDA toolkit)
+cargo build --release --features cuda
+
+# Run
+./target/release/clonehunter scan . --embedder codebert --device cuda
+```
 
 ---
 
@@ -189,7 +225,7 @@ By default, CLI scans apply the `monorepo` repotype preset unless overridden wit
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
   --engine semantic|sonarqube
-  --embedder codebert|faster|stub|onnx|mlx
+  --embedder codebert|stub|onnx|mlx
   --index brute|faiss
   --threshold-func FLOAT
   --threshold-win FLOAT
@@ -271,7 +307,6 @@ clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_repor
 * Python findings are generally richer due to AST/function context.
 * Non-Python findings use windows-only analysis and may require threshold/window tuning.
 * Very small functions are harder to compare meaningfully.
-* The `faster` embedder preset uses XLM-RoBERTa architecture; loading BERT-family weights may fail — use `codebert` (the default) if `faster` fails.
 * FAISS index is not implemented; the `--index faiss` flag is accepted for CLI compatibility but always uses the brute-force index.
 * Embedding arithmetic uses f32 (candle default); near-equal cosine scores may differ slightly from the Python baseline.
 * The `mlx` embedder backend is Apple Silicon only and requires a sidecar library (~101 MB).
