@@ -18,39 +18,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{
-        CandidateMatch, FileRef, FunctionRef, Language, SnippetKind, SnippetRef,
-    };
+    use crate::test_support::{make_match as build_match, make_snippet};
 
     fn make_match(sim: f64) -> CandidateMatch {
-        let file = FileRef {
-            path: "x.py".into(),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let func = FunctionRef {
-            file,
-            qualified_name: "f".into(),
-            start_line: 1,
-            end_line: 5,
-            code: "pass".into(),
-            code_hash: "c".into(),
-        };
-        let snip = SnippetRef {
-            kind: SnippetKind::Func,
-            function: func,
-            start_line: 1,
-            end_line: 5,
-            text: "t".into(),
-            display_text: "t".into(),
-            snippet_hash: "h".into(),
-        };
-        CandidateMatch {
-            snippet_a: snip.clone(),
-            snippet_b: snip,
-            similarity: sim,
-            evidence: "".into(),
-        }
+        let snip = make_snippet("t");
+        build_match(snip.clone(), snip, sim)
     }
 
     #[test]

@@ -118,86 +118,25 @@ pub(crate) fn truncate_diff(lines: &[&str], max_lines: usize, max_chars: usize) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
-
-    use crate::core::types::{
-        CandidateMatch, FileRef, Finding, FunctionRef, Language, ScanResult, ScanStats,
-        SnippetKind, SnippetRef,
+    use crate::test_support::{
+        make_finding as build_finding, make_function, make_match, make_scan_result,
+        make_snippet_for,
     };
     use tempfile::TempDir;
 
     fn make_scan_result_empty() -> ScanResult {
-        ScanResult {
-            findings: vec![],
-            stats: ScanStats {
-                file_count: 0,
-                function_count: 0,
-                snippet_count: 0,
-                candidate_count: 0,
-                finding_count: 0,
-                cache_hits: 0,
-                cache_misses: 0,
-            },
-            config_snapshot: serde_json::json!({}),
-            timing: BTreeMap::new(),
-            degradations: vec![],
-        }
+        make_scan_result(vec![])
     }
 
     fn make_finding() -> Finding {
-        let file = FileRef {
-            path: "a.py".into(),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let func_a = FunctionRef {
-            file: file.clone(),
-            qualified_name: "foo".into(),
-            start_line: 1,
-            end_line: 10,
-            code: "def foo(): pass".into(),
-            code_hash: "ca".into(),
-        };
-        let func_b = FunctionRef {
-            file,
-            qualified_name: "bar".into(),
-            start_line: 20,
-            end_line: 30,
-            code: "def bar(): pass".into(),
-            code_hash: "cb".into(),
-        };
-        let snip_a = SnippetRef {
-            kind: SnippetKind::Func,
-            function: func_a.clone(),
-            start_line: 1,
-            end_line: 10,
-            text: "def foo(): pass".into(),
-            display_text: "def foo(): pass".into(),
-            snippet_hash: "sha".into(),
-        };
-        let snip_b = SnippetRef {
-            kind: SnippetKind::Func,
-            function: func_b.clone(),
-            start_line: 20,
-            end_line: 30,
-            text: "def bar(): pass".into(),
-            display_text: "def bar(): pass".into(),
-            snippet_hash: "shb".into(),
-        };
-        Finding {
-            function_a: func_a,
-            function_b: func_b,
-            score: 0.95,
-            duplicated_lines: 10,
-            evidence: vec![CandidateMatch {
-                snippet_a: snip_a,
-                snippet_b: snip_b,
-                similarity: 0.95,
-                evidence: "FUNC->FUNC|emb=0.950|lex=0.800|comp=0.905".into(),
-            }],
-            reasons: vec!["high_similarity".into()],
-            metadata: BTreeMap::new(),
-        }
+        let func_a = make_function("a.py", "foo", 1, 10, "def foo(): pass");
+        let func_b = make_function("a.py", "bar", 20, 30, "def bar(): pass");
+        let m = make_match(
+            make_snippet_for(&func_a, "def foo(): pass"),
+            make_snippet_for(&func_b, "def bar(): pass"),
+            0.95,
+        );
+        build_finding(func_a, func_b, 0.95, 10, vec![m], &["high_similarity"])
     }
 
     #[test]

@@ -105,22 +105,10 @@ mod tests {
     use std::path::Path;
 
     use crate::core::types::{FileRef, Language};
+    use crate::test_support::make_function;
 
     fn make_fn(path: &str, start_line: usize, end_line: usize, code: &str) -> FunctionRef {
-        let code = code.to_string();
-        let code_hash = hash_text(&code);
-        FunctionRef {
-            file: FileRef {
-                path: path.to_string(),
-                content_hash: String::new(),
-                language: Language::Python,
-            },
-            qualified_name: "test_fn".to_string(),
-            start_line,
-            end_line,
-            code,
-            code_hash,
-        }
+        make_function(path, "test_fn", start_line, end_line, code)
     }
 
     fn fixture_functions() -> Vec<FunctionRef> {

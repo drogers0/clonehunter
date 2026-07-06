@@ -282,15 +282,22 @@ fn run_diff(args: DiffArgs) -> Result<()> {
 
 // ─── Override builders ────────────────────────────────────────────────────────
 
-fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
+/// The engine/embedder/index overrides common to both `scan` and `diff`.
+/// (`scan` layers its tuning flags on top; `diff` carries only these.)
+fn base_overrides(
+    engine: Option<EngineName>,
+    embedder: Option<EmbedderName>,
+    device: Option<DeviceName>,
+    index: Option<IndexName>,
+) -> ConfigOverride {
     let mut ov = ConfigOverride {
-        engine: args.engine,
+        engine,
         ..Default::default()
     };
 
     let mut emb = EmbedderOverride {
-        name: args.embedder,
-        device: args.device,
+        name: embedder,
+        device,
         ..Default::default()
     };
     apply_embedder_env(&mut emb);
@@ -298,12 +305,18 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
         ov.embedder = Some(emb);
     }
 
-    if let Some(idx) = args.index {
+    if let Some(idx) = index {
         ov.index = Some(IndexOverride {
             name: Some(idx),
             ..Default::default()
         });
     }
+
+    ov
+}
+
+fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
+    let mut ov = base_overrides(args.engine, args.embedder, args.device, args.index);
 
     if args.threshold_func.is_some()
         || args.threshold_win.is_some()
@@ -355,29 +368,7 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
 }
 
 fn build_diff_overrides(args: &DiffArgs) -> ConfigOverride {
-    let mut ov = ConfigOverride {
-        engine: args.engine,
-        ..Default::default()
-    };
-
-    let mut emb = EmbedderOverride {
-        name: args.embedder,
-        device: args.device,
-        ..Default::default()
-    };
-    apply_embedder_env(&mut emb);
-    if emb.name.is_some() || emb.device.is_some() {
-        ov.embedder = Some(emb);
-    }
-
-    if let Some(idx) = args.index {
-        ov.index = Some(IndexOverride {
-            name: Some(idx),
-            ..Default::default()
-        });
-    }
-
-    ov
+    base_overrides(args.engine, args.embedder, args.device, args.index)
 }
 
 /// Apply the `CLONEHUNTER_EMBEDDER=stub` env override — only when `--embedder` was not passed (DD13).
@@ -781,56 +772,20 @@ mod tests {
     /// at least one changed file and that stats.finding_count is updated correctly.
     #[test]
     fn diff_filter_drops_findings_not_touching_changed_files() {
-        use std::collections::BTreeMap;
-
-        use crate::core::types::{
-            CandidateMatch, FileRef, Finding, FunctionRef, Language, ScanStats, SnippetKind,
-            SnippetRef,
+        use crate::core::types::{Finding, ScanStats};
+        use crate::test_support::{
+            make_finding as build_finding, make_function, make_match, make_snippet_for,
         };
 
         fn make_finding(path_a: &str, path_b: &str) -> Finding {
-            let make_func = |path: &str| {
-                let file = FileRef {
-                    path: path.to_string(),
-                    content_hash: "h".into(),
-                    language: Language::Python,
-                };
-                FunctionRef {
-                    file,
-                    qualified_name: "f".into(),
-                    start_line: 1,
-                    end_line: 2,
-                    code: "pass".into(),
-                    code_hash: "c".into(),
-                }
-            };
-            let func_a = make_func(path_a);
-            let func_b = make_func(path_b);
-            let make_snip = |func: &FunctionRef| SnippetRef {
-                kind: SnippetKind::Func,
-                function: func.clone(),
-                start_line: 1,
-                end_line: 2,
-                text: "pass".into(),
-                display_text: "pass".into(),
-                snippet_hash: "s".into(),
-            };
-            let snip_a = make_snip(&func_a);
-            let snip_b = make_snip(&func_b);
-            Finding {
-                function_a: func_a,
-                function_b: func_b,
-                score: 1.0,
-                duplicated_lines: 2,
-                evidence: vec![CandidateMatch {
-                    snippet_a: snip_a,
-                    snippet_b: snip_b,
-                    similarity: 1.0,
-                    evidence: "".into(),
-                }],
-                reasons: vec![],
-                metadata: BTreeMap::new(),
-            }
+            let func_a = make_function(path_a, "f", 1, 2, "pass");
+            let func_b = make_function(path_b, "f", 1, 2, "pass");
+            let m = make_match(
+                make_snippet_for(&func_a, "pass"),
+                make_snippet_for(&func_b, "pass"),
+                1.0,
+            );
+            build_finding(func_a, func_b, 1.0, 2, vec![m], &[])
         }
 
         let base = PathBuf::from("/repo");

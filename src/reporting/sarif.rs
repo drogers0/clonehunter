@@ -63,82 +63,27 @@ fn sarif_location(func: &FunctionRef) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
-
-    use crate::core::types::{
-        CandidateMatch, FileRef, Finding, FunctionRef, Language, ScanResult, ScanStats,
-        SnippetKind, SnippetRef,
+    use crate::test_support::{
+        make_finding, make_function, make_match, make_scan_result, make_snippet_for,
     };
     use tempfile::TempDir;
 
     fn make_scan_result_with_finding() -> ScanResult {
-        let file = FileRef {
-            path: "src/a.py".into(),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let func_a = FunctionRef {
-            file: file.clone(),
-            qualified_name: "foo".into(),
-            start_line: 1,
-            end_line: 10,
-            code: "def foo(): pass".into(),
-            code_hash: "ca".into(),
-        };
-        let func_b = FunctionRef {
-            file,
-            qualified_name: "bar".into(),
-            start_line: 20,
-            end_line: 30,
-            code: "def bar(): pass".into(),
-            code_hash: "cb".into(),
-        };
-        let snip_a = SnippetRef {
-            kind: SnippetKind::Func,
-            function: func_a.clone(),
-            start_line: 1,
-            end_line: 10,
-            text: "t".into(),
-            display_text: "t".into(),
-            snippet_hash: "sha".into(),
-        };
-        let snip_b = SnippetRef {
-            kind: SnippetKind::Func,
-            function: func_b.clone(),
-            start_line: 20,
-            end_line: 30,
-            text: "t".into(),
-            display_text: "t".into(),
-            snippet_hash: "shb".into(),
-        };
-        ScanResult {
-            findings: vec![Finding {
-                function_a: func_a,
-                function_b: func_b,
-                score: 0.95,
-                duplicated_lines: 10,
-                evidence: vec![CandidateMatch {
-                    snippet_a: snip_a,
-                    snippet_b: snip_b,
-                    similarity: 0.95,
-                    evidence: "".into(),
-                }],
-                reasons: vec!["high_similarity".into()],
-                metadata: BTreeMap::new(),
-            }],
-            stats: ScanStats {
-                file_count: 1,
-                function_count: 2,
-                snippet_count: 2,
-                candidate_count: 1,
-                finding_count: 1,
-                cache_hits: 0,
-                cache_misses: 2,
-            },
-            config_snapshot: serde_json::json!({}),
-            timing: BTreeMap::new(),
-            degradations: vec![],
-        }
+        let func_a = make_function("src/a.py", "foo", 1, 10, "def foo(): pass");
+        let func_b = make_function("src/a.py", "bar", 20, 30, "def bar(): pass");
+        let m = make_match(
+            make_snippet_for(&func_a, "t"),
+            make_snippet_for(&func_b, "t"),
+            0.95,
+        );
+        make_scan_result(vec![make_finding(
+            func_a,
+            func_b,
+            0.95,
+            10,
+            vec![m],
+            &["high_similarity"],
+        )])
     }
 
     #[test]

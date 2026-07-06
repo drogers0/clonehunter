@@ -476,37 +476,13 @@ mod tests {
     #[ignore] // Requires HF cache from Phase-0 spike. Run: cargo test -- --ignored --nocapture
     fn codebert_embed_produces_vectors() {
         use crate::core::config::CODEBERT_REVISION;
-        use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind, SnippetRef};
+        use crate::core::types::SnippetRef;
+        use crate::test_support::make_snippet;
 
         let config = EmbedderConfig::default(); // codebert-base @ CODEBERT_REVISION, CPU
         assert_eq!(config.revision, CODEBERT_REVISION);
 
         let embedder = CodeBertEmbedder::new(&config).expect("real model load should succeed");
-
-        let make_snippet = |text: &str| -> SnippetRef {
-            let file = FileRef {
-                path: "a.py".into(),
-                content_hash: "h".into(),
-                language: Language::Python,
-            };
-            let func = FunctionRef {
-                file,
-                qualified_name: "f".into(),
-                start_line: 1,
-                end_line: 3,
-                code: text.into(),
-                code_hash: "h".into(),
-            };
-            SnippetRef {
-                kind: SnippetKind::Func,
-                function: func,
-                start_line: 1,
-                end_line: 3,
-                text: text.into(),
-                display_text: text.into(),
-                snippet_hash: crate::io::fingerprints::hash_text(text),
-            }
-        };
 
         let s1 = make_snippet("def foo(x): return x + 1");
         let s2 = make_snippet("def bar(y): return y + 1");

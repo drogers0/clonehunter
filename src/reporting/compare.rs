@@ -41,7 +41,8 @@ pub(crate) fn select_compare(matches: &[CandidateMatch]) -> Option<CompareData> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{FileRef, FunctionRef, Language, SnippetRef};
+    use crate::core::types::SnippetRef;
+    use crate::test_support::{make_function, make_match, make_snippet_kind};
 
     fn make_snip(
         kind: SnippetKind,
@@ -50,37 +51,14 @@ mod tests {
         text: &str,
         disp: &str,
     ) -> SnippetRef {
-        let file = FileRef {
-            path: "a.py".into(),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let func = FunctionRef {
-            file,
-            qualified_name: "f".into(),
-            start_line: start,
-            end_line: end,
-            code: "pass".into(),
-            code_hash: "c".into(),
-        };
-        SnippetRef {
+        make_snippet_kind(
             kind,
-            function: func,
-            start_line: start,
-            end_line: end,
-            text: text.into(),
-            display_text: disp.into(),
-            snippet_hash: "hash".into(),
-        }
-    }
-
-    fn make_match(sa: SnippetRef, sb: SnippetRef, sim: f64) -> CandidateMatch {
-        CandidateMatch {
-            snippet_a: sa,
-            snippet_b: sb,
-            similarity: sim,
-            evidence: "".into(),
-        }
+            make_function("a.py", "f", start, end, "pass"),
+            start,
+            end,
+            text,
+            disp,
+        )
     }
 
     #[test]

@@ -131,8 +131,9 @@ pub(crate) fn retrieve_candidates(
 mod tests {
     use super::*;
     use crate::core::config::Thresholds;
-    use crate::core::types::{Embedding, FileRef, FunctionRef, Language, SnippetKind, SnippetRef};
+    use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind, SnippetRef};
     use crate::index::BruteIndex;
+    use crate::test_support::make_embedding as emb;
 
     fn make_file() -> FileRef {
         FileRef {
@@ -163,10 +164,6 @@ mod tests {
             display_text: text.into(),
             snippet_hash: hash.into(),
         }
-    }
-
-    fn emb(v: Vec<f32>) -> Embedding {
-        Embedding { vector: v }
     }
 
     fn default_thresholds() -> Thresholds {

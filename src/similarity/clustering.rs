@@ -103,62 +103,16 @@ pub(crate) fn filter_clusters(findings: &[Finding], min_size: usize) -> Vec<Find
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{
-        CandidateMatch, FileRef, Finding, FunctionRef, Language, SnippetKind, SnippetRef,
+    use crate::test_support::{
+        make_finding as build_finding, make_function, make_match, make_snippet_for,
     };
-    use std::collections::BTreeMap;
 
     fn make_finding(a_name: &str, b_name: &str) -> Finding {
-        let file_a = FileRef {
-            path: format!("{a_name}.py"),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let file_b = FileRef {
-            path: format!("{b_name}.py"),
-            content_hash: "h".into(),
-            language: Language::Python,
-        };
-        let fn_a = FunctionRef {
-            file: file_a,
-            qualified_name: a_name.into(),
-            start_line: 1,
-            end_line: 2,
-            code: "pass".into(),
-            code_hash: a_name.into(),
-        };
-        let fn_b = FunctionRef {
-            file: file_b,
-            qualified_name: b_name.into(),
-            start_line: 1,
-            end_line: 2,
-            code: "pass".into(),
-            code_hash: b_name.into(),
-        };
-        let snip = SnippetRef {
-            kind: SnippetKind::Func,
-            function: fn_a.clone(),
-            start_line: 1,
-            end_line: 2,
-            text: "pass".into(),
-            display_text: "pass".into(),
-            snippet_hash: a_name.into(),
-        };
-        let m = CandidateMatch {
-            snippet_a: snip.clone(),
-            snippet_b: snip,
-            similarity: 1.0,
-            evidence: "".into(),
-        };
-        Finding {
-            function_a: fn_a,
-            function_b: fn_b,
-            score: 1.0,
-            duplicated_lines: 2,
-            evidence: vec![m],
-            reasons: vec!["func_threshold".into()],
-            metadata: BTreeMap::new(),
-        }
+        let fn_a = make_function(&format!("{a_name}.py"), a_name, 1, 2, "pass");
+        let fn_b = make_function(&format!("{b_name}.py"), b_name, 1, 2, "pass");
+        let snip = make_snippet_for(&fn_a, "pass");
+        let m = make_match(snip.clone(), snip, 1.0);
+        build_finding(fn_a, fn_b, 1.0, 2, vec![m], &["func_threshold"])
     }
 
     #[test]

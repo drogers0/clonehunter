@@ -324,11 +324,8 @@ fn expand_tilde_with_home(path: &str, home: Option<PathBuf>) -> Result<PathBuf, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::make_embedding;
     use tempfile::TempDir;
-
-    fn make_embedding(values: Vec<f32>) -> Embedding {
-        Embedding { vector: values }
-    }
 
     fn cache_in(dir: &TempDir) -> EmbeddingCache {
         EmbeddingCache::new(dir.path().to_str().unwrap()).unwrap()

@@ -113,11 +113,7 @@ impl VectorIndex for BruteIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::Embedding;
-
-    fn emb(v: Vec<f32>) -> Embedding {
-        Embedding { vector: v }
-    }
+    use crate::test_support::make_embedding as emb;
 
     fn ids(n: usize) -> Vec<String> {
         (0..n).map(|i| i.to_string()).collect()

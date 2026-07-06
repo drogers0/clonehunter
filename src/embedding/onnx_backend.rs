@@ -251,7 +251,8 @@ mod tests {
     #[ignore]
     fn onnx_embed_produces_vectors() {
         use crate::core::config::{EmbedderConfig, EmbedderName};
-        use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind, SnippetRef};
+        use crate::core::types::SnippetRef;
+        use crate::test_support::make_snippet;
 
         let config = EmbedderConfig {
             name: EmbedderName::Onnx,
@@ -259,33 +260,8 @@ mod tests {
         };
         let embedder = OnnxEmbedder::new(&config).expect("OnnxEmbedder::new should succeed");
 
-        let make_snip = |text: &str| -> SnippetRef {
-            let file = FileRef {
-                path: "a.py".into(),
-                content_hash: "h".into(),
-                language: Language::Python,
-            };
-            let func = FunctionRef {
-                file,
-                qualified_name: "f".into(),
-                start_line: 1,
-                end_line: 3,
-                code: text.into(),
-                code_hash: "h".into(),
-            };
-            SnippetRef {
-                kind: SnippetKind::Func,
-                function: func,
-                start_line: 1,
-                end_line: 3,
-                text: text.into(),
-                display_text: text.into(),
-                snippet_hash: crate::io::fingerprints::hash_text(text),
-            }
-        };
-
-        let s1 = make_snip("def foo(x): return x + 1");
-        let s2 = make_snip("def bar(y): return y + 1");
+        let s1 = make_snippet("def foo(x): return x + 1");
+        let s2 = make_snippet("def bar(y): return y + 1");
         let snippets: Vec<&SnippetRef> = vec![&s1, &s2];
 
         let embs = embedder.embed(&snippets).expect("embed should succeed");
