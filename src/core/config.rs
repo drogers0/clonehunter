@@ -14,10 +14,9 @@ pub(crate) enum EngineName {
 #[serde(rename_all = "lowercase")]
 pub(crate) enum EmbedderName {
     Codebert,
-    Faster,
     Stub,
-    /// ONNX Runtime backend (experimental). Requires `--features onnx` build and a
-    /// pre-exported model.onnx at CLONEHUNTER_ONNX_MODEL or the default cache path.
+    /// ONNX Runtime backend. Requires `--features onnx` build and a pre-exported
+    /// model.onnx at CLONEHUNTER_ONNX_MODEL or the default cache path.
     Onnx,
     /// Apple MLX backend. Requires `--features mlx` build and prebuilt
     /// libmlx.dylib (see scripts/setup-mlx.sh). Apple Silicon only; uses Metal GPU.
@@ -189,16 +188,6 @@ pub(crate) fn embedder_preset(name: EmbedderName) -> Option<EmbedderPreset> {
             max_length: 256,
             batch_size: 16,
         }),
-        EmbedderName::Faster => Some(EmbedderPreset {
-            // sentence-transformers/all-MiniLM-L6-v2: 22M params, 384-dim, BERT-family.
-            // ~5× smaller than CodeBERT → ~5× faster inference in candle.
-            // Uses candle's BertModel (not XLMRobertaModel — BERT vs RoBERTa architectures differ).
-            // revision = "main" — prototype; re-freeze at a pinned SHA before shipping.
-            model_name: "sentence-transformers/all-MiniLM-L6-v2",
-            revision: "main",
-            max_length: 512,
-            batch_size: 32,
-        }),
         EmbedderName::Stub => None, // No preset; stub uses whatever defaults are in place
         EmbedderName::Onnx => Some(EmbedderPreset {
             // Same model as codebert; ONNX backend does its own weight loading
@@ -299,15 +288,6 @@ mod tests {
         assert_eq!(p.revision, CODEBERT_REVISION);
         assert_eq!(p.max_length, 256);
         assert_eq!(p.batch_size, 16);
-    }
-
-    #[test]
-    fn faster_preset_values() {
-        let p = embedder_preset(EmbedderName::Faster).unwrap();
-        assert_eq!(p.model_name, "sentence-transformers/all-MiniLM-L6-v2");
-        assert_eq!(p.revision, "main");
-        assert_eq!(p.max_length, 512);
-        assert_eq!(p.batch_size, 32);
     }
 
     #[test]

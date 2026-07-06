@@ -443,46 +443,6 @@ name = "brute"
     }
 
     #[test]
-    fn embedder_preset_faster() {
-        let dir = TempDir::new().unwrap();
-        let ov = ConfigOverride {
-            embedder: Some(EmbedderOverride {
-                name: Some(EmbedderName::Faster),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-        let config = load_config(dir.path(), Some(&ov)).unwrap();
-        assert_eq!(config.embedder.name, EmbedderName::Faster);
-        assert_eq!(
-            config.embedder.model_name,
-            "sentence-transformers/all-MiniLM-L6-v2"
-        );
-        assert_eq!(config.embedder.max_length, 512);
-        assert_eq!(config.embedder.batch_size, 32);
-    }
-
-    #[test]
-    fn embedder_preset_with_explicit_override() {
-        let dir = TempDir::new().unwrap();
-        let ov = ConfigOverride {
-            embedder: Some(EmbedderOverride {
-                name: Some(EmbedderName::Faster),
-                batch_size: Some(64),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-        let config = load_config(dir.path(), Some(&ov)).unwrap();
-        assert_eq!(config.embedder.name, EmbedderName::Faster);
-        assert_eq!(
-            config.embedder.model_name,
-            "sentence-transformers/all-MiniLM-L6-v2"
-        );
-        assert_eq!(config.embedder.batch_size, 64); // explicit wins over preset
-    }
-
-    #[test]
     fn embedder_preset_codebert_unchanged() {
         // When CLI re-states name=codebert (same as default), preset rebase must NOT occur.
         // Verify with TOML that customizes batch_size — it must survive.
