@@ -1,0 +1,12 @@
+# Generated / embedded data — not hand-written source. Marked so GitHub collapses them
+# in diffs (Files changed) and excludes them from repository language statistics.
+src/embedding/tokenizer.json linguist-generated=true
+benchmark/baseline.json      linguist-generated=true
+Cargo.lock                   linguist-generated=true
+spike/fixtures/*.json        linguist-generated=true
+
+# Committed example reports (tool output linked from README, not source).
+examples/**                  linguist-generated=true
+
+# Vendored third-party source (Apple mlx-c, used only by the `mlx` feature build).
+vendor/**                    linguist-vendored=true

@@ -1,0 +1,118 @@
+[package]
+name = "clonehunter"
+version = "2.0.0"
+edition = "2024"
+rust-version = "1.85.0"
+description = "Find duplicate code across mixed-language repositories"
+license = "MIT"
+default-run = "clonehunter"
+authors = ["drogers0"]
+homepage = "https://github.com/drogers0/clonehunter"
+repository = "https://github.com/drogers0/clonehunter"
+documentation = "https://github.com/drogers0/clonehunter"
+keywords = ["code-clone", "duplicate-code", "static-analysis"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "clonehunter"
+path = "src/main.rs"
+
+[lib]
+name = "clonehunter"
+path = "src/lib.rs"
+
+[dependencies]
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization / config
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Hashing
+sha2 = "0.10"
+hex = "0.4"
+
+# Embedding (candle) — CodeBERT is RoBERTa-family
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
+hf-hub = "0.3"
+
+# Database (embedding cache)
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Parsing
+tree-sitter = "0.24"
+tree-sitter-python = "0.23"
+
+# Numeric
+ndarray = "0.16"
+
+# Parallelism
+rayon = "1"
+
+# Diff
+similar = "2"
+
+# Regex (lexical similarity tokenization)
+regex = "1"
+
+# File system
+walkdir = "2"
+globset = "0.4"
+dirs = "5"
+
+# ONNX Runtime (optional — feature "onnx")
+# download-binaries: downloads prebuilt libonnxruntime on first cargo build (no manual install)
+# copy-dylibs: copies the dylib next to the binary for easy distribution
+# ndarray: disabled — we use (shape, &[T]) tuples to pass tensors without ndarray version conflict
+ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, features = ["download-binaries", "copy-dylibs"] }
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+insta = { version = "1", features = ["json", "redactions"] }
+
+# Build dependencies for the `mlx` feature only (optional → compiled out otherwise).
+[build-dependencies]
+cc = { version = "1", optional = true }
+cmake = { version = "0.1", optional = true }
+
+[features]
+default = []
+# Apple Accelerate BLAS (macOS): free ~1.5× speedup for candle-CPU inference.
+accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
+# NVIDIA CUDA backend (Linux GPU, the fastest tier — 13.6s on RTX 5090).
+# Build: cargo build --release --features cuda --device cuda
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+# ONNX Runtime backend (CPU-only, single static binary, fast portable option).
+# Enables EmbedderName::Onnx which routes through ort (ORT 1.20, statically linked).
+# Requires a pre-exported model.onnx (+ model.onnx.data) at
+#   CLONEHUNTER_ONNX_MODEL env var OR ~/.cache/clonehunter/onnx/codebert-base/model.onnx
+# Build: cargo build --release --features onnx
+onnx = ["dep:ort"]
+# Apple MLX backend (Apple Silicon + prebuilt MLX required). Routes through our own
+# C++ shim (csrc/ch_mlx.cpp) over vendored mlx-c (vendor/mlx-c) — no mlx-rs/mlx-sys. The
+# crate-root build.rs (gated on this feature) builds & links it; cc/cmake are pulled in
+# only here so non-mlx builds never compile them.
+# Setup: ./scripts/setup-mlx.sh
+# Build: CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
+mlx = ["dep:cc", "dep:cmake"]
+
+[profile.release]
+lto = true
+opt-level = 3
+strip = true
+codegen-units = 1

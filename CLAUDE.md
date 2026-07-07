@@ -1,16 +1,16 @@
 # CloneHunter
 
-CloneHunter finds duplicate code across mixed-language repositories and emits evidence-rich HTML/JSON/SARIF reports. It is a semantic retrieval pipeline, not a grep: Python files are parsed to functions (AST), every file is also windowed, snippets are embedded with a transformer (CodeBERT by default), neighbors are retrieved by vector similarity (brute-force or FAISS), and each candidate is re-scored by blending embedding similarity with lexical (identifier-Jaccard) similarity before rollup into findings.
+CloneHunter finds duplicate code across mixed-language repositories and emits evidence-rich HTML/JSON/SARIF reports. It is a semantic retrieval pipeline, not a grep: Python files are parsed to functions (tree-sitter AST), every file is also windowed, snippets are embedded with a transformer (CodeBERT via candle), neighbors are retrieved by vector similarity (brute-force), and each candidate is re-scored by blending embedding similarity with lexical (identifier-Jaccard) similarity before rollup into findings.
 
-Console entry point: `clonehunter = clonehunter.cli.main:main` ([pyproject.toml](pyproject.toml)); `python -m clonehunter` runs the same `main` ([\_\_main\_\_.py](src/clonehunter/__main__.py)). Package requires Python ≥ 3.10; the dev checkout pins **3.13** ([.python-version](.python-version)). Runtime deps: numpy, torch, transformers, tqdm; `faiss-cpu` is an optional extra; `tomli` only on 3.10.
+Binary entry point: `[[bin]] name = "clonehunter" path = "src/main.rs"` ([Cargo.toml](Cargo.toml)); the library crate is `src/lib.rs`. Rust edition 2024, MSRV 1.85.0.
 
 ## CLI surface
 
-Two subcommands, both defined by pure argparse wiring in [cli/main.py](src/clonehunter/cli/main.py) (no logic there). The full flag list is in [README.md](README.md); the load-bearing shape:
+Two subcommands, both defined with clap derive in [src/cli/mod.rs](src/cli/mod.rs). The full flag list is in [README.md](README.md); the load-bearing shape:
 
 ```
 clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]   # default format: html; default out: clonehunter_report.<ext>
-    --engine semantic|sonarqube   --embedder codebert|faster|stub   --index brute|faiss   --device auto|cpu|mps|cuda
+    --engine semantic|sonarqube   --embedder codebert|stub|onnx|mlx   --index brute|faiss   --device auto|cpu|cuda
     --threshold-func/-win/-exp FLOAT   --min-window-hits INT   --lexical-min-ratio/-weight FLOAT
     --window-lines/-stride-lines/-min-nonempty INT   --expand-calls [--expand-depth/-max-chars INT]
     --cache-path PATH   --cluster [--cluster-min-size INT]
@@ -19,85 +19,116 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]   # default 
 clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-index/-device ...]
 ```
 
-**`scan`** carries the full tuning surface. **`diff`** deliberately carries none of the threshold/glob/repotype knobs — only `--base` (default `HEAD`) plus the common report/override args. Every override flag defaults to `None` so it only overrides config/defaults when actually passed ([cli/commands/overrides.py](src/clonehunter/cli/commands/overrides.py) drops `None`s via `clean_overrides` — this is what makes layering safe).
+**`scan`** carries the full tuning surface. **`diff`** carries only `--base` (default `HEAD`) plus the common report/override args. Every override field is `Option<T>` so it only overrides config/defaults when actually passed.
 
 ## End-to-end flow
 
-`run_scan` → `get_engine(config.engine).scan(...)` → for the semantic engine, [core/pipeline.py](src/clonehunter/core/pipeline.py) `run_pipeline`, in this exact order (each stage timed):
+`run_scan` → `get_engine(config.engine).scan(...)` → for the semantic engine, [src/engines/pipeline.rs](src/engines/pipeline.rs) `run_pipeline`, in this exact order (each stage timed):
 
-1. **collect files** — [io/fs.py](src/clonehunter/io/fs.py) `collect_files(paths, include, exclude)` → `list[FileRef]`. `.py` → `python`, everything else → `text`.
-2. **extract units** — python files → `extract_functions` (AST) go into *both* `python_functions` and `window_units`; every other file → one whole-file unit into `window_units` only.
-3. **generate snippets** — FUNC (one per function) + WIN (sliding windows over every unit) + EXP (call-expansion, only if `expansion.enabled`), concatenated into one list. Each snippet's `text` is **docstring-stripped and `ast.unparse`d** ([snippets/normalization.py](src/clonehunter/snippets/normalization.py)).
-4. **embed** — `StubEmbedder` if `embedder.name=="stub"` else `CodeBertEmbedder`; results memoized in the SQLite [embedding/cache.py](src/clonehunter/embedding/cache.py). Only cache-misses are embedded, in `batch_size` batches.
-5. **similarity** — build the index (faiss with **brute fallback on `RuntimeError`**), `retrieve_candidates` → `rollup_findings` → optional `cluster_findings`/`filter_clusters`.
-6. **assemble** — `ScanResult(findings, stats, config_snapshot, timing)` → the matching reporter.
+1. **collect files** — [src/io/fs.rs](src/io/fs.rs) `collect_files(paths, include_globs, exclude_globs)` → `Result<Vec<FileRef>>`. `.py` → `Language::Python`, everything else → `Language::Text`.
+2. **extract units** — python files → `extract_functions` (tree-sitter CST walk) go into *both* `python_functions` and `window_units`; every other file → one whole-file unit into `window_units` only.
+3. **generate snippets** — FUNC (one per function) + WIN (sliding windows over every unit) + EXP (call-expansion, only if `expansion.enabled`), concatenated into one list. Each snippet's `text` is **tree-sitter comment-stripped** (analysis text); `display_text` keeps comments.
+4. **embed** — `StubEmbedder` if `embedder.name==stub` else `CodeBertEmbedder` (candle XLMRobertaModel), `OnnxEmbedder` (`--features onnx`), or `MlxEmbedder` (`--features mlx`); results memoized in SQLite [src/embedding/cache.rs](src/embedding/cache.rs). Only cache-misses are embedded, in `batch_size` batches.
+5. **similarity** — build the brute index, `retrieve_candidates` → `rollup_findings` → optional clustering.
+6. **assemble** — `ScanResult { findings, stats, config_snapshot, timing, degradations }` → the matching reporter.
 
 ## Repo layout
 
-- [cli/](src/clonehunter/cli/) — `main.py` argparse only; `commands/scan.py` is the real orchestration (`run_scan`: build nested overrides only for touched option-groups → force engine registration via `__import__("clonehunter.engines")` → resolve config root by walking up to the nearest `pyproject.toml` → `load_config` → **two-pass glob merge** → `get_engine(...).scan(...)` → reporter). `commands/diff.py` (`run_diff`: `git` changed-files → full scan of paths → filter findings to those touching a changed file; **if nothing changed it re-runs scan with `paths=[]` → empty report**). `commands/overrides.py` maps flat CLI args → the nested override dict and honors `CLONEHUNTER_EMBEDDER=stub`.
-- [core/](src/clonehunter/core/) — the spine. `pipeline.py` (`run_pipeline`, see flow above). `types.py` — all frozen/slots dataclasses: `FileRef`, `FunctionRef` (its `identity = "{path}:{qname}:{start}:{end}"` is **the pervasive grouping/dedupe key**), `SnippetRef` (`kind` ∈ FUNC/WIN/EXP, absolute line spans, normalized `text`), `Embedding`, `CandidateMatch`, `Finding`, `ScanStats`, `ScanResult`, `ScanRequest`. `config.py` — nested config dataclasses + defaults (see below) + `EMBEDDER_PRESETS`. `config_loader.py` — `load_config` layers **defaults → `[tool.clonehunter]` in pyproject → CLI overrides**, then `validate_config` (enum membership, positivity, `[0,1]` unit intervals). `errors.py` (`CloneHunterError`/`ConfigError`), `logging.py` (singleton `"clonehunter"` logger).
-- [model/](src/clonehunter/model/) — `interfaces.py` defines six ABCs (`Engine`, `Extractor`, `SnippetGenerator`, `Embedder`, `VectorIndex`, `Reporter`) but **only `Engine` and `VectorIndex` are actually subclassed** — embedders/reporters/extractors/generators are duck-typed. `registry.py` is a name→factory map **for engines only** (`get_engine` raises `ConfigError` listing supported names); embedder and index are selected by hardcoded `if/else` in `pipeline.py`.
-- [parsing/](src/clonehunter/parsing/) — `python_ast.py` (`parse_file` reads UTF-8 `errors="replace"`; `extract_functions` walks with a class/func name stack for dotted `qualified_name`, handles `async def`, emits nested functions individually, **swallows all parse errors → `[]`**). `text_units.py` (turns any non-python file into one whole-file `FunctionRef` — how non-python code enters windowing).
-- [snippets/](src/clonehunter/snippets/) — `normalization.py` (`strip_docstrings` via `ast.NodeTransformer`, then `ast.unparse`, falling back to raw source on `SyntaxError`). `generators.py` (`generate_function_snippets`, `generate_window_snippets` — window emitted only when non-empty-line count ≥ `min_nonempty`, offsets mapped back to absolute lines). `expansion.py` (the most complex module: `expand_calls` BFS-inlines called helper bodies into a caller's text up to `depth`/`max_chars` so extract-method refactors still register as clones; resolves names/`self`·`cls` methods/local classes/imported functions/constructors via a per-file `ImportMap`).
-- [embedding/](src/clonehunter/embedding/) — `codebert_embedder.py` (`resolve_device`: `auto` → mps→cuda→cpu; lazy torch/transformers import; **mean-pools `last_hidden_state` with the attention mask**; **falls back to CPU on `RuntimeError`**; serves both `codebert` and `faster` presets). `stub_embedder.py` (deterministic 16-dim SHA-256 embedder — the reason detection logic is testable without torch). `cache.py` (`EmbeddingCache`: SQLite WAL, schema-versioned with self-healing on version-mismatch/corruption, chunked `IN` reads, lazy migration from legacy `{key}.json`; **cache key excludes device/batch_size** — see fingerprints).
-- [index/](src/clonehunter/index/) — `brute_index.py` (cosine via matrix mult; `np.argsort(-scores, kind="stable")` — the **stable sort is deliberate for parity**). `faiss_index.py` (exact `IndexFlatIP` when `N < nlist`, else approximate `IndexIVFFlat`; raises `RuntimeError` when faiss is absent → caught by the pipeline fallback; IVF is **approximate → not parity-stable**).
-- [engines/](src/clonehunter/engines/) — `semantic_engine.py` (one-line delegate to `run_pipeline`). `sonarqube_engine.py` (an **adapter, not a detector**: reads a precomputed report path from `CLONEHUNTER_SONAR_REPORT`, maps `duplications[]` → `Finding`s with `score=1.0`; runs no embedding/index/similarity). Both register at import in `engines/__init__.py`.
-- [similarity/](src/clonehunter/similarity/) — **the heart** (see scoring below). `candidates.py` (`retrieve_candidates`, multiprocessed across `cpu_count()-1` workers, each building its own full index; applies the composite score + lexical gate + per-kind threshold; **skips self-hash**). `lexical.py` (`lexical_similarity` = Jaccard over lowercased `[A-Za-z0-9_]+` identifier tokens). `scoring.py` (`best_score`). `ranking.py` (`kind_rank`, `best_match` — the representative pair, chosen with an **order-independent deterministic tie-break**). `rollup.py` (`rollup_findings`: filter-overlap → filter-lexical → dedupe → normalize a/b orientation → group by function pair → emit only if it has ≥1 reason; `_duplicated_lines`). `occurrences.py` (`SelfCloneOccurrences` — recent N-way self-clone aggregator; union-finds overlapping spans into connected components and counts `sum(lengths) − max(length)` per component to avoid over-counting chained self-clones). `clustering.py` (union-find over `function.identity`; only runs when `cluster_findings` is on).
-- [reporting/](src/clonehunter/reporting/) — `schema.py` (`SCHEMA_VERSION` tracks the installed package version). `compare.py` (`select_compare` — **not** a report-vs-report diff; picks the single `best_match` evidence pair to render, shared by JSON+HTML). `json_reporter.py` (`{schema_version, findings, stats, config, timing}`, each finding with a unified `difflib` diff). `sarif_reporter.py` (SARIF 2.1.0, `note`-level results). `html_reporter.py` (self-contained inline CSS/JS, `SequenceMatcher`-opcode side-by-side diff, client-side sort; **self-clone aware** — threads `SelfCloneOccurrences` into evidence bounds and hidden-line markers).
-- [io/](src/clonehunter/io/) — `fs.py` (`collect_files`: `os.walk` pruning excluded dirs early, custom `**` glob matching, dedupe by canonical path). `git.py` (`changed_files` = `git diff --name-only <base>` ∪ `git ls-files --others`; only `diff` uses it). `fingerprints.py` (`hash_text` = SHA-256; `embed_cache_key = hash("{model}:{revision}:{max_tokens}:{snippet_hash}")` — device/batch are intentionally *not* keyed).
-- [\_compat/toml.py](src/clonehunter/_compat/toml.py) — stdlib `tomllib` (3.11+) with `tomli` fallback (3.10).
+- [src/core/](src/core/) — the spine.
+  - `types.rs` — all data types: `FileRef`, `FunctionRef` (`identity() = "{path}:{qname}:{start}:{end}"`), `SnippetRef` (`kind` ∈ Func/Win/Exp, `text` = analysis, `display_text` = display, `snippet_hash` = hash over kind+path+line-span+`code_hash` (WIN also folds in analysis text; see `snippets/generators.rs` — deliberately **not** a hash of `text` alone, so distinct functions never collide)), `Embedding` (f32 vec), `CandidateMatch`, `Finding`, `ScanStats`, `ScanResult`, `ScanRequest`, `Language`.
+  - `config.rs` — `CloneHunterConfig` nested structs + enums + repotype presets + `EMBEDDER_PRESETS`.
+  - `config_loader.rs` — `ConfigOverride`, `load_config` layers **defaults → `clonehunter.toml` → CLI overrides**, `validate_config` (enum membership, unit intervals). `find_config_root` walks up from any path looking for `clonehunter.toml`.
+  - `errors.rs` (`CloneHunterError`/`ConfigError`), `logging.rs` (tracing subscriber init).
+- [src/io/](src/io/) — `fs.rs` (`collect_files`: globset+walkdir, early dir pruning, canonical-path dedupe). `git.rs` (`changed_files(base, paths, cwd)` = `git diff --name-only <base>` ∪ `git ls-files --others`). `fingerprints.rs` (`hash_text` = SHA-256 hex, `embed_cache_key = sha256("{backend}:{model}:{revision}:{max_tokens}:{snippet_hash}")`).
+- [src/parsing/](src/parsing/) — `python_ast.rs` (`extract_functions`: tree-sitter CST walk with class/func name stack for dotted qualified name, handles `async def`, nested functions, decorators; swallows all parse errors → `[]`). `text_units.rs` (non-python file → one whole-file `FunctionRef`).
+- [src/snippets/](src/snippets/) — `normalization.rs` (`normalize_analysis`: tree-sitter comment-strip + passthrough; `normalize_display`: docstrings→pass, comments preserved). `generators.rs` (`generate_function_snippets` FUNC, `generate_window_snippets` WIN — window emitted only when non-empty-line count ≥ `min_nonempty`). `expansion.rs` (`expand_calls` BFS-inlines called helper bodies up to `depth`/`max_chars`; resolves names, `self`/`cls` methods, local classes, imports, constructors via per-file ImportMap).
+- [src/embedding/](src/embedding/) — `codebert.rs` (`CodeBertEmbedder`: candle `XLMRobertaModel`, bundled `tokenizer.json` @ pinned CODEBERT_REVISION, local HF cache lookup, CPU fallback on error; mean-pools `last_hidden_state` with attention mask). `stub.rs` (`StubEmbedder`: deterministic 16-dim SHA-256 embedder using f64 arithmetic for parity). `cache.rs` (`EmbeddingCache`: SQLite WAL, self-healing on version mismatch/corruption, chunked IN reads, per-row corrupt-BLOB skip). `mod.rs` (`Embedder` trait, `create_embedder`, `embed_with_cache`). `onnx_backend.rs` (ORT CPU, `--features onnx`). `mlx_backend.rs` (Apple Metal GPU, `--features mlx`) — a thin FFI wrapper; the RoBERTa forward pass runs in a self-owned C++ shim [csrc/ch_mlx.cpp](csrc/ch_mlx.cpp) over Apple's vendored `mlx-c` ([vendor/mlx-c](vendor/mlx-c)), built/linked by the crate-root [build.rs](build.rs). No `mlx-rs`/`mlx-sys`.
+- [src/index/](src/index/) — `brute.rs` (cosine via ndarray f32 matrix → f64 cast, `argsort` with `partial_cmp` stable sort). `mod.rs` (`VectorIndex` trait: `build(&mut self, ids, embeddings)` + `query(&self, embedding, top_k) -> Vec<(String, f64)>`).
+- [src/similarity/](src/similarity/) — **the heart** (same logic as Python, rayon replaces multiprocessing).
+  - `candidates.rs` (`retrieve_candidates`: rayon par_iter, shared `&dyn VectorIndex` (pre-built by pipeline); applies composite score + lexical gate + per-kind threshold; **skips `neighbor_id == snip.snippet_hash`** self-match).
+  - `lexical.rs` (`lexical_similarity` = Jaccard over lowercased `[A-Za-z0-9_]+` tokens).
+  - `scoring.rs` (`best_score`).
+  - `ranking.rs` (`kind_rank`, `best_match` — deterministic tie-break via `to_bits()`).
+  - `rollup.rs` (`rollup_findings`: filter-overlap → filter-lexical → dedupe → normalize a/b orientation → group by function pair → emit only if ≥1 reason; `_duplicated_lines`).
+  - `occurrences.rs` (`SelfCloneOccurrences` — union-find over overlapping spans; `covered_lines` uses adjacency; `occurrence_for` is `&self`).
+  - `clustering.rs` (union-find over `function.identity`; only runs when `cluster_findings` is on).
+- [src/reporting/](src/reporting/) — `schema.rs` (`SCHEMA_VERSION = env!("CARGO_PKG_VERSION")`). `compare.rs` (`select_compare` → `best_match` for rendering). `json.rs` (`write_json`: `{schema_version, findings, stats, config, timing}`, each finding with a `similar`-crate unified diff). `sarif.rs` (`write_sarif`: SARIF 2.1.0, `note`-level results). `html.rs` (`write_html`: self-contained inline CSS/JS, `DiffOp` side-by-side diff, client-side sort; self-clone aware via `SelfCloneOccurrences`).
+- [src/engines/](src/engines/) — `pipeline.rs` (`run_pipeline`: the 6-stage impl). `semantic.rs` (one-line delegate). `sonarqube.rs` (adapter: reads `CLONEHUNTER_SONAR_REPORT` env var, maps `duplications[]` → `Finding`s with `score=1.0`; no embedding/index). `mod.rs` (`get_engine`, `PipelineError`).
+- [src/cli/](src/cli/) — `mod.rs` (clap derive; `Commands::Scan(Box<ScanArgs>)` boxed to avoid large-enum-variant; `run_scan` = build overrides → `resolve_config_root` walk-up → `load_config` → two-pass glob merge → engine.scan → reporter; `run_diff` = `changed_files` → full scan → filter findings to changed paths → reporter). `glob_merge.rs` (`REPO_TYPE_PRESETS`, `effective_repotypes`, `resolve_repotype_globs`, `merge_globs`, `validate_repotype`).
+- [src/main.rs](src/main.rs), [src/lib.rs](src/lib.rs).
 
 ## Scoring, thresholds & config layering
 
-**Composite score** ([similarity/candidates.py](src/clonehunter/similarity/candidates.py)): `composite = (1 − lexical_weight)·embedding + lexical_weight·lexical`. A candidate is kept when `lexical ≥ lexical_min_ratio` **and** `composite ≥` the per-kind threshold (FUNC→`func`, WIN→`win`, else→`exp`).
+**Composite score** ([src/similarity/candidates.rs](src/similarity/candidates.rs)): `composite = (1 − lexical_weight)·embedding + lexical_weight·lexical`. A candidate is kept when `lexical ≥ lexical_min_ratio` **and** `composite ≥` the per-kind threshold (Func→`func`, Win→`win`, else→`exp`).
 
-**Config defaults** ([core/config.py](src/clonehunter/core/config.py)): `engine="semantic"`; thresholds `func=0.92, win=0.90, exp=0.90, min_window_hits=1, lexical_min_ratio=0.5, lexical_weight=0.3`; **windows `window_lines=40, stride=6, min_nonempty=4`** (note: the README example and the benchmark both use `window_lines=12`, not the code default); expansion `enabled=False, depth=1, max_chars=4000`; index `name="brute", top_k=25, faiss_nlist=128, faiss_nprobe=8`; embedder `name="codebert", model="microsoft/codebert-base", revision="main", max_length=256, batch_size=16, device="auto"`; cache `~/.cache/clonehunter`; `include_globs=["**/*.py"]`; `cluster_findings=False, cluster_min_size=2`.
+**Config defaults** ([src/core/config.rs](src/core/config.rs)): `engine="semantic"`; thresholds `func=0.92, win=0.90, exp=0.90, min_window_hits=1, lexical_min_ratio=0.5, lexical_weight=0.3`; windows `window_lines=40, stride=6, min_nonempty=4`; expansion `enabled=false, depth=1, max_chars=4000`; index `name="brute", top_k=25`; embedder `name="codebert", model="microsoft/codebert-base", revision=<pinned SHA>, max_length=256, batch_size=16, device="auto"`; cache `~/.cache/clonehunter`; `include_globs=["**/*.py"]`; `cluster_findings=false, cluster_min_size=2`.
 
-**Glob layering** (`scan` only, applied *after* `load_config` in [cli/commands/scan.py](src/clonehunter/cli/commands/scan.py)): pyproject globs → `--repotype` preset globs → explicit `--include/--exclude-globs`, with the most recent CLI layer winning conflicts. With no `--repotype`, scan defaults to the **`monorepo`** preset = the union of *all* language presets, so a bare `clonehunter scan` scans every language, not just `**/*.py`.
+**Glob layering** (`scan` only, applied after `load_config` in [src/cli/mod.rs](src/cli/mod.rs)): when `--repotype` is explicitly passed, the repotype preset **replaces** the config's include_globs entirely; when `--repotype` is omitted, the `monorepo` expansion is merged on top of config globs. Then `--include/--exclude-globs` are merged as the final CLI layer, with conflicts resolved in favour of the CLI layer. `--repotype none` produces empty include_globs → 0 files collected.
 
 ## Design principles
 
 Grounded in how the code actually behaves — respect these when changing it:
 
 - **Determinism/parity is a first-class constraint.** The brute index sorts stably, `best_match` and `SelfCloneOccurrences` are order-independent, the stub embedder is deterministic. This exists because outputs are a frozen contract (below). Do not introduce nondeterminism into detection.
-- **Config overrides are additive and safe.** Unset CLI flags are `None` and dropped; nested override sub-dicts are injected only for option-groups the user touched. Never let an unset flag clobber a pyproject/default value.
-- **One canonicalization point per concept.** a/b pair orientation is normalized in exactly one place (`rollup._normalize_orientation`, per-pair by `function.identity` then `start_line`); snippet text is normalized once (docstring-strip + unparse). Everything downstream depends on these — don't add a second.
-- **Degrade gracefully, never crash the scan.** faiss→brute, CUDA/MPS→CPU, missing tqdm→no-op progress, unparseable file→skipped, corrupt/old cache→self-heal. New external dependencies should follow suit.
-- **Testable without heavy deps.** `CLONEHUNTER_EMBEDDER=stub` runs the entire detection pipeline without torch; most tests rely on it. Keep detection logic independent of the concrete embedder.
+- **Config overrides are additive and safe.** Unset CLI fields are `None` and dropped; nested override sub-structs are only set when the user touched their option-group. Never let an unset flag clobber a config/default value.
+- **One canonicalization point per concept.** a/b pair orientation is normalized in exactly one place (`rollup._normalize_orientation`); analysis text is normalized once (`normalize_analysis`). Everything downstream depends on these — don't add a second.
+- **Degrade gracefully, never crash the scan.** CUDA/MPS→CPU, missing progress display→no-op, unparseable file→skipped, corrupt/old cache→self-heal. New external dependencies should follow suit.
+- **Testable without heavy deps.** `CLONEHUNTER_EMBEDDER=stub` runs the entire detection pipeline without downloading model weights; all integration tests rely on it. Keep detection logic independent of the concrete embedder.
 
 ## Known limitations & gotchas
 
-- **`diff` and `scan` do not scan the same files.** `diff` skips repotype/glob merging entirely and calls `load_config(cwd, ...)`, so it obeys only the config default `**/*.py` — whereas a bare `scan` scans all languages via the `monorepo` default. Cross-language diff needs explicit config.
+- **`diff` and `scan` do not scan the same files.** `diff` skips repotype/glob merging entirely, so it obeys only the config default `**/*.py` — whereas a bare `scan` scans all languages via the `monorepo` default. Cross-language diff needs explicit config. (`diff` *does* discover `clonehunter.toml` via walk-up from a subdirectory, same as `scan`.)
 - **`lexical_min_ratio` gates twice** — in candidate retrieval *and* again in rollup. `min_window_hits` is not a per-match filter; it earns a finding the `min_window_hits` *reason*, and a finding is emitted only if it has ≥1 reason.
-- **Self-match filtering is two-layered:** retrieval skips a snippet matching its own hash; rollup keeps *same-function* self-clones only when line ranges are disjoint and drops *same-file cross-function* range overlaps as containment.
-- **Finding *order* is not stable across multiprocessed runs** (workers use `imap_unordered`); scores/pairs are identical, only ordering drifts. The benchmark sorts before comparing — do the same in any parity check.
+- **Self-match filtering:** retrieval skips a snippet whose `snippet_hash` equals a neighbor's. Because `snippet_hash` folds in path + line-span (not just text), distinct functions never share a hash — so this only prevents a snippet from matching *itself*, and byte-identical code in *different* files/functions **is** reported (see `pipeline.rs::test_pipeline_detects_clones_e2e`). Rollup then keeps *same-function* self-clones only when line ranges are disjoint and drops *same-file cross-function* range overlaps as containment.
+- **The embedding cache key includes the backend** (`embed_cache_key = sha256("{backend}:{model}:{revision}:{max_tokens}:{snippet_hash}")`): candle/onnx/mlx are not bit-identical, so they must not share cache entries. Switching `--embedder` re-embeds on first use (or isolate with `--cache-path`).
+- **WIN analysis text falls back to raw source on a mid-construct window boundary.** When a sliding window splits a construct (e.g. starts on an orphaned `elif`, or splits a multi-line string), tree-sitter's `has_error()` trips and that window's analysis text is *not* comment-stripped (raw passthrough), while a cleanly-aligned overlapping window of the same code is. A known Cat-A contributor; aligning windows to statement boundaries is out of scope.
+- **Finding *order* is not stable across rayon runs** (par_iter is unordered); scores/pairs are identical, only ordering drifts. The benchmark sorts before comparing — do the same in any parity check.
 - **Non-python files get WIN snippets only** (FUNC/EXP derive from python functions), so cross-language detection is window-based; `stats.function_count` counts python functions only.
-- **`--index faiss` silently degrades to brute** when faiss is missing, and faiss IVF is approximate → not parity-stable. Parity work uses `--index brute`.
-- **Snippet text ≠ source.** Embeddings, hashes, lexical tokens, and the rendered diff all operate on the normalized (docstring-stripped, unparsed) form; `FunctionRef.code` keeps the original.
-- **`interfaces.py` is partly aspirational** — the `Embedder`/`Reporter`/`Extractor`/`SnippetGenerator` ABCs are not subclassed. Match the existing duck-typed shapes rather than assuming inheritance.
+- **`--index faiss`** is not implemented; the flag is accepted for CLI compatibility but always uses the brute index. (The former `faiss_nlist`/`faiss_nprobe` config knobs were removed — they were dead.)
+- **`--engine sonarqube` ignores scan paths and tuning flags.** It sources findings entirely from the `CLONEHUNTER_SONAR_REPORT` JSON; the scan `paths`, thresholds, globs, and embedder/device flags have no effect (a `tracing::warn!` is emitted to make this visible).
+- **`--device` is `auto|cpu|cuda`** (no `mps`): candle's Metal path was removed. On Apple Silicon use `--embedder mlx` for the Metal GPU; the candle backend runs CPU (or CUDA on Linux).
+- **Graceful degradations are surfaced.** GPU→CPU device fallback and cache self-heal events are logged to stderr (`tracing::warn!`) and included in the JSON report (`degradations: [{kind, message}]`) and the HTML report header banner.
+- **f32 precision.** Rust uses f32 for embedding arithmetic (candle default); Python used f64 (torch default). Near-equal embeddings (cosine ~1.0) may produce different top-k ordering. The re-frozen `benchmark/baseline.json` is the Rust detection contract.
+- **Normalization differs from Python `ast.unparse`.** Rust strips tree-sitter comment nodes; Python normalized via `ast.unparse`. The re-frozen baseline documents all divergences (Cat-A through Cat-E).
+- **Snippet text ≠ source.** Embeddings, hashes, lexical tokens, and the rendered diff all operate on the normalized (comment-stripped) form; `FunctionRef.code` keeps the original.
+- **Report format contract:** `tests/snapshots/` golden files lock the JSON/SARIF schema. After any intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures` then review and accept the new snapshots.
+- **`--embedder mlx`** requires `--features mlx` build with a prebuilt MLX library
+  (Apple Silicon only). NOT a single binary — requires libmlx.dylib + mlx.metallib
+  sidecar (~101 MB). Setup: `./scripts/setup-mlx.sh`, then build with
+  `CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx`. Fastest backend (~47s click,
+  beats PyTorch-MPS) with exact frozen-baseline parity. The forward pass is our own C++
+  shim ([csrc/ch_mlx.cpp](csrc/ch_mlx.cpp)) over vendored `mlx-c` — **not** `mlx-rs`; the
+  MLX default error handler (which `exit(-1)`s) is replaced by a non-fatal one so op
+  errors surface as a normal degradation instead of crashing the scan.
 
 ## Working in this repo
 
-This project uses **uv**. There is no CI workflow — local validation is the gate. Run all four before declaring a change done:
+This project uses **cargo**. There is no CI workflow for pushes — local validation is the gate. Run all four before declaring a change done:
 
 ```bash
-uv run ruff format --check .   # format (line-length 100, py310 target)
-uv run ruff check .            # lint (E,F,I,UP,B,SIM,C4,RUF)
-uv run pyright                 # type-check — strict mode, all reportUnknown* on
-uv run pytest                  # tests (testpaths=tests)
+~/.cargo/bin/cargo fmt --check              # format (rustfmt)
+~/.cargo/bin/cargo clippy --all-targets -- -D warnings   # lint
+~/.cargo/bin/cargo test                     # tests (~268)
+~/.cargo/bin/cargo build --release          # verify release build
 ```
 
-- **Fast dev loop without torch:** `CLONEHUNTER_EMBEDDER=stub uv run clonehunter scan .`. The stub embedder is deterministic and covers the detection pipeline; reach for `codebert` only when embedding quality is under test.
-- **Install dev + optional extras:** `uv sync` then `uv pip install -e ".[dev,faiss]"`.
-- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine).
+- **Fast dev loop without model download:** `CLONEHUNTER_EMBEDDER=stub cargo run -- scan .`. The stub embedder is deterministic and covers the detection pipeline; reach for `codebert` only when embedding quality is under test.
+- **Run with real embedder:** `cargo run --release -- scan . --format html` (downloads ~440 MB on first run, cached in `~/.cache/huggingface/hub/`).
+- **Update golden snapshots** after an intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures`.
+- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `CLONEHUNTER_ONNX_MODEL=<path>` (override ONNX model path for `--embedder onnx`); `CLONEHUNTER_MLX_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
 - **Merge convention:** PRs are **squash-merged to `master`**.
 
-## The frozen Python baseline (Rust-rewrite parity contract)
+## The frozen Rust baseline (detection contract)
 
-A Rust rewrite is planned (issue #23). Before it, the Python detector's output was frozen as the parity target: tag **`v1.1.0-python-baseline`** (at `d86f05c`) and the tracked file [benchmark/baseline.json](benchmark/baseline.json). Treat this as a contract:
+Tag **`rust-baseline`** and the tracked file [benchmark/baseline.json](benchmark/baseline.json) are the parity contract for the Rust implementation. They supersede the Python baseline at `v1.1.0-python-baseline`.
 
-- [benchmark/run_benchmark.py](benchmark/run_benchmark.py) clones four pinned repos at verified SHAs (click 8.1.8, requests 2.32.3, attrs 24.3.0, rich 13.9.4) and scans each **cold then warm** with a fixed `SCAN_FLAGS` set (codebert/brute/semantic, `--repotype python`, thresholds 0.92/0.90/0.90, window 12/stride 6/min-nonempty 4). It records sorted `finding_scores` (6dp) and `finding_pairs` per repo.
-- `--save-baseline` writes `baseline.json` (keys: `timestamp`, `environment`, `results`; `environment` captures clonehunter version + git SHA, lib versions, full config, hardware, resolved `torch_device`). `--compare-baseline` requires **detection counts, cache metrics, and finding pairs to match exactly, scores within 1e-4**; timing is informational (30% tolerance).
-- `benchmark/{repos,output,cache}/` are gitignored — `baseline.json` is the only tracked artifact and the sole reproduction contract.
+- [benchmark/run_benchmark.py](benchmark/run_benchmark.py) is a Python harness that clones four pinned repos (click 8.1.8, requests 2.32.3, attrs 24.3.0, rich 13.9.4) and calls the **Rust binary** for each scan. It records sorted `finding_scores` (6dp) and `finding_pairs` per repo. The harness uses `CLONEHUNTER_BINARY` env var to locate the binary (defaults to `target/release/clonehunter`).
+- `--save-baseline` writes `baseline.json` (keys: `timestamp`, `environment`, `results`; `environment` captures `rust_version`, `candle_version`, `resolved_device`, full config, hardware). `--compare-baseline` requires **detection counts and finding pairs to match exactly, scores within 1e-4**; timing is informational.
+- **Any change that alters detection output** (candidate generation, scoring, thresholds, rollup, expansion, parsing) must be deliberate: regenerate the baseline with `run_benchmark.py --save-baseline`, confirm the diff is fully explained by your change, and re-freeze.
 
-**Any change that alters detection output** (candidate generation, scoring, thresholds, rollup, expansion, parsing) must be deliberate: regenerate the baseline with `run_benchmark.py --save-baseline`, confirm the diff is fully explained by your change, and re-freeze (move the tag + refresh the release asset). Changes that only touch rendering, IO, or performance must leave `baseline.json`'s detection fields byte-identical.
+Known divergences from Python baseline (fully explained, Cat-A through Cat-E):
+- **Cat-A** — comment stripping in analysis text (tree-sitter vs `ast.unparse`)
+- **Cat-B** — f32 vs f64 embedding precision (~1e-4 cosine delta)
+- **Cat-C** — tree-sitter extraction differences (minor)
+- **Cat-D** — `config_snapshot` format differences
+- **Cat-E** — file collection globset vs Python `os.walk` corner cases

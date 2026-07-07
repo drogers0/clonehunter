@@ -1,0 +1,110 @@
+---
+source: tests/golden_fixtures.rs
+expression: "&value"
+---
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+  "properties": {
+    "schema_version": "[VERSION]"
+  },
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "[PATH]"
+                },
+                "region": {
+                  "endLine": 5,
+                  "startLine": 1
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "[PATH]"
+                },
+                "region": {
+                  "endLine": 5,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "properties": {
+            "duplicated_lines": 5,
+            "metadata": {},
+            "reasons": [
+              "func_threshold"
+            ],
+            "score": 1.0
+          },
+          "ruleId": "clonehunter"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "[PATH]"
+                },
+                "region": {
+                  "endLine": 13,
+                  "startLine": 8
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "[PATH]"
+                },
+                "region": {
+                  "endLine": 13,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Potential semantic clone"
+          },
+          "properties": {
+            "duplicated_lines": 6,
+            "metadata": {},
+            "reasons": [
+              "func_threshold"
+            ],
+            "score": 1.0
+          },
+          "ruleId": "clonehunter"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/drogers0/clonehunter",
+          "name": "CloneHunter",
+          "rules": [
+            {
+              "id": "clonehunter",
+              "name": "SemanticClone",
+              "shortDescription": {
+                "text": "Semantic code clone"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}
