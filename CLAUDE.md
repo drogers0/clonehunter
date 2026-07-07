@@ -93,7 +93,7 @@ Grounded in how the code actually behaves — respect these when changing it:
 - **`--embedder mlx`** requires `--features mlx` build with a prebuilt MLX library
   (Apple Silicon only). NOT a single binary — requires libmlx.dylib + mlx.metallib
   sidecar (~101 MB). Setup: `./scripts/setup-mlx.sh`, then build with
-  `CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx`. Fastest backend (~46s click,
+  `CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx`. Fastest backend (~47s click,
   beats PyTorch-MPS) with exact frozen-baseline parity. The forward pass is our own C++
   shim ([csrc/ch_mlx.cpp](csrc/ch_mlx.cpp)) over vendored `mlx-c` — **not** `mlx-rs`; the
   MLX default error handler (which `exit(-1)`s) is replaced by a non-fatal one so op

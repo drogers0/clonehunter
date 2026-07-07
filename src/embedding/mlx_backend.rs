@@ -9,7 +9,7 @@
 //! shim is built and linked by the crate-root `build.rs` against a prebuilt `libmlx`
 //! (see `scripts/setup-mlx.sh` and the `CLONEHUNTER_MLX_PREBUILT` env var).
 //!
-//! **Performance:** ~46s on the click benchmark (3386 snippets) — beats PyTorch-MPS.
+//! **Performance:** ~47s on the click benchmark (3386 snippets) — beats PyTorch-MPS.
 //! **Detection:** 578 findings — exact frozen-baseline parity (the contract).
 //!
 //! Uses the same bundled tokenizer and mean-pooling as `CodeBertEmbedder`; weights are

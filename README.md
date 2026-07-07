@@ -46,7 +46,7 @@ cargo build --release
 
 | Platform | Recommended backend | Build flag | Speed (click benchmark) |
 |---|---|---|---|
-| macOS arm64 + Metal GPU | MLX (opt-in sidecar) | `--features mlx` | ~46s |
+| macOS arm64 + Metal GPU | MLX (opt-in sidecar) | `--features mlx` | ~47s |
 | macOS arm64, no sidecar | candle-CPU + Accelerate | `--features accelerate` | ~750s |
 | Linux x86_64 / arm64, CPU | ORT CPU (`--embedder onnx`) | `--features onnx` | ~357s |
 | Linux x86_64 / arm64, NVIDIA GPU | candle-CUDA | `--features cuda` | ~14s |
@@ -56,7 +56,7 @@ The default build (no features) uses candle-CPU and works everywhere.
 ### Apple MLX backend (Apple Silicon, optional)
 
 The MLX backend uses Apple's Metal GPU for embedding inference. It is the fastest
-backend (~46s vs ~50s PyTorch-MPS on the click benchmark) with exact detection parity.
+backend (~47s vs ~50s PyTorch-MPS on the click benchmark) with exact detection parity.
 
 **Requirements:** Apple Silicon Mac, Python 3.11+ (for setup only, not at runtime).
 
