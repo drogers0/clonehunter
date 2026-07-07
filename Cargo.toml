@@ -1,6 +1,6 @@
 [package]
 name = "clonehunter"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 rust-version = "1.85.0"
 description = "Find duplicate code across mixed-language repositories"
