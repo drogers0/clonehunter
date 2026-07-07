@@ -82,20 +82,16 @@ indicatif = "0.17"
 # ndarray: disabled — we use (shape, &[T]) tuples to pass tensors without ndarray version conflict
 ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, features = ["download-binaries", "copy-dylibs"] }
 
-# Apple MLX backend (optional — feature "mlx")
-# Setup: ./scripts/setup-mlx.sh
-# Build: MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
-# Version pairing: this Rust crate (0.25.3) versions independently of the Python
-# `mlx` package. scripts/setup-mlx.sh installs the mlx==0.25.2 wheel (there is no
-# Python mlx 0.25.3); 0.25.3 bindings + 0.25.2 C++ lib is the validated pairing
-# (578 findings, 4.47e-13). Re-validate parity before bumping either.
-mlx-rs = { version = "=0.25.3", optional = true, default-features = false, features = ["safetensors"] }
-
 [dev-dependencies]
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
+
+# Build dependencies for the `mlx` feature only (optional → compiled out otherwise).
+[build-dependencies]
+cc = { version = "1", optional = true }
+cmake = { version = "0.1", optional = true }
 
 [features]
 default = []
@@ -110,15 +106,13 @@ cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 #   CLONEHUNTER_ONNX_MODEL env var OR ~/.cache/clonehunter/onnx/codebert-base/model.onnx
 # Build: cargo build --release --features onnx
 onnx = ["dep:ort"]
-# Apple MLX backend. Apple Silicon + prebuilt MLX required.
+# Apple MLX backend (Apple Silicon + prebuilt MLX required). Routes through our own
+# C++ shim (csrc/ch_mlx.cpp) over vendored mlx-c (vendor/mlx-c) — no mlx-rs/mlx-sys. The
+# crate-root build.rs (gated on this feature) builds & links it; cc/cmake are pulled in
+# only here so non-mlx builds never compile them.
 # Setup: ./scripts/setup-mlx.sh
-# Build: MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
-mlx = ["dep:mlx-rs"]
-
-[patch.crates-io]
-# Patched to remove "metal" from default features. Metal support is baked into the
-# prebuilt libmlx.dylib (installed by scripts/setup-mlx.sh) — no cmake Metal flag needed.
-mlx-sys = { path = "vendor/mlx-sys-0.2.0" }
+# Build: CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
+mlx = ["dep:cc", "dep:cmake"]
 
 [profile.release]
 lto = true

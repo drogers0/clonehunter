@@ -8,5 +8,5 @@ spike/fixtures/*.json        linguist-generated=true
 # Committed example reports (tool output linked from README, not source).
 examples/**                  linguist-generated=true
 
-# Vendored third-party crate (patched mlx-sys, used only by the `mlx` feature build).
+# Vendored third-party source (Apple mlx-c, used only by the `mlx` feature build).
 vendor/**                    linguist-vendored=true

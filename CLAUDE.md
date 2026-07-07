@@ -42,7 +42,7 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
 - [src/io/](src/io/) — `fs.rs` (`collect_files`: globset+walkdir, early dir pruning, canonical-path dedupe). `git.rs` (`changed_files(base, paths, cwd)` = `git diff --name-only <base>` ∪ `git ls-files --others`). `fingerprints.rs` (`hash_text` = SHA-256 hex, `embed_cache_key = sha256("{model}:{revision}:{max_tokens}:{snippet_hash}")`).
 - [src/parsing/](src/parsing/) — `python_ast.rs` (`extract_functions`: tree-sitter CST walk with class/func name stack for dotted qualified name, handles `async def`, nested functions, decorators; swallows all parse errors → `[]`). `text_units.rs` (non-python file → one whole-file `FunctionRef`).
 - [src/snippets/](src/snippets/) — `normalization.rs` (`normalize_analysis`: tree-sitter comment-strip + passthrough; `normalize_display`: docstrings→pass, comments preserved). `generators.rs` (`generate_function_snippets` FUNC, `generate_window_snippets` WIN — window emitted only when non-empty-line count ≥ `min_nonempty`). `expansion.rs` (`expand_calls` BFS-inlines called helper bodies up to `depth`/`max_chars`; resolves names, `self`/`cls` methods, local classes, imports, constructors via per-file ImportMap).
-- [src/embedding/](src/embedding/) — `codebert.rs` (`CodeBertEmbedder`: candle `XLMRobertaModel`, bundled `tokenizer.json` @ pinned CODEBERT_REVISION, local HF cache lookup, CPU fallback on error; mean-pools `last_hidden_state` with attention mask). `stub.rs` (`StubEmbedder`: deterministic 16-dim SHA-256 embedder using f64 arithmetic for parity). `cache.rs` (`EmbeddingCache`: SQLite WAL, self-healing on version mismatch/corruption, chunked IN reads, legacy JSON migration). `mod.rs` (`Embedder` trait, `create_embedder`, `embed_with_cache`). `onnx_backend.rs` (ORT CPU, `--features onnx`). `mlx_backend.rs` (Apple Metal GPU, `--features mlx`).
+- [src/embedding/](src/embedding/) — `codebert.rs` (`CodeBertEmbedder`: candle `XLMRobertaModel`, bundled `tokenizer.json` @ pinned CODEBERT_REVISION, local HF cache lookup, CPU fallback on error; mean-pools `last_hidden_state` with attention mask). `stub.rs` (`StubEmbedder`: deterministic 16-dim SHA-256 embedder using f64 arithmetic for parity). `cache.rs` (`EmbeddingCache`: SQLite WAL, self-healing on version mismatch/corruption, chunked IN reads, legacy JSON migration). `mod.rs` (`Embedder` trait, `create_embedder`, `embed_with_cache`). `onnx_backend.rs` (ORT CPU, `--features onnx`). `mlx_backend.rs` (Apple Metal GPU, `--features mlx`) — a thin FFI wrapper; the RoBERTa forward pass runs in a self-owned C++ shim [csrc/ch_mlx.cpp](csrc/ch_mlx.cpp) over Apple's vendored `mlx-c` ([vendor/mlx-c](vendor/mlx-c)), built/linked by the crate-root [build.rs](build.rs). No `mlx-rs`/`mlx-sys`.
 - [src/index/](src/index/) — `brute.rs` (cosine via ndarray f32 matrix → f64 cast, `argsort` with `partial_cmp` stable sort). `mod.rs` (`VectorIndex` trait: `build(&mut self, ids, embeddings)` + `query(&self, embedding, top_k) -> Vec<(String, f64)>`).
 - [src/similarity/](src/similarity/) — **the heart** (same logic as Python, rayon replaces multiprocessing).
   - `candidates.rs` (`retrieve_candidates`: rayon par_iter, shared `&dyn VectorIndex` (pre-built by pipeline); applies composite score + lexical gate + per-kind threshold; **skips `neighbor_id == snip.snippet_hash`** self-match).
@@ -92,8 +92,12 @@ Grounded in how the code actually behaves — respect these when changing it:
 - **Report format contract:** `tests/snapshots/` golden files lock the JSON/SARIF schema. After any intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures` then review and accept the new snapshots.
 - **`--embedder mlx`** requires `--features mlx` build with a prebuilt MLX library
   (Apple Silicon only). NOT a single binary — requires libmlx.dylib + mlx.metallib
-  sidecar (~101 MB). Setup: `./scripts/setup-mlx.sh`. Fastest backend (~46s click,
-  beats PyTorch-MPS) with exact frozen-baseline parity and best numerics (2.88e-12).
+  sidecar (~101 MB). Setup: `./scripts/setup-mlx.sh`, then build with
+  `CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx`. Fastest backend (~46s click,
+  beats PyTorch-MPS) with exact frozen-baseline parity. The forward pass is our own C++
+  shim ([csrc/ch_mlx.cpp](csrc/ch_mlx.cpp)) over vendored `mlx-c` — **not** `mlx-rs`; the
+  MLX default error handler (which `exit(-1)`s) is replaced by a non-fatal one so op
+  errors surface as a normal degradation instead of crashing the scan.
 
 ## Working in this repo
 
@@ -109,7 +113,7 @@ This project uses **cargo**. There is no CI workflow for pushes — local valida
 - **Fast dev loop without model download:** `CLONEHUNTER_EMBEDDER=stub cargo run -- scan .`. The stub embedder is deterministic and covers the detection pipeline; reach for `codebert` only when embedding quality is under test.
 - **Run with real embedder:** `cargo run --release -- scan . --format html` (downloads ~440 MB on first run, cached in `~/.cache/huggingface/hub/`).
 - **Update golden snapshots** after an intentional schema change: `INSTA_UPDATE=new cargo test --test golden_fixtures`.
-- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `CLONEHUNTER_ONNX_MODEL=<path>` (override ONNX model path for `--embedder onnx`); `MLX_SYS_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
+- **Env vars:** `CLONEHUNTER_EMBEDDER=stub` (force stub); `CLONEHUNTER_SONAR_REPORT=<path>` (required by the `sonarqube` engine); `CLONEHUNTER_ONNX_MODEL=<path>` (override ONNX model path for `--embedder onnx`); `CLONEHUNTER_MLX_PREBUILT=<dir>` (prebuilt MLX library location for `--features mlx` build).
 - **Merge convention:** PRs are **squash-merged to `master`**.
 
 ## The frozen Rust baseline (detection contract)

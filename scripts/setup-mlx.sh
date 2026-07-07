@@ -2,14 +2,13 @@
 set -euo pipefail
 
 # Pinned MLX (Python/C++) wheel version — validated for detection parity
-# (578 findings, 4.47e-13 numerics vs PyTorch).
+# (578 findings vs the frozen baseline).
 #
-# Version pairing (intentional — do NOT "sync" these blindly): the Rust crate
-# `mlx-rs = "=0.25.3"` in Cargo.toml versions INDEPENDENTLY of the Python `mlx`
-# package. There is no Python `mlx` 0.25.3 on PyPI (the 0.25.x line ships only
-# 0.25.2). mlx-rs 0.25.3's bindings are ABI-compatible with the C++ library in
-# the mlx==0.25.2 wheel — this is the tested, working pairing. Re-validate parity
-# before changing either pin.
+# This wheel provides the prebuilt `libmlx` (+ `mlx.metallib`) that our C++ shim
+# (csrc/ch_mlx.cpp) links against, via the vendored mlx-c wrapper (vendor/mlx-c).
+# The only version pairing to keep aligned is the vendored mlx-c release ↔ this
+# prebuilt MLX ABI (vendor/mlx-c is currently 0.2.0, targeting MLX 0.25.x).
+# Re-validate parity before bumping either (see vendor/mlx-c/PROVENANCE.md).
 MLX_VERSION="0.25.2"
 INSTALL_DIR="${CLONEHUNTER_MLX_DIR:-$HOME/.local/share/clonehunter/mlx}"
 
@@ -74,7 +73,7 @@ echo ""
 echo "=== MLX prebuilt installed to: $INSTALL_DIR ==="
 echo ""
 echo "Build CloneHunter with MLX:"
-echo "  MLX_SYS_PREBUILT=$INSTALL_DIR cargo build --release --features mlx"
+echo "  CLONEHUNTER_MLX_PREBUILT=$INSTALL_DIR cargo build --release --features mlx"
 echo ""
 echo "After building, fix the runtime library path:"
 echo "  install_name_tool -add_rpath $INSTALL_DIR/lib target/release/clonehunter"

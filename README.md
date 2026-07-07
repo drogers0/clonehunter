@@ -65,7 +65,7 @@ backend (~46s vs ~50s PyTorch-MPS on the click benchmark) with exact detection p
 ./scripts/setup-mlx.sh
 
 # Build with MLX support
-MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
+CLONEHUNTER_MLX_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx
 
 # Fix runtime library path
 install_name_tool -add_rpath ~/.local/share/clonehunter/mlx/lib target/release/clonehunter

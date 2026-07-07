@@ -1,22 +1,22 @@
 //! Apple MLX embedding backend (`--features mlx`).
 //!
-//! Implements the `Embedder` trait using Apple MLX via `mlx-rs` for
-//! `microsoft/codebert-base` (RoBERTa-base architecture). Apple Silicon only.
-//! Uses Metal GPU when available (automatic via prebuilt libmlx.dylib).
+//! Thin FFI wrapper over the C++ shim in `csrc/ch_mlx.cpp`, which runs the entire
+//! `microsoft/codebert-base` (RoBERTa-base) forward pass + mean-pool against Apple's
+//! `mlx-c` C API (vendored at `vendor/mlx-c`). Apple Silicon only; uses the Metal GPU
+//! when available (chosen inside the shim).
 //!
-//! **Performance:** ~46s on click benchmark (3386 snippets) — beats PyTorch-MPS (50s).
-//! **Numerics:** 2.88e-12 max cosine diff vs PyTorch CPU reference (best of any backend).
-//! **Detection:** 578 findings — exact frozen-baseline parity.
+//! This crate owns the shim outright — there is no `mlx-rs`/`mlx-sys` dependency. The
+//! shim is built and linked by the crate-root `build.rs` against a prebuilt `libmlx`
+//! (see `scripts/setup-mlx.sh` and the `CLONEHUNTER_MLX_PREBUILT` env var).
 //!
-//! Setup: `./scripts/setup-mlx.sh` then
-//! `MLX_SYS_PREBUILT=~/.local/share/clonehunter/mlx cargo build --release --features mlx`
+//! **Performance:** ~46s on the click benchmark (3386 snippets) — beats PyTorch-MPS.
+//! **Detection:** 578 findings — exact frozen-baseline parity (the contract).
 //!
-//! Uses the same bundled tokenizer and mean-pooling formula as `CodeBertEmbedder`.
-//! Weights are loaded from the HF cache safetensors file.
+//! Uses the same bundled tokenizer and mean-pooling as `CodeBertEmbedder`; weights are
+//! loaded (once, in the shim) from the HF-cache safetensors file.
 
-use std::collections::HashMap;
+use std::ffi::{CString, c_char, c_int};
 
-use mlx_rs::Array;
 use tokenizers::Tokenizer;
 
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
@@ -25,236 +25,86 @@ use crate::core::types::{Embedding, SnippetRef};
 use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
 use super::{Embedder, EmbeddingError};
 
-const NUM_LAYERS: usize = 12;
 const HIDDEN_SIZE: usize = 768;
-const NUM_HEADS: usize = 12;
-const HEAD_DIM: usize = HIDDEN_SIZE / NUM_HEADS; // 64
-const LAYER_NORM_EPS: f32 = 1e-5;
 const PAD_TOKEN_ID: i32 = 1;
 
-// ── Convenience ──────────────────────────────────────────────────────────────
+// ── FFI surface (csrc/ch_mlx.h) ──────────────────────────────────────────────
 
-fn ie(e: impl std::fmt::Display) -> EmbeddingError {
-    EmbeddingError::Inference(format!("{e}"))
+#[repr(C)]
+struct ChMlxCtx {
+    _private: [u8; 0],
 }
 
-fn w<'a>(weights: &'a HashMap<String, Array>, key: &str) -> Result<&'a Array, EmbeddingError> {
-    weights
-        .get(key)
-        .ok_or_else(|| EmbeddingError::ModelLoad(format!("missing weight: {key}")))
+unsafe extern "C" {
+    fn ch_mlx_ctx_new(path: *const c_char) -> *mut ChMlxCtx;
+    fn ch_mlx_embed(
+        ctx: *mut ChMlxCtx,
+        ids: *const i32,
+        mask: *const i32,
+        batch: c_int,
+        seq: c_int,
+        out: *mut f32,
+    ) -> c_int;
+    fn ch_mlx_ctx_free(ctx: *mut ChMlxCtx);
+    fn ch_mlx_metal_available() -> bool;
+    #[cfg(test)]
+    fn ch_mlx_selftest() -> c_int;
+    fn ch_mlx_last_error() -> *const c_char;
 }
 
-// ── Forward pass (operates on borrowed weight HashMap) ───────────────────────
-
-fn linear(x: &Array, weight: &Array, bias: &Array) -> Result<Array, EmbeddingError> {
-    let out = x.matmul(weight.t()).map_err(ie)?;
-    Ok(&out + bias)
-}
-
-fn layer_norm(x: &Array, weight: &Array, bias: &Array) -> Result<Array, EmbeddingError> {
-    mlx_rs::fast::layer_norm(x, Some(weight), Some(bias), LAYER_NORM_EPS).map_err(ie)
-}
-
-/// RoBERTa embedding layer.
-/// position_ids = cumsum(mask, axis=1) * mask + padding_idx
-fn roberta_embeddings(
-    input_ids: &Array,
-    attention_mask: &Array,
-    weights: &HashMap<String, Array>,
-) -> Result<Array, EmbeddingError> {
-    let mask_i32 = attention_mask.as_type::<i32>().map_err(ie)?;
-    let cumsum = mask_i32.cumsum(Some(1), None, None).map_err(ie)?;
-    let position_ids = &(&cumsum * &mask_i32) + &Array::from_int(PAD_TOKEN_ID);
-
-    let shape = input_ids.shape().to_vec();
-    let token_type_ids = Array::zeros::<i32>(&shape).map_err(ie)?;
-
-    let ids_i32 = input_ids.as_type::<i32>().map_err(ie)?;
-    let word_emb = w(weights, "embeddings.word_embeddings.weight")?
-        .take_axis(&ids_i32, 0)
-        .map_err(ie)?;
-    let pos_emb = w(weights, "embeddings.position_embeddings.weight")?
-        .take_axis(&position_ids, 0)
-        .map_err(ie)?;
-    let type_emb = w(weights, "embeddings.token_type_embeddings.weight")?
-        .take_axis(&token_type_ids, 0)
-        .map_err(ie)?;
-
-    let combined = &(&word_emb + &pos_emb) + &type_emb;
-
-    layer_norm(
-        &combined,
-        w(weights, "embeddings.LayerNorm.weight")?,
-        w(weights, "embeddings.LayerNorm.bias")?,
-    )
-}
-
-fn encoder_layer(
-    hidden: &Array,
-    attention_mask: &Array,
-    weights: &HashMap<String, Array>,
-    layer_idx: usize,
-    batch: i32,
-    seq_len: i32,
-) -> Result<Array, EmbeddingError> {
-    let pfx = format!("encoder.layer.{layer_idx}");
-
-    // Self-attention Q, K, V
-    let q = linear(
-        hidden,
-        w(weights, &format!("{pfx}.attention.self.query.weight"))?,
-        w(weights, &format!("{pfx}.attention.self.query.bias"))?,
-    )?;
-    let k = linear(
-        hidden,
-        w(weights, &format!("{pfx}.attention.self.key.weight"))?,
-        w(weights, &format!("{pfx}.attention.self.key.bias"))?,
-    )?;
-    let v = linear(
-        hidden,
-        w(weights, &format!("{pfx}.attention.self.value.weight"))?,
-        w(weights, &format!("{pfx}.attention.self.value.bias"))?,
-    )?;
-
-    // Multi-head reshape: [batch, seq, hidden] → [batch, heads, seq, head_dim]
-    let head_shape = &[batch, seq_len, NUM_HEADS as i32, HEAD_DIM as i32];
-    let q = q
-        .reshape(head_shape)
-        .map_err(ie)?
-        .transpose_axes(&[0, 2, 1, 3])
-        .map_err(ie)?;
-    let k = k
-        .reshape(head_shape)
-        .map_err(ie)?
-        .transpose_axes(&[0, 2, 1, 3])
-        .map_err(ie)?;
-    let v = v
-        .reshape(head_shape)
-        .map_err(ie)?
-        .transpose_axes(&[0, 2, 1, 3])
-        .map_err(ie)?;
-
-    // Attention scores: softmax(Q @ K^T / sqrt(d_k) + mask_bias) @ V
-    let scale = Array::from_f32(1.0 / (HEAD_DIM as f32).sqrt());
-    let kt = k.transpose_axes(&[0, 1, 3, 2]).map_err(ie)?;
-    let scores = &q.matmul(&kt).map_err(ie)? * &scale;
-
-    // Mask: [batch, seq] → [batch, 1, 1, seq]; (1-mask) * -1e9
-    let mask_f32 = attention_mask.as_type::<f32>().map_err(ie)?;
-    let mask_bias = &(&Array::from_f32(1.0) - &mask_f32) * &Array::from_f32(-1e9);
-    let mask_bias = mask_bias
-        .expand_dims(1)
-        .map_err(ie)?
-        .expand_dims(1)
-        .map_err(ie)?;
-
-    let scores = &scores + &mask_bias;
-    let attn_weights = mlx_rs::ops::softmax_axis(&scores, -1, None).map_err(ie)?;
-    let attn_output = attn_weights.matmul(&v).map_err(ie)?;
-
-    // Reshape back: [batch, heads, seq, head_dim] → [batch, seq, hidden]
-    let attn_output = attn_output
-        .transpose_axes(&[0, 2, 1, 3])
-        .map_err(ie)?
-        .reshape(&[batch, seq_len, HIDDEN_SIZE as i32])
-        .map_err(ie)?;
-
-    // Output projection + residual + LayerNorm
-    let projected = linear(
-        &attn_output,
-        w(weights, &format!("{pfx}.attention.output.dense.weight"))?,
-        w(weights, &format!("{pfx}.attention.output.dense.bias"))?,
-    )?;
-    let residual = &projected + hidden;
-    let normed = layer_norm(
-        &residual,
-        w(weights, &format!("{pfx}.attention.output.LayerNorm.weight"))?,
-        w(weights, &format!("{pfx}.attention.output.LayerNorm.bias"))?,
-    )?;
-
-    // FFN: Linear → GELU → Linear + residual + LayerNorm
-    let intermediate = linear(
-        &normed,
-        w(weights, &format!("{pfx}.intermediate.dense.weight"))?,
-        w(weights, &format!("{pfx}.intermediate.dense.bias"))?,
-    )?;
-    let activated = mlx_rs::nn::gelu(&intermediate).map_err(ie)?;
-    let output = linear(
-        &activated,
-        w(weights, &format!("{pfx}.output.dense.weight"))?,
-        w(weights, &format!("{pfx}.output.dense.bias"))?,
-    )?;
-    let residual = &output + &normed;
-
-    layer_norm(
-        &residual,
-        w(weights, &format!("{pfx}.output.LayerNorm.weight"))?,
-        w(weights, &format!("{pfx}.output.LayerNorm.bias"))?,
-    )
-}
-
-fn roberta_forward(
-    input_ids: &Array,
-    attention_mask: &Array,
-    weights: &HashMap<String, Array>,
-) -> Result<Array, EmbeddingError> {
-    let shape = input_ids.shape().to_vec();
-    let batch = shape[0];
-    let seq_len = shape[1];
-
-    let mut hidden = roberta_embeddings(input_ids, attention_mask, weights)?;
-
-    for i in 0..NUM_LAYERS {
-        hidden = encoder_layer(&hidden, attention_mask, weights, i, batch, seq_len)?;
+/// The shim's thread-local last-error message (empty string if none).
+fn last_error() -> String {
+    let ptr = unsafe { ch_mlx_last_error() };
+    if ptr.is_null() {
+        String::new()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned()
     }
-
-    Ok(hidden)
 }
 
-fn mean_pool(hidden: &Array, attention_mask: &Array) -> Result<Array, EmbeddingError> {
-    let mask_f32 = attention_mask.as_type::<f32>().map_err(ie)?;
-    let mask_3d = mask_f32.expand_dims(-1).map_err(ie)?;
+/// Dylib-only self-test: proves the link + a real MLX op path work, no weights/network.
+#[cfg(test)]
+fn selftest() -> Result<(), EmbeddingError> {
+    if unsafe { ch_mlx_selftest() } == 0 {
+        Ok(())
+    } else {
+        Err(EmbeddingError::Inference(format!(
+            "MLX selftest failed: {}",
+            last_error()
+        )))
+    }
+}
 
-    let masked = hidden * &mask_3d;
-    let summed = masked.sum_axis(1, None).map_err(ie)?;
-
-    let counts = mask_3d.sum_axis(1, None).map_err(ie)?;
-    let counts = mlx_rs::ops::maximum(&counts, Array::from_f32(1.0)).map_err(ie)?;
-
-    Ok(&summed / &counts)
+/// True if a Metal GPU is available.
+fn metal_available() -> bool {
+    unsafe { ch_mlx_metal_available() }
 }
 
 // ── MlxEmbedder ──────────────────────────────────────────────────────────────
 
 pub(crate) struct MlxEmbedder {
-    /// Raw weight tensors from safetensors — DO NOT deep_clone. deep_clone() on
-    /// safetensors-loaded arrays segfaults in mlx-rs 0.25 (non-atomic refcount
-    /// race in the C++ shared_ptr). Access by key reference only.
-    weights: HashMap<String, Array>,
+    ctx: *mut ChMlxCtx,
     tokenizer: Tokenizer,
     config: EmbedderConfig,
 }
 
-// SAFETY: MlxEmbedder is constructed once and only accessed via &self in embed().
-// The weight HashMap is never mutated after construction. mlx_rs::Array is !Send
-// because mlx::core::array uses non-atomic shared_ptr, but our usage pattern is
-// single-threaded construction followed by sequential &self calls — no concurrent
-// access to the underlying C++ objects occurs.
+// SAFETY: the ctx (weights map + one mlx_stream) is built once and only ever touched
+// through sequential `&self` calls in `embed`; `chunked_embed` is single-threaded. MLX
+// arrays use non-atomic refcounts, so `embed` must never be called concurrently on one
+// `&self` — the current pipeline never does.
 unsafe impl Send for MlxEmbedder {}
+
+impl Drop for MlxEmbedder {
+    fn drop(&mut self) {
+        unsafe { ch_mlx_ctx_free(self.ctx) };
+    }
+}
 
 impl MlxEmbedder {
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
-        // Check and log Metal availability via mlx-c FFI
-        let metal_available = {
-            unsafe extern "C" {
-                fn mlx_metal_is_available(res: *mut bool) -> std::ffi::c_int;
-            }
-            let mut res: bool = false;
-            let rc = unsafe { mlx_metal_is_available(&mut res) };
-            rc == 0 && res
-        };
-        tracing::info!(metal_available, "MLX device check");
-        if metal_available {
+        if metal_available() {
             tracing::info!("MLX Metal GPU is available — using GPU");
         } else {
             tracing::warn!("MLX Metal GPU NOT available — falling back to CPU");
@@ -267,25 +117,20 @@ impl MlxEmbedder {
             &config.revision,
             "model.safetensors",
         )?;
-
         tracing::info!(path = %weights_path.display(), "loading MLX weights from safetensors");
 
-        let weights = Array::load_safetensors(&weights_path)
-            .map_err(|e| EmbeddingError::ModelLoad(format!("mlx load_safetensors: {e}")))?;
-
-        // Validate a few key weights exist
-        for key in [
-            "embeddings.word_embeddings.weight",
-            "encoder.layer.0.attention.self.query.weight",
-            "encoder.layer.11.output.LayerNorm.weight",
-        ] {
-            if !weights.contains_key(key) {
-                return Err(EmbeddingError::ModelLoad(format!("missing weight: {key}")));
-            }
+        let path = CString::new(weights_path.to_string_lossy().as_bytes())
+            .map_err(|e| EmbeddingError::ModelLoad(format!("weights path: {e}")))?;
+        let ctx = unsafe { ch_mlx_ctx_new(path.as_ptr()) };
+        if ctx.is_null() {
+            return Err(EmbeddingError::ModelLoad(format!(
+                "MLX context init failed: {}",
+                last_error()
+            )));
         }
 
         Ok(Self {
-            weights,
+            ctx,
             tokenizer,
             config: config.clone(),
         })
@@ -295,7 +140,7 @@ impl MlxEmbedder {
 impl Embedder for MlxEmbedder {
     fn embed(&self, snippets: &[&SnippetRef]) -> Result<Vec<Embedding>, EmbeddingError> {
         chunked_embed(snippets, self.config.batch_size, |texts| {
-            embed_batch_mlx(&self.weights, &self.tokenizer, texts)
+            embed_batch_mlx(self.ctx, &self.tokenizer, texts)
         })
     }
 }
@@ -314,7 +159,7 @@ fn load_tokenizer(config: &EmbedderConfig) -> Result<Tokenizer, EmbeddingError> 
 // ── Batch inference ───────────────────────────────────────────────────────────
 
 fn embed_batch_mlx(
-    weights: &HashMap<String, Array>,
+    ctx: *mut ChMlxCtx,
     tokenizer: &Tokenizer,
     texts: &[&str],
 ) -> Result<Vec<Embedding>, EmbeddingError> {
@@ -343,27 +188,28 @@ fn embed_batch_mlx(
         }
     }
 
-    let shape = &[batch as i32, max_len as i32];
-    let input_ids = Array::from_slice(&ids_flat, shape);
-    let attention_mask = Array::from_slice(&mask_flat, shape);
-
-    let hidden = roberta_forward(&input_ids, &attention_mask, weights)?;
-    let pooled = mean_pool(&hidden, &attention_mask)?;
-
-    pooled.eval().map_err(ie)?;
-
-    let pooled_data: &[f32] = pooled.try_as_slice().map_err(ie)?;
-
-    let mut embeddings = Vec::with_capacity(batch);
-    for row in 0..batch {
-        let start = row * HIDDEN_SIZE;
-        let end = start + HIDDEN_SIZE;
-        embeddings.push(Embedding {
-            vector: pooled_data[start..end].to_vec(),
-        });
+    let mut out = vec![0f32; batch * HIDDEN_SIZE];
+    let rc = unsafe {
+        ch_mlx_embed(
+            ctx,
+            ids_flat.as_ptr(),
+            mask_flat.as_ptr(),
+            batch as c_int,
+            max_len as c_int,
+            out.as_mut_ptr(),
+        )
+    };
+    if rc != 0 {
+        return Err(EmbeddingError::Inference(format!(
+            "MLX embed failed: {}",
+            last_error()
+        )));
     }
 
-    Ok(embeddings)
+    Ok(out
+        .chunks_exact(HIDDEN_SIZE)
+        .map(|v| Embedding { vector: v.to_vec() })
+        .collect())
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -371,6 +217,19 @@ fn embed_batch_mlx(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// MLX's default GPU stream is process-global; two threads encoding to it at once
+    /// abort with a Metal command-buffer assertion. Cargo runs tests in parallel, so the
+    /// MLX tests take this lock to serialize (production never runs embeds concurrently).
+    static MLX_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Dylib-only: proves the shim links and a real MLX op path runs. No weights,
+    /// no network — runs on every `cargo test --features mlx`.
+    #[test]
+    fn mlx_selftest_smoke() {
+        let _guard = MLX_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        selftest().expect("MLX shim selftest (matmul + eval) should succeed");
+    }
 
     /// Run: `cargo test --features mlx -- --ignored --nocapture`
     #[test]
@@ -380,6 +239,7 @@ mod tests {
         use crate::core::types::SnippetRef;
         use crate::test_support::make_snippet;
 
+        let _guard = MLX_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let config = EmbedderConfig {
             name: EmbedderName::Mlx,
             ..EmbedderConfig::default()
@@ -409,5 +269,84 @@ mod tests {
         let embs2 = embedder.embed(&snippets).expect("second embed");
         assert_eq!(embs[0].vector, embs2[0].vector, "must be deterministic");
         eprintln!("MlxEmbedder integration PASSED: dim=768 cosine={cosine:.6}");
+    }
+
+    #[derive(serde::Deserialize)]
+    struct FixtureEntry {
+        text: String,
+        embedding: Vec<f64>,
+    }
+
+    /// Numeric parity vs the PyTorch CPU reference (`spike/fixtures/python_embeddings.json`,
+    /// 205 entries). Embeds each fixture text through the production `MlxEmbedder` and
+    /// reports the max cosine / abs diff (informational — the binding contract is the
+    /// 578-finding detection baseline; the shim's compiled-vs-eager gelu may shift the
+    /// embedding diff slightly). Asserts determinism.
+    ///
+    /// Run: `cargo test --features mlx -- --ignored --nocapture mlx_parity_vs_pytorch`
+    /// `MLX_PARITY_COUNT=N` caps the entries checked (default 10).
+    #[test]
+    #[ignore]
+    fn mlx_parity_vs_pytorch() {
+        use crate::core::config::{EmbedderConfig, EmbedderName};
+        use crate::core::types::SnippetRef;
+        use crate::test_support::make_snippet;
+
+        let _guard = MLX_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("spike/fixtures/python_embeddings.json");
+        let fixtures: Vec<FixtureEntry> =
+            serde_json::from_str(&std::fs::read_to_string(&fixture_path).unwrap()).unwrap();
+        eprintln!("Loaded {} fixture entries", fixtures.len());
+
+        let config = EmbedderConfig {
+            name: EmbedderName::Mlx,
+            ..EmbedderConfig::default()
+        };
+        let embedder = MlxEmbedder::new(&config).expect("MlxEmbedder::new should succeed");
+
+        let embed_text = |text: &str| -> Vec<f32> {
+            let snip = make_snippet(text);
+            let refs: Vec<&SnippetRef> = vec![&snip];
+            embedder.embed(&refs).expect("embed").remove(0).vector
+        };
+
+        let n = std::env::var("MLX_PARITY_COUNT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(10);
+
+        let (mut max_cosine_diff, mut max_abs_diff) = (0.0f64, 0.0f64);
+        for (i, entry) in fixtures.iter().take(n).enumerate() {
+            let emb = embed_text(&entry.text);
+            let dot: f64 = emb
+                .iter()
+                .zip(&entry.embedding)
+                .map(|(&a, &b)| a as f64 * b)
+                .sum();
+            let n0: f64 = emb.iter().map(|&v| (v as f64).powi(2)).sum::<f64>().sqrt();
+            let n1: f64 = entry.embedding.iter().map(|&v| v * v).sum::<f64>().sqrt();
+            let cos = dot / (n0 * n1);
+            let cosine_diff = (1.0 - cos).abs();
+            let abs_diff: f64 = emb
+                .iter()
+                .zip(&entry.embedding)
+                .map(|(&a, &b)| (a as f64 - b).abs())
+                .fold(0.0, f64::max);
+            max_cosine_diff = max_cosine_diff.max(cosine_diff);
+            max_abs_diff = max_abs_diff.max(abs_diff);
+            eprintln!(
+                "  [{i:3}] cosine={cos:.8} diff={cosine_diff:.2e} abs_diff={abs_diff:.2e} text={:.40}",
+                entry.text
+            );
+        }
+        eprintln!("\n=== MLX Parity ({n} entries) ===");
+        eprintln!("  Max cosine diff: {max_cosine_diff:.2e}");
+        eprintln!("  Max abs diff:    {max_abs_diff:.2e}");
+
+        let e1 = embed_text(&fixtures[0].text);
+        let e2 = embed_text(&fixtures[0].text);
+        assert_eq!(e1, e2, "MLX must be deterministic");
+        eprintln!("  Determinism:     PASS");
     }
 }
