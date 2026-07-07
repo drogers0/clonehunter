@@ -310,6 +310,14 @@ mod tests {
     }
 
     #[test]
+    fn truncate_diff_char_cut_excludes_newlines() {
+        // Cut at the max_chars-th NON-newline char (inter-line \n are "free", per the contract).
+        // 3 lines of 4 chars, budget 10 → keeps "aaaa"(4)+"bbbb"(4)+"cc"(2) = 10 non-\n chars.
+        let r = truncate_diff(&["aaaa", "bbbb", "cccc"], 80, 10);
+        assert_eq!(r, "aaaa\nbbbb\ncc\n... diff truncated ...");
+    }
+
+    #[test]
     fn truncate_diff_non_ascii() {
         // Each "→" is 3 UTF-8 bytes. 2000 chars = 6000 bytes but only 2000 CHARS, under the
         // 4000-char limit: the gate counts chars (not bytes), so this is NOT truncated and gets

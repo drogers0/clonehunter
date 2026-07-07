@@ -286,6 +286,25 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_blob_row_is_skipped() {
+        let dir = TempDir::new().unwrap();
+        let cache = cache_in(&dir);
+        // A row claiming dim=3 but holding only 2 floats (truncated BLOB) must be treated as a
+        // cache miss, not returned as a wrong-length vector (which would panic downstream).
+        let blob = vec_to_blob(&[1.0f32, 2.0]);
+        cache
+            .conn
+            .borrow()
+            .execute(
+                "INSERT INTO embeddings(key, dim, vec) VALUES(?,?,?)",
+                rusqlite::params!["k", 3i64, blob],
+            )
+            .unwrap();
+        let got = cache.get_many(&["k"]).unwrap();
+        assert!(!got.contains_key("k"), "corrupt row must be skipped");
+    }
+
+    #[test]
     fn cache_roundtrip() {
         let dir = TempDir::new().unwrap();
         let cache = cache_in(&dir);

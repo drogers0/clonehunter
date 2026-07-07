@@ -238,6 +238,24 @@ mod tests {
     }
 
     #[test]
+    fn collect_files_populates_content_matching_disk() {
+        let dir = TempDir::new().unwrap();
+        let body = "def f(x):\n    return x + 1\n";
+        let path = dir.path().join("a.py");
+        std::fs::write(&path, body).unwrap();
+        let files = collect_files(
+            &[dir.path().to_string_lossy().into_owned()],
+            &["**/*.py".into()],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(files.len(), 1);
+        // content must equal the lossy decode of the same bytes parsing would read.
+        let expected = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
+        assert_eq!(&*files[0].content, expected.as_str());
+    }
+
+    #[test]
     fn non_python_files_are_text_language() {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("sample.js"), "const x = 1;\n").unwrap();

@@ -4,13 +4,10 @@ use crate::core::types::{FileRef, FunctionRef};
 use crate::io::fingerprints::hash_text;
 
 /// Convert a non-Python file into a single whole-file FunctionRef.
-/// Returns empty Vec on IO error or empty/whitespace-only content.
+/// Returns empty Vec on empty/whitespace-only content. Reuses `file.content` (read once by
+/// `collect_files`) rather than re-reading from disk.
 pub(crate) fn extract_file_unit(file: &FileRef) -> Vec<FunctionRef> {
-    let bytes = match std::fs::read(&file.path) {
-        Ok(b) => b,
-        Err(_) => return vec![],
-    };
-    let content = String::from_utf8_lossy(&bytes).into_owned();
+    let content: &str = &file.content;
 
     if content.trim().is_empty() {
         return vec![];
@@ -22,14 +19,14 @@ pub(crate) fn extract_file_unit(file: &FileRef) -> Vec<FunctionRef> {
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
-    let code_hash = hash_text(&content);
+    let code_hash = hash_text(content);
 
     vec![FunctionRef {
         file: file.clone(),
         qualified_name,
         start_line: 1,
         end_line,
-        code: content,
+        code: content.to_string(),
         code_hash,
     }]
 }

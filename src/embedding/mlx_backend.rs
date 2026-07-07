@@ -81,6 +81,15 @@ fn metal_available() -> bool {
     unsafe { ch_mlx_metal_available() }
 }
 
+/// The degradation to record given Metal availability — pure, so it is unit-testable without
+/// the GPU/FFI boundary. `None` when Metal is present; a `DeviceFallback` when running on CPU.
+fn degradation_for_metal(available: bool) -> Option<Degradation> {
+    (!available).then(|| Degradation {
+        kind: DegradationKind::DeviceFallback,
+        message: "MLX Metal GPU unavailable; running on CPU".into(),
+    })
+}
+
 // ── MlxEmbedder ──────────────────────────────────────────────────────────────
 
 pub(crate) struct MlxEmbedder {
@@ -105,16 +114,13 @@ impl Drop for MlxEmbedder {
 impl MlxEmbedder {
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
         tracing::debug!(device = ?config.device, "MLX backend picks Metal/CPU in the shim; --device is ignored");
-        let mut degradations = Vec::new();
-        if metal_available() {
+        let metal = metal_available();
+        if metal {
             tracing::info!("MLX Metal GPU is available — using GPU");
         } else {
             tracing::warn!("MLX Metal GPU NOT available — falling back to CPU");
-            degradations.push(Degradation {
-                kind: DegradationKind::DeviceFallback,
-                message: "MLX Metal GPU unavailable; running on CPU".into(),
-            });
         }
+        let degradations: Vec<Degradation> = degradation_for_metal(metal).into_iter().collect();
 
         let tokenizer = load_tokenizer(config)?;
 
@@ -213,6 +219,13 @@ mod tests {
     /// abort with a Metal command-buffer assertion. Cargo runs tests in parallel, so the
     /// MLX tests take this lock to serialize (production never runs embeds concurrently).
     static MLX_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn metal_degradation_only_on_cpu_fallback() {
+        assert!(degradation_for_metal(true).is_none());
+        let d = degradation_for_metal(false).expect("CPU fallback must record a degradation");
+        assert_eq!(d.kind, DegradationKind::DeviceFallback);
+    }
 
     /// Dylib-only: proves the shim links and a real MLX op path runs. No weights,
     /// no network — runs on every `cargo test --features mlx`.
