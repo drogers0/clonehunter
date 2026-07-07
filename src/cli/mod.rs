@@ -40,8 +40,10 @@ enum Commands {
     Diff(DiffArgs),
 }
 
+/// Args shared by `scan` and `diff`: scan paths, report format/output, and the
+/// engine/embedder/index/device overrides. Flattened into both subcommands.
 #[derive(clap::Args)]
-struct ScanArgs {
+struct CommonArgs {
     /// Files/directories to scan (default: current directory)
     #[arg(default_value = ".")]
     path: Vec<String>,
@@ -54,7 +56,6 @@ struct ScanArgs {
     #[arg(long)]
     out: Option<String>,
 
-    // Override args
     /// Detection engine. Note: `sonarqube` reads findings from CLONEHUNTER_SONAR_REPORT and
     /// ignores scan paths and every tuning flag.
     #[arg(long, value_enum)]
@@ -65,6 +66,12 @@ struct ScanArgs {
     index: Option<IndexName>,
     #[arg(long, value_enum)]
     device: Option<DeviceName>,
+}
+
+#[derive(clap::Args)]
+struct ScanArgs {
+    #[command(flatten)]
+    common: CommonArgs,
 
     // Threshold tuning
     #[arg(long)]
@@ -120,33 +127,12 @@ struct ScanArgs {
 
 #[derive(clap::Args)]
 struct DiffArgs {
-    /// Files/directories to scope changed-file discovery
-    #[arg(default_value = ".")]
-    path: Vec<String>,
+    #[command(flatten)]
+    common: CommonArgs,
 
     /// Git base ref
     #[arg(long, default_value = "HEAD")]
     base: String,
-
-    /// Output format
-    #[arg(long, default_value = "html", value_parser = ["json", "html", "sarif"])]
-    format: String,
-
-    /// Output file (default: clonehunter_report.<format>)
-    #[arg(long)]
-    out: Option<String>,
-
-    // Override args (same as scan; no tuning surface for diff)
-    /// Detection engine. Note: `sonarqube` reads findings from CLONEHUNTER_SONAR_REPORT and
-    /// ignores scan paths and every tuning flag.
-    #[arg(long, value_enum)]
-    engine: Option<EngineName>,
-    #[arg(long, value_enum)]
-    embedder: Option<EmbedderName>,
-    #[arg(long, value_enum)]
-    index: Option<IndexName>,
-    #[arg(long, value_enum)]
-    device: Option<DeviceName>,
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────
@@ -164,7 +150,7 @@ pub fn run() -> Result<()> {
 
 fn run_scan(args: ScanArgs) -> Result<()> {
     let overrides = build_scan_overrides(&args);
-    let config_root = resolve_config_root(&args.path);
+    let config_root = resolve_config_root(&args.common.path);
     let mut config = load_config(&config_root, Some(&overrides))
         .with_context(|| format!("loading config from {}", config_root.display()))?;
 
@@ -192,13 +178,13 @@ fn run_scan(args: ScanArgs) -> Result<()> {
 
     let result = get_engine(config.engine)
         .scan(&ScanRequest {
-            paths: args.path.clone(),
+            paths: args.common.path.clone(),
             config,
         })
         .map_err(into_anyhow)?;
 
-    let out_path = resolve_out_path(&args.format, args.out.as_deref());
-    write_report(&result, &args.format, &out_path)?;
+    let out_path = resolve_out_path(&args.common.format, args.common.out.as_deref());
+    write_report(&result, &args.common.format, &out_path)?;
     eprintln!(
         "clonehunter: {} findings → {}",
         result.findings.len(),
@@ -210,10 +196,10 @@ fn run_scan(args: ScanArgs) -> Result<()> {
 // ─── Diff command ─────────────────────────────────────────────────────────────
 
 fn run_diff(args: DiffArgs) -> Result<()> {
-    let requested_paths: Vec<String> = if args.path.is_empty() {
+    let requested_paths: Vec<String> = if args.common.path.is_empty() {
         vec![".".into()]
     } else {
-        args.path.clone()
+        args.common.path.clone()
     };
 
     let cwd = std::env::current_dir().context("determine current directory")?;
@@ -224,7 +210,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to determine changed files: {e}"))?;
 
     let overrides = build_diff_overrides(&args);
-    let out_path = resolve_out_path(&args.format, args.out.as_deref());
+    let out_path = resolve_out_path(&args.common.format, args.common.out.as_deref());
 
     if changed.is_empty() {
         // No changes → empty scan with paths=[]
@@ -236,7 +222,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
                 config,
             })
             .map_err(into_anyhow)?;
-        write_report(&result, &args.format, &out_path)?;
+        write_report(&result, &args.common.format, &out_path)?;
         eprintln!("clonehunter: 0 findings (no changes) → {out_path}");
         return Ok(());
     }
@@ -275,7 +261,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
         degradations: result.degradations,
     };
 
-    write_report(&filtered_result, &args.format, &out_path)?;
+    write_report(&filtered_result, &args.common.format, &out_path)?;
     eprintln!(
         "clonehunter: {} findings → {}",
         filtered_result.findings.len(),
@@ -320,7 +306,12 @@ fn base_overrides(
 }
 
 fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
-    let mut ov = base_overrides(args.engine, args.embedder, args.device, args.index);
+    let mut ov = base_overrides(
+        args.common.engine,
+        args.common.embedder,
+        args.common.device,
+        args.common.index,
+    );
 
     if args.threshold_func.is_some()
         || args.threshold_win.is_some()
@@ -372,7 +363,12 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
 }
 
 fn build_diff_overrides(args: &DiffArgs) -> ConfigOverride {
-    base_overrides(args.engine, args.embedder, args.device, args.index)
+    base_overrides(
+        args.common.engine,
+        args.common.embedder,
+        args.common.device,
+        args.common.index,
+    )
 }
 
 /// Apply the `CLONEHUNTER_EMBEDDER=stub` env override — only when `--embedder` was not passed (DD13).
@@ -540,13 +536,15 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         // Minimal args: nothing set → engine/thresholds/etc. all None
         let args = ScanArgs {
-            path: vec![".".into()],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: None,
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![".".into()],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: None,
+                index: None,
+                device: None,
+            },
             threshold_func: None,
             threshold_win: None,
             threshold_exp: None,
@@ -580,13 +578,15 @@ mod tests {
     fn test_build_scan_overrides_threshold_groups() {
         let _guard = ENV_LOCK.lock().unwrap();
         let args = ScanArgs {
-            path: vec![".".into()],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: None,
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![".".into()],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: None,
+                index: None,
+                device: None,
+            },
             threshold_func: Some(0.85),
             threshold_win: None,
             threshold_exp: None,
@@ -618,13 +618,15 @@ mod tests {
     fn test_build_scan_overrides_expand_calls_sets_enabled() {
         let _guard = ENV_LOCK.lock().unwrap();
         let args = ScanArgs {
-            path: vec![],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: None,
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: None,
+                index: None,
+                device: None,
+            },
             threshold_func: None,
             threshold_win: None,
             threshold_exp: None,
@@ -654,13 +656,15 @@ mod tests {
     fn test_build_scan_overrides_expand_depth_alone_does_not_enable() {
         let _guard = ENV_LOCK.lock().unwrap();
         let args = ScanArgs {
-            path: vec![],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: None,
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: None,
+                index: None,
+                device: None,
+            },
             threshold_func: None,
             threshold_win: None,
             threshold_exp: None,
@@ -699,13 +703,15 @@ mod tests {
         // SAFETY: serialized by ENV_LOCK
         unsafe { std::env::set_var("CLONEHUNTER_EMBEDDER", "stub") };
         let args = ScanArgs {
-            path: vec![],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: Some(EmbedderName::Codebert), // explicit
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: Some(EmbedderName::Codebert), // explicit
+                index: None,
+                device: None,
+            },
             threshold_func: None,
             threshold_win: None,
             threshold_exp: None,
@@ -737,13 +743,15 @@ mod tests {
         // SAFETY: serialized by ENV_LOCK
         unsafe { std::env::set_var("CLONEHUNTER_EMBEDDER", "stub") };
         let args = ScanArgs {
-            path: vec![],
-            format: "html".into(),
-            out: None,
-            engine: None,
-            embedder: None, // no explicit
-            index: None,
-            device: None,
+            common: CommonArgs {
+                path: vec![],
+                format: "html".into(),
+                out: None,
+                engine: None,
+                embedder: None, // no explicit
+                index: None,
+                device: None,
+            },
             threshold_func: None,
             threshold_win: None,
             threshold_exp: None,

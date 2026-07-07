@@ -82,31 +82,37 @@ pub(crate) fn expand_calls(functions: &[FunctionRef], config: &ExpansionConfig) 
 
     let local_files: Vec<PathBuf> = by_file.keys().map(PathBuf::from).collect();
 
+    // Per-file imports, keyed by path — needed per-frontier because a helper expanded at
+    // depth ≥ 2 may live in a different file than the entry function (F3).
+    let module_imports: HashMap<String, ImportMap> = by_file
+        .keys()
+        .map(|path| (path.clone(), collect_imports(Path::new(path), &local_files)))
+        .collect();
+    // Per-file LOCAL factory map, built from the file's `qualified_map` (the same input the old
+    // per-function computation used — distinct from `module_factories`, which is built from
+    // `fns` and used for cross-file resolution). Computed once per file, not per function.
+    let module_factory_maps: HashMap<String, HashMap<String, String>> = module_qualified
+        .iter()
+        .map(|(path, qmap)| {
+            (
+                path.clone(),
+                factory_map_for_functions(&qmap.values().copied().collect::<Vec<_>>()),
+            )
+        })
+        .collect();
+
     let mut snippets = Vec::new();
 
-    for (file_path, fns) in &by_file {
-        // Reuse the per-file maps already built above (identical to recomputing them here).
-        let f_name_map = &module_functions[file_path];
-        let qualified_map = &module_qualified[file_path];
-        let cls_names = &module_classes[file_path];
-        let imports = collect_imports(Path::new(file_path), &local_files);
-        // File-invariant (built from this file's `qualified_map`), so compute once per file
-        // instead of once per function — avoids an O(F²) tree-sitter reparse.
-        let factory_map =
-            factory_map_for_functions(&qualified_map.values().copied().collect::<Vec<_>>());
-
+    for fns in by_file.values() {
         for fn_ in fns {
             let (expanded_text, helpers) = expand_for_function(
                 fn_,
-                f_name_map,
-                qualified_map,
-                cls_names,
-                &imports,
-                &factory_map,
                 &module_functions,
                 &module_qualified,
                 &module_classes,
                 &module_factories,
+                &module_imports,
+                &module_factory_maps,
                 config,
             );
             if helpers.is_empty() {
@@ -146,34 +152,51 @@ pub(crate) fn expand_calls(functions: &[FunctionRef], config: &ExpansionConfig) 
 #[allow(clippy::too_many_arguments)]
 fn expand_for_function<'a>(
     function: &'a FunctionRef,
-    f_name_map: &HashMap<String, &'a FunctionRef>,
-    qualified_map: &HashMap<String, &'a FunctionRef>,
-    cls_names: &HashSet<String>,
-    imports: &ImportMap,
-    factory_map: &HashMap<String, String>,
     module_functions: &'a HashMap<String, HashMap<String, &'a FunctionRef>>,
     module_qualified: &'a HashMap<String, HashMap<String, &'a FunctionRef>>,
     module_classes: &HashMap<String, HashSet<String>>,
     module_factories: &HashMap<String, HashMap<String, String>>,
+    module_imports: &HashMap<String, ImportMap>,
+    module_factory_maps: &HashMap<String, HashMap<String, String>>,
     config: &ExpansionConfig,
 ) -> (String, Vec<String>) {
     let mut expanded = function.code.clone();
     let mut helpers: Vec<String> = Vec::new();
     let mut frontier: Vec<&FunctionRef> = vec![function];
     let mut visited: HashSet<String> = HashSet::from([function.identity()]);
-    let class_name = class_name_of(function);
-    let local_class_map = build_local_class_map(
-        function,
-        cls_names,
-        factory_map,
-        imports,
-        module_factories,
-        module_classes,
-    );
 
     for _ in 0..config.depth {
         let mut next_frontier: Vec<&FunctionRef> = Vec::new();
         for current_fn in &frontier {
+            // Resolve each frontier function's calls in ITS OWN file/class scope — a helper
+            // reached at depth ≥ 2 may live in a different file/class than the entry function.
+            // (At depth 1, `current_fn` IS the entry, so this is its own context — unchanged.)
+            let path = current_fn.file.path.as_str();
+            let (
+                Some(f_name_map),
+                Some(qualified_map),
+                Some(cls_names),
+                Some(imports),
+                Some(factory_map),
+            ) = (
+                module_functions.get(path),
+                module_qualified.get(path),
+                module_classes.get(path),
+                module_imports.get(path),
+                module_factory_maps.get(path),
+            )
+            else {
+                continue; // helper from a file not in the scanned set (unreachable in practice)
+            };
+            let class_name = class_name_of(current_fn);
+            let local_class_map = build_local_class_map(
+                current_fn,
+                cls_names,
+                factory_map,
+                imports,
+                module_factories,
+                module_classes,
+            );
             for call in collect_calls(&current_fn.code) {
                 let helper = match resolve_call(
                     &call,
@@ -1259,6 +1282,35 @@ mod tests {
         if let Some(s) = caller_snip {
             assert!(s.text.contains("mid"), "depth 2 should expand mid");
         }
+    }
+
+    #[test]
+    fn test_expansion_depth2_resolves_helper_local_scope() {
+        // F3 regression: at depth 2 a helper's calls must resolve in the HELPER's own scope,
+        // not the entry function's. `step` instantiates `Widget` locally and calls `w.render()`;
+        // `entry` has no such local, so `w.render()` is only resolvable via `step`'s own
+        // local-class map. The old code reused `entry`'s map for all frontier functions, so
+        // `Widget.render` (RENDER_MARKER) would NOT be expanded.
+        let tmp = TempDir::new().unwrap();
+        let src = b"class Widget:\n    def render(self):\n        return 'RENDER_MARKER'\n\ndef entry():\n    return step()\n\ndef step():\n    w = Widget()\n    return w.render()\n";
+        let path = tmp.path().join("a.py");
+        std::fs::write(&path, src).unwrap();
+        let fn_refs = extract_functions(&file_ref(&path.to_string_lossy()));
+        let config = ExpansionConfig {
+            enabled: true,
+            depth: 2,
+            max_chars: 10000,
+        };
+        let snippets = expand_calls(&fn_refs, &config);
+        let entry = snippets
+            .iter()
+            .find(|s| s.function.qualified_name == "entry")
+            .expect("entry should produce an EXP snippet");
+        assert!(
+            entry.text.contains("RENDER_MARKER"),
+            "depth-2 helper `step` must resolve w.render() via ITS OWN scope; got:\n{}",
+            entry.text
+        );
     }
 
     #[test]
