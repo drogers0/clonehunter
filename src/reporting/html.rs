@@ -489,6 +489,7 @@ fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
 }
 
 #[cfg(test)]
@@ -560,7 +561,9 @@ mod tests {
         let escaped = html_escape("<script>alert('xss')</script>");
         assert!(!escaped.contains('<'));
         assert!(!escaped.contains('>'));
+        assert!(!escaped.contains('\''), "apostrophe must be escaped");
         assert!(escaped.contains("&lt;script&gt;"));
+        assert!(escaped.contains("&#x27;"));
     }
 
     #[test]
@@ -588,6 +591,7 @@ mod tests {
             path: "a.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let func = FunctionRef {
             file,
@@ -670,11 +674,13 @@ mod tests {
             path: "a.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let file_b = FileRef {
             path: "b.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let code_a: String = (1usize..=60)
             .map(|i| format!("a{i}"))
@@ -782,11 +788,13 @@ mod tests {
             path: "a.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let file_b = FileRef {
             path: "b.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let fn_a = FunctionRef {
             file: file_a,
@@ -873,6 +881,7 @@ mod tests {
             path: "app/service.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let func = FunctionRef {
             file,
@@ -953,6 +962,7 @@ mod tests {
             path: "app/nway.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let func = FunctionRef {
             file,

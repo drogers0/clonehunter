@@ -272,6 +272,57 @@ fn test_diff_end_to_end() {
 }
 
 #[test]
+fn test_diff_config_root_walk_up() {
+    // Regression: `diff` run from a subdirectory must discover clonehunter.toml at the repo
+    // root (previously it used cwd directly and silently fell back to defaults, unlike `scan`).
+    let dir = TempDir::new().unwrap();
+    init_git_repo(dir.path());
+    // Root config with a non-default func threshold so we can detect it took effect.
+    fs::write(
+        dir.path().join("clonehunter.toml"),
+        "[thresholds]\nfunc = 0.0\nwin = 0.0\nexp = 0.0\nlexical_min_ratio = 0.0\n",
+    )
+    .unwrap();
+    let sub = dir.path().join("src").join("pkg");
+    fs::create_dir_all(&sub).unwrap();
+    let f = sub.join("a.py");
+    fs::write(&f, "def foo(x):\n    return x + 1\n").unwrap();
+
+    let run_git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir.path())
+            .output()
+            .expect("git command");
+    };
+    run_git(&["add", "."]);
+    run_git(&["commit", "-m", "init"]);
+    fs::write(&f, "def foo(x):\n    return x + 1\n# changed\n").unwrap();
+
+    let out = dir.path().join("diff.json");
+    ch().current_dir(&sub) // run from the SUBDIRECTORY
+        .args([
+            "diff",
+            "--base",
+            "HEAD",
+            "--format",
+            "json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&out).unwrap()).expect("valid JSON");
+    // The root config's func threshold (0.0) must be in effect, not the default (0.92).
+    assert_eq!(
+        v["config"]["thresholds"]["func"].as_f64(),
+        Some(0.0),
+        "diff must discover clonehunter.toml via walk-up from a subdirectory"
+    );
+}
+
+#[test]
 fn test_diff_includes_untracked() {
     let dir = TempDir::new().unwrap();
     init_git_repo(dir.path());

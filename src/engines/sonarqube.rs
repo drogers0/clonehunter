@@ -130,6 +130,7 @@ fn to_function(data: Option<&serde_json::Value>) -> Option<FunctionRef> {
         path: file_path,
         content_hash: String::new(),
         language: Language::Python, // always Python (DD10)
+        content: "".into(),
     };
     Some(FunctionRef {
         file: file_ref,

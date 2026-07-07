@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -22,6 +23,12 @@ pub(crate) struct FileRef {
     pub path: String,
     pub content_hash: String,
     pub language: Language,
+    /// Decoded file contents (`String::from_utf8_lossy`), read once by `collect_files` and
+    /// reused by parsing to avoid a second disk read. `Arc<str>` keeps the many `FileRef`
+    /// clones O(1); `#[serde(skip)]` keeps it out of the report JSON (schema unchanged). It is
+    /// deterministic from `path`, so it does not change `PartialEq`/`Eq` equivalence classes.
+    #[serde(skip)]
+    pub content: Arc<str>,
 }
 
 /// Represents an extracted function (or a non-Python file treated as one whole-file unit).
@@ -169,6 +176,7 @@ mod tests {
             path: "src/main.py".into(),
             content_hash: "abc123".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let func = FunctionRef {
             file,
@@ -206,6 +214,7 @@ mod tests {
             path: "src/lib.py".into(),
             content_hash: "deadbeef".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let json: serde_json::Value = serde_json::to_value(&f).unwrap();
         assert_eq!(json["path"], "src/lib.py");

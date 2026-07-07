@@ -31,7 +31,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # CLI
-clap = { version = "4", features = ["derive", "env"] }
+clap = { version = "4", features = ["derive"] }
 
 # Serialization / config
 serde = { version = "1", features = ["derive"] }
@@ -72,9 +72,6 @@ regex = "1"
 walkdir = "2"
 globset = "0.4"
 dirs = "5"
-
-# Progress
-indicatif = "0.17"
 
 # ONNX Runtime (optional — feature "onnx")
 # download-binaries: downloads prebuilt libonnxruntime on first cargo build (no manual install)

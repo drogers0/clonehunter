@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use thiserror::Error;
@@ -99,6 +100,7 @@ pub(crate) fn collect_files(
             path: path.to_string_lossy().into_owned(),
             content_hash: hash_text(&content),
             language,
+            content: Arc::from(content),
         });
     }
     Ok(results)

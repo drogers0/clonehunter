@@ -4,34 +4,39 @@ use crate::core::types::{FileRef, FunctionRef};
 use crate::io::fingerprints::hash_text;
 
 /// Extract functions from a Python source file via tree-sitter.
-/// Returns empty Vec on any error (IO, parse failure, syntax errors). Never panics.
+/// Returns empty Vec on any error (parse failure, syntax errors). Never panics.
+///
+/// A skipped file contributes NO snippets to detection (Python files have no whole-file
+/// fallback), so each skip is logged — mirroring the "degrade gracefully, and surface it"
+/// discipline used for device/cache fallbacks.
 pub(crate) fn extract_functions(file: &FileRef) -> Vec<FunctionRef> {
-    let bytes = match std::fs::read(&file.path) {
-        Ok(b) => b,
-        Err(_) => return vec![],
-    };
-    let source = String::from_utf8_lossy(&bytes).into_owned();
+    let source: &str = &file.content;
 
     let mut parser = Parser::new();
     let language: TsLanguage = tree_sitter_python::LANGUAGE.into();
     if parser.set_language(&language).is_err() {
+        tracing::warn!(path = %file.path, "tree-sitter-python language init failed; skipping");
         return vec![];
     }
 
     let tree = match parser.parse(source.as_bytes(), None) {
         Some(t) => t,
-        None => return vec![],
+        None => {
+            tracing::warn!(path = %file.path, "tree-sitter returned no parse tree; skipping");
+            return vec![];
+        }
     };
 
     let root = tree.root_node();
     if root.has_error() {
+        tracing::warn!(path = %file.path, "python file has syntax errors; skipping (contributes no snippets)");
         return vec![];
     }
 
     let lines: Vec<&str> = source.lines().collect();
     let mut results = Vec::new();
     let mut name_stack: Vec<String> = Vec::new();
-    walk_node(root, &source, &lines, &mut name_stack, &mut results, file);
+    walk_node(root, source, &lines, &mut name_stack, &mut results, file);
     results
 }
 
@@ -196,6 +201,7 @@ mod tests {
             path: path.to_string(),
             content_hash: String::new(),
             language,
+            content: std::fs::read_to_string(path).unwrap_or_default().into(),
         }
     }
 

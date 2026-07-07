@@ -107,6 +107,7 @@ mod tests {
                     path: "a".into(),
                     content_hash: "h".into(),
                     language: Language::Python,
+                    content: "".into(),
                 },
                 qualified_name: "f".into(),
                 start_line: 1,

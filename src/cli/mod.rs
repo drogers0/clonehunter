@@ -217,6 +217,9 @@ fn run_diff(args: DiffArgs) -> Result<()> {
     };
 
     let cwd = std::env::current_dir().context("determine current directory")?;
+    // Discover clonehunter.toml by walking up from cwd, matching `scan`'s resolve_config_root
+    // — otherwise `diff` from a subdirectory silently falls back to defaults.
+    let config_root = find_config_root(&cwd).unwrap_or_else(|| cwd.clone());
     let changed = git::changed_files(&args.base, Some(&requested_paths), Some(&cwd))
         .map_err(|e| anyhow::anyhow!("Failed to determine changed files: {e}"))?;
 
@@ -225,7 +228,8 @@ fn run_diff(args: DiffArgs) -> Result<()> {
 
     if changed.is_empty() {
         // No changes → empty scan with paths=[]
-        let config = load_config(&cwd, Some(&overrides)).with_context(|| "loading config")?;
+        let config =
+            load_config(&config_root, Some(&overrides)).with_context(|| "loading config")?;
         let result = get_engine(config.engine)
             .scan(&ScanRequest {
                 paths: vec![],
@@ -238,7 +242,7 @@ fn run_diff(args: DiffArgs) -> Result<()> {
     }
 
     // Full scan of requested paths, filter to changed files
-    let config = load_config(&cwd, Some(&overrides)).with_context(|| "loading config")?;
+    let config = load_config(&config_root, Some(&overrides)).with_context(|| "loading config")?;
     let result = get_engine(config.engine)
         .scan(&ScanRequest {
             paths: requested_paths,

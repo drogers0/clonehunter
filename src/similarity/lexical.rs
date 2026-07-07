@@ -9,7 +9,7 @@ fn token_regex() -> &'static Regex {
     TOKEN_RE.get_or_init(|| Regex::new(r"[A-Za-z0-9_]+").expect("valid regex"))
 }
 
-fn tokenize(text: &str) -> HashSet<String> {
+pub(crate) fn tokenize(text: &str) -> HashSet<String> {
     let lower = text.to_lowercase();
     token_regex()
         .find_iter(&lower)
@@ -17,22 +17,30 @@ fn tokenize(text: &str) -> HashSet<String> {
         .collect()
 }
 
+/// Jaccard similarity where side A's tokens are already computed — lets the retrieval hot path
+/// tokenize the query snippet once instead of once per neighbor.
+///
+/// Returns 0.0 for empty inputs (DD6). `union = |a| + |b| - |a∩b|` (arithmetic; equals the
+/// set-union count for finite sets and avoids re-iterating both sets).
+pub(crate) fn lexical_similarity_pre(tokens_a: &HashSet<String>, text_b: &str) -> f64 {
+    if tokens_a.is_empty() {
+        return 0.0;
+    }
+    let tokens_b = tokenize(text_b);
+    if tokens_b.is_empty() {
+        return 0.0;
+    }
+    let intersection = tokens_a.intersection(&tokens_b).count();
+    let union = tokens_a.len() + tokens_b.len() - intersection;
+    intersection as f64 / union as f64
+}
+
 /// Jaccard similarity over lowercased identifier tokens.
 ///
 /// Direct port of Python's `lexical_similarity`: `re.findall(r"[A-Za-z0-9_]+", text.lower())`
 /// then set-intersection / set-union. Returns 0.0 for empty inputs (DD6).
 pub(crate) fn lexical_similarity(text_a: &str, text_b: &str) -> f64 {
-    let tokens_a = tokenize(text_a);
-    let tokens_b = tokenize(text_b);
-    if tokens_a.is_empty() || tokens_b.is_empty() {
-        return 0.0;
-    }
-    let intersection = tokens_a.intersection(&tokens_b).count();
-    let union = tokens_a.union(&tokens_b).count();
-    if union == 0 {
-        return 0.0;
-    }
-    intersection as f64 / union as f64
+    lexical_similarity_pre(&tokenize(text_a), text_b)
 }
 
 #[cfg(test)]

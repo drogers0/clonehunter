@@ -121,6 +121,7 @@ mod tests {
             path: path.clone(),
             content_hash: String::new(),
             language: Language::Python,
+            content: std::fs::read_to_string(&path).unwrap_or_default().into(),
         };
         crate::parsing::python_ast::extract_functions(&file)
     }

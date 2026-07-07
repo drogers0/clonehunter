@@ -290,6 +290,7 @@ mod tests {
             path: path.into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         }
     }
 

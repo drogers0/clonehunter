@@ -393,7 +393,6 @@ dependencies = [
  "globset",
  "hex",
  "hf-hub",
- "indicatif",
  "insta",
  "ndarray",
  "ort",

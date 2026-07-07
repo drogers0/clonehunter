@@ -152,6 +152,9 @@ pub(crate) fn resolve_repotype_globs(repotypes: &[String]) -> (Vec<String>, Vec<
 /// - exclude = dedupe(base_exc + cli_exc)
 /// - CLI includes remove matching entries from exclude
 /// - CLI excludes remove matching entries from include
+/// - When the SAME pattern is passed to both `--include-globs` and `--exclude-globs`,
+///   **explicit exclude wins** (safety-filter semantics): it stays in `exclude` and is
+///   removed from `include`.
 pub(crate) fn merge_globs(
     base_inc: &[String],
     base_exc: &[String],
@@ -162,6 +165,10 @@ pub(crate) fn merge_globs(
     let mut exclude = dedupe(&[base_exc, cli_exc].concat());
 
     for pattern in cli_inc {
+        // A pattern also passed to --exclude-globs stays excluded (exclude wins).
+        if cli_exc.contains(pattern) {
+            continue;
+        }
         exclude.retain(|e| e != pattern);
     }
     for pattern in cli_exc {
@@ -255,6 +262,26 @@ mod tests {
         assert!(
             !exc.contains(&"**/*.test.py".to_string()),
             "CLI include must remove from exclude"
+        );
+    }
+
+    #[test]
+    fn test_merge_globs_both_lists_exclude_wins() {
+        // Same pattern in BOTH --include-globs and --exclude-globs → exclude wins:
+        // stays in exclude, removed from include (previously it cancelled out of both).
+        let (inc, exc) = merge_globs(
+            &s(&["**/*.py"]),
+            &s(&[]),
+            &s(&["**/gen.py"]),
+            &s(&["**/gen.py"]),
+        );
+        assert!(
+            exc.contains(&"**/gen.py".to_string()),
+            "pattern in both lists must remain excluded"
+        );
+        assert!(
+            !inc.contains(&"**/gen.py".to_string()),
+            "pattern in both lists must not remain included"
         );
     }
 

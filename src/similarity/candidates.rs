@@ -6,7 +6,7 @@ use crate::core::config::Thresholds;
 use crate::core::types::{CandidateMatch, Embedding, SnippetKind, SnippetRef};
 use crate::index::VectorIndex;
 
-use super::lexical::lexical_similarity;
+use super::lexical::{lexical_similarity_pre, tokenize};
 
 /// Per-kind threshold lookup. Matches Python's `_threshold_for_kind` exactly.
 /// Uses the NEIGHBOR snippet's kind (snippet_b / `other`), not the query snippet's kind.
@@ -89,6 +89,8 @@ pub(crate) fn retrieve_candidates(
         .flat_map(|&(snip, emb)| {
             let neighbors = index.query(emb, top_k);
             let mut local_matches = Vec::new();
+            // Tokenize the query snippet once, not once per neighbor (up to `top_k` times).
+            let snip_tokens = tokenize(&snip.text);
             for (neighbor_id, emb_score) in neighbors {
                 // Self-hash skip: a snippet must not match itself.
                 if neighbor_id == snip.snippet_hash {
@@ -100,7 +102,7 @@ pub(crate) fn retrieve_candidates(
                 };
                 let other = &snippets[other_idx];
 
-                let lexical = lexical_similarity(&snip.text, &other.text);
+                let lexical = lexical_similarity_pre(&snip_tokens, &other.text);
                 let composite = (1.0 - thresholds.lexical_weight) * emb_score
                     + thresholds.lexical_weight * lexical;
 
@@ -140,6 +142,7 @@ mod tests {
             path: "x.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         }
     }
 

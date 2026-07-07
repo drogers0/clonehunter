@@ -20,7 +20,7 @@ use std::ffi::{CString, c_char, c_int};
 use tokenizers::Tokenizer;
 
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
-use crate::core::types::{Embedding, SnippetRef};
+use crate::core::types::{Degradation, DegradationKind, Embedding, SnippetRef};
 
 use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
 use super::{Embedder, EmbeddingError};
@@ -88,6 +88,7 @@ pub(crate) struct MlxEmbedder {
     ctx: *mut ChMlxCtx,
     tokenizer: Tokenizer,
     config: EmbedderConfig,
+    degradations: Vec<Degradation>,
 }
 
 // SAFETY: the ctx (weights map + one mlx_stream) is built once and only ever touched
@@ -104,10 +105,15 @@ impl Drop for MlxEmbedder {
 
 impl MlxEmbedder {
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
+        let mut degradations = Vec::new();
         if metal_available() {
             tracing::info!("MLX Metal GPU is available — using GPU");
         } else {
             tracing::warn!("MLX Metal GPU NOT available — falling back to CPU");
+            degradations.push(Degradation {
+                kind: DegradationKind::DeviceFallback,
+                message: "MLX Metal GPU unavailable; running on CPU".into(),
+            });
         }
 
         let tokenizer = load_tokenizer(config)?;
@@ -133,6 +139,7 @@ impl MlxEmbedder {
             ctx,
             tokenizer,
             config: config.clone(),
+            degradations,
         })
     }
 }
@@ -142,6 +149,10 @@ impl Embedder for MlxEmbedder {
         chunked_embed(snippets, self.config.batch_size, |texts| {
             embed_batch_mlx(self.ctx, &self.tokenizer, texts)
         })
+    }
+
+    fn take_degradations(&mut self) -> Vec<Degradation> {
+        std::mem::take(&mut self.degradations)
     }
 }
 

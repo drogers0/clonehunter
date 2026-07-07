@@ -84,19 +84,24 @@ pub(crate) fn expand_calls(functions: &[FunctionRef], config: &ExpansionConfig) 
     let mut snippets = Vec::new();
 
     for (file_path, fns) in &by_file {
-        let f_name_map = name_map(fns);
-        let qualified_map: HashMap<String, &FunctionRef> =
-            fns.iter().map(|f| (f.qualified_name.clone(), *f)).collect();
-        let cls_names = class_names_from_qmap(&qualified_map);
+        // Reuse the per-file maps already built above (identical to recomputing them here).
+        let f_name_map = &module_functions[file_path];
+        let qualified_map = &module_qualified[file_path];
+        let cls_names = &module_classes[file_path];
         let imports = collect_imports(Path::new(file_path), &local_files);
+        // File-invariant (built from this file's `qualified_map`), so compute once per file
+        // instead of once per function — avoids an O(F²) tree-sitter reparse.
+        let factory_map =
+            factory_map_for_functions(&qualified_map.values().copied().collect::<Vec<_>>());
 
         for fn_ in fns {
             let (expanded_text, helpers) = expand_for_function(
                 fn_,
-                &f_name_map,
-                &qualified_map,
-                &cls_names,
+                f_name_map,
+                qualified_map,
+                cls_names,
                 &imports,
+                &factory_map,
                 &module_functions,
                 &module_qualified,
                 &module_classes,
@@ -144,6 +149,7 @@ fn expand_for_function<'a>(
     qualified_map: &HashMap<String, &'a FunctionRef>,
     cls_names: &HashSet<String>,
     imports: &ImportMap,
+    factory_map: &HashMap<String, String>,
     module_functions: &'a HashMap<String, HashMap<String, &'a FunctionRef>>,
     module_qualified: &'a HashMap<String, HashMap<String, &'a FunctionRef>>,
     module_classes: &HashMap<String, HashSet<String>>,
@@ -155,12 +161,10 @@ fn expand_for_function<'a>(
     let mut frontier: Vec<&FunctionRef> = vec![function];
     let mut visited: HashSet<String> = HashSet::from([function.identity()]);
     let class_name = class_name_of(function);
-    let factory_map =
-        factory_map_for_functions(&qualified_map.values().copied().collect::<Vec<_>>());
     let local_class_map = build_local_class_map(
         function,
         cls_names,
-        &factory_map,
+        factory_map,
         imports,
         module_factories,
         module_classes,
@@ -974,6 +978,7 @@ mod tests {
             path: path.to_string(),
             content_hash: String::new(),
             language: Language::Python,
+            content: std::fs::read_to_string(path).unwrap_or_default().into(),
         }
     }
 

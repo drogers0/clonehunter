@@ -37,7 +37,7 @@ fn serialize_finding(finding: &Finding) -> serde_json::Value {
 }
 
 fn serialize_function(func: &FunctionRef) -> serde_json::Value {
-    let language = serde_json::to_value(func.file.language).unwrap_or(json!("unknown"));
+    let language = serde_json::to_value(func.file.language).expect("Language serializes");
     json!({
         "file": {
             "path": func.file.path,
@@ -55,8 +55,8 @@ fn serialize_compare(finding: &Finding) -> serde_json::Value {
     let Some(compare) = select_compare(&finding.evidence) else {
         return json!(null);
     };
-    let kind_a = serde_json::to_value(compare.kind_a).unwrap_or(json!("FUNC"));
-    let kind_b = serde_json::to_value(compare.kind_b).unwrap_or(json!("FUNC"));
+    let kind_a = serde_json::to_value(compare.kind_a).expect("SnippetKind serializes");
+    let kind_b = serde_json::to_value(compare.kind_b).expect("SnippetKind serializes");
     json!({
         "kind_a": kind_a,
         "kind_b": kind_b,
@@ -92,27 +92,45 @@ pub(crate) fn diff_text(text_a: &str, text_b: &str) -> String {
 
 /// Truncate diff lines to fit within limits (DD3).
 /// `lines` — individual diff lines (no inter-line newlines).
-/// Char count = sum of line lengths (excluding inter-line `\n`, matching Python).
+///
+/// Both the size gate and the truncation point use **character count excluding the inter-line
+/// `\n` separators** (one consistent metric, matching the documented Python contract). The
+/// "… diff truncated …" marker is appended ONLY when content was actually removed.
 pub(crate) fn truncate_diff(lines: &[&str], max_lines: usize, max_chars: usize) -> String {
     if lines.is_empty() {
         return String::new();
     }
-    let total_chars: usize = lines.iter().map(|l| l.len()).sum();
+    let total_chars: usize = lines.iter().map(|l| l.chars().count()).sum();
     if lines.len() <= max_lines && total_chars <= max_chars {
         return lines.join("\n");
     }
-    let trimmed = &lines[..lines.len().min(max_lines)];
-    let mut text = trimmed.join("\n");
-    if text.chars().count() > max_chars {
-        // Truncate at a char boundary to avoid panicking on multibyte sequences.
-        let byte_end = text
-            .char_indices()
-            .nth(max_chars)
-            .map(|(i, _)| i)
-            .unwrap_or(text.len());
-        text.truncate(byte_end);
+
+    let line_truncated = lines.len() > max_lines;
+    let mut text = lines[..lines.len().min(max_lines)].join("\n");
+
+    // Cut at the byte offset following the `max_chars`-th non-newline character.
+    let mut non_nl = 0usize;
+    let mut char_truncated = false;
+    let mut cut = text.len();
+    for (i, c) in text.char_indices() {
+        if non_nl == max_chars {
+            cut = i;
+            char_truncated = true;
+            break;
+        }
+        if c != '\n' {
+            non_nl += 1;
+        }
     }
-    format!("{text}\n... diff truncated ...")
+    if char_truncated {
+        text.truncate(cut);
+    }
+
+    if line_truncated || char_truncated {
+        format!("{text}\n... diff truncated ...")
+    } else {
+        text
+    }
 }
 
 #[cfg(test)]
@@ -292,14 +310,24 @@ mod tests {
     }
 
     #[test]
-    fn truncate_diff_non_ascii_no_panic() {
-        // Each "→" is 3 UTF-8 bytes; 2000 of them = 6000 bytes > 4000 byte limit.
-        // Must not panic (char-boundary safe truncation).
-        let long_line = "→".repeat(2000);
-        let lines = vec![long_line.as_str()];
-        let result = truncate_diff(&lines, 80, 4000);
-        assert!(result.ends_with("... diff truncated ..."));
-        // Truncated portion is valid UTF-8 (would panic on decode otherwise)
-        assert!(result.is_ascii() || !result.is_empty());
+    fn truncate_diff_non_ascii() {
+        // Each "→" is 3 UTF-8 bytes. 2000 chars = 6000 bytes but only 2000 CHARS, under the
+        // 4000-char limit: the gate counts chars (not bytes), so this is NOT truncated and gets
+        // NO marker (the old byte-based gate wrongly truncated + marked it).
+        let under = "→".repeat(2000);
+        let r = truncate_diff(&[under.as_str()], 80, 4000);
+        assert_eq!(r, under, "under the char limit → unchanged");
+        assert!(
+            !r.contains("diff truncated"),
+            "no marker when not truncated"
+        );
+
+        // 5000 chars is over the 4000-char limit → truncated at a char boundary (valid UTF-8),
+        // marker appended, exactly 4000 chars retained.
+        let over = "→".repeat(5000);
+        let r = truncate_diff(&[over.as_str()], 80, 4000);
+        assert!(r.ends_with("... diff truncated ..."));
+        let body = r.strip_suffix("\n... diff truncated ...").unwrap();
+        assert_eq!(body.chars().filter(|&c| c == '→').count(), 4000);
     }
 }

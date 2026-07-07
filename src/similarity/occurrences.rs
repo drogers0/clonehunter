@@ -173,6 +173,7 @@ mod tests {
             path: "x.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         FunctionRef {
             file,
@@ -197,6 +198,7 @@ mod tests {
             path: "x.py".into(),
             content_hash: "h".into(),
             language: Language::Python,
+            content: "".into(),
         };
         let fa = FunctionRef {
             file: file.clone(),

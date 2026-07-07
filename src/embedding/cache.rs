@@ -34,7 +34,6 @@ pub(crate) struct EmbeddingCache {
     /// (matching the plan API and Python's duck-typed interface) while rusqlite
     /// requires `&mut Connection` for transactions.
     conn: RefCell<Connection>,
-    root: PathBuf,
     degradations: Vec<Degradation>,
 }
 
@@ -48,13 +47,11 @@ impl EmbeddingCache {
         let conn = open_with_self_heal(&db_path, &mut degradations)?;
         Ok(Self {
             conn: RefCell::new(conn),
-            root: root_path,
             degradations,
         })
     }
 
     /// Batch lookup. Returns only found entries. Chunked to respect SQLite variable limits.
-    /// Lazily migrates legacy JSON files for cache misses.
     pub(crate) fn get_many(&self, keys: &[&str]) -> Result<HashMap<String, Embedding>, CacheError> {
         if keys.is_empty() {
             return Ok(HashMap::new());
@@ -77,27 +74,20 @@ impl EmbeddingCache {
             for row in rows {
                 let (key, dim, blob) = row?;
                 let vector = blob_to_vec(&blob);
-                // Guard against corrupt BLOBs: a truncated blob produces fewer floats
-                // than the stored `dim` column, which would cause dimension-mismatch panics.
-                debug_assert!(
-                    vector.len() == dim,
-                    "BLOB length mismatch: got {} floats, expected dim={}",
-                    vector.len(),
-                    dim
-                );
+                // A truncated/corrupt BLOB yields fewer floats than the stored `dim`, which
+                // would cause a dimension-mismatch panic downstream. Skip the row (treat it as a
+                // cache miss) rather than crash the scan.
+                if vector.len() != dim {
+                    tracing::warn!(
+                        key,
+                        got = vector.len(),
+                        expected = dim,
+                        "corrupt cached embedding; skipping"
+                    );
+                    continue;
+                }
                 results.insert(key, Embedding { vector });
             }
-        }
-
-        // Lazy migration: check legacy JSON files for cache misses
-        let missed: Vec<&str> = keys
-            .iter()
-            .copied()
-            .filter(|k| !results.contains_key(*k))
-            .collect();
-        if !missed.is_empty() {
-            let migrated = self.migrate_json(&missed)?;
-            results.extend(migrated);
         }
 
         Ok(results)
@@ -130,42 +120,6 @@ impl EmbeddingCache {
     /// Drain accumulated degradation events (cache self-heal, etc.).
     pub(crate) fn take_degradations(&mut self) -> Vec<Degradation> {
         std::mem::take(&mut self.degradations)
-    }
-
-    /// Lazily migrate legacy `{safe_key}.json` files into SQLite.
-    fn migrate_json(&self, keys: &[&str]) -> Result<HashMap<String, Embedding>, CacheError> {
-        let mut found: HashMap<String, Embedding> = HashMap::new();
-        for &key in keys {
-            let safe_key = key.replace('/', "_");
-            let json_path = self.root.join(format!("{safe_key}.json"));
-            if !json_path.exists() {
-                continue;
-            }
-            if let Ok(content) = fs::read_to_string(&json_path) {
-                if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let (Some(vec_val), Some(dim_val)) =
-                        (payload.get("vector"), payload.get("dim"))
-                    {
-                        if let (Some(arr), Some(dim)) = (vec_val.as_array(), dim_val.as_u64()) {
-                            let vector: Vec<f32> = arr
-                                .iter()
-                                .filter_map(|v| v.as_f64().map(|f| f as f32))
-                                .collect();
-                            // Skip entries where null/non-numeric JSON elements reduced
-                            // the vector below the stored dim (invariant: vector.len() == dim).
-                            if vector.len() != dim as usize {
-                                continue;
-                            }
-                            found.insert(key.to_owned(), Embedding { vector });
-                        }
-                    }
-                }
-            }
-        }
-        if !found.is_empty() {
-            self.set_many(&found)?;
-        }
-        Ok(found)
     }
 }
 
@@ -419,30 +373,6 @@ mod tests {
         let key_refs: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
         let result = cache.get_many(&key_refs).unwrap();
         assert_eq!(result.len(), 1000);
-    }
-
-    #[test]
-    fn cache_json_migration() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path().to_str().unwrap();
-
-        // Write a legacy JSON cache file
-        let key = "sha256_abc123";
-        let safe_key = key.replace('/', "_");
-        let json_path = dir.path().join(format!("{safe_key}.json"));
-        let payload = serde_json::json!({ "vector": [0.1f64, 0.2, 0.3], "dim": 3 });
-        std::fs::write(&json_path, serde_json::to_string(&payload).unwrap()).unwrap();
-
-        let cache = EmbeddingCache::new(root).unwrap();
-        // First read: should migrate from JSON to SQLite
-        let result = cache.get_many(&[key]).unwrap();
-        assert!(result.contains_key(key), "legacy JSON should be migrated");
-        assert_eq!(result[key].vector.len(), 3);
-
-        // Second read: should come from SQLite (JSON still present, but SQLite has it now)
-        let result2 = cache.get_many(&[key]).unwrap();
-        assert!(result2.contains_key(key));
-        assert_eq!(result2[key].vector.len(), 3);
     }
 
     #[test]

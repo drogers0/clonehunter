@@ -21,6 +21,7 @@ pub(crate) fn make_file(path: &str) -> FileRef {
         path: path.into(),
         content_hash: "h".into(),
         language: Language::Python,
+        content: "".into(),
     }
 }
 

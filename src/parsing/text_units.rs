@@ -47,6 +47,7 @@ mod tests {
             path: path.to_string(),
             content_hash: String::new(),
             language: Language::Text,
+            content: std::fs::read_to_string(path).unwrap_or_default().into(),
         }
     }
 
