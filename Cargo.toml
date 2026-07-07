@@ -79,6 +79,13 @@ dirs = "5"
 # ndarray: disabled — we use (shape, &[T]) tuples to pass tensors without ndarray version conflict
 ort = { version = "=2.0.0-rc.9", optional = true, default-features = false, features = ["download-binaries", "copy-dylibs"] }
 
+# hf-hub 0.3 hard-wires native-tls (no rustls option). On Linux that pulls openssl-sys,
+# which can't cross-compile to the static musl release target against a system OpenSSL.
+# Vendoring builds OpenSSL from source and links it statically. Linux-only: macOS uses
+# Security.framework (no openssl-sys in its graph) and is unaffected.
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 [dev-dependencies]
 tempfile = "3"
 assert_cmd = "2"
