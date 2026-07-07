@@ -1,11 +1,11 @@
 # Vendored: `mlx-c` (Apple MLX C API)
 
 - **Upstream:** https://github.com/ml-explore/mlx-c
-- **Version:** `MLX_C_VERSION 0.2.0` (see `CMakeLists.txt`)
-- **Targets MLX core:** the `FetchContent` `GIT_TAG` in `CMakeLists.txt` is `v0.25.1`, but that
+- **Version:** `MLX_C_VERSION 0.6.0` (see `CMakeLists.txt`)
+- **Targets MLX core:** the `FetchContent` `GIT_TAG` in `CMakeLists.txt` is `v0.31.1`, but that
   path is only used for a from-source build, which we do NOT use. We build against a
-  **prebuilt** `libmlx` from the `mlx==0.25.2` wheel (`scripts/setup-mlx.sh`) — the operative
-  MLX runtime is 0.25.2; the 0.25.1 tag is inert here.
+  **prebuilt** `libmlx` from the `mlx==0.31.1` wheel (`scripts/setup-mlx.sh`) — the operative
+  MLX runtime is 0.31.1, matching the mlx-c v0.6.0 target.
 - **Modifications:** none. This is the unmodified upstream Apple C API source. It was
   previously vendored transitively inside the `mlx-sys` crate at
   `vendor/mlx-sys-0.2.0/src/mlx-c`; when this project dropped the `mlx-rs`/`mlx-sys`

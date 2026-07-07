@@ -6,7 +6,8 @@
  * on click; scores within 1e-4): linear weights pre-transposed once at load
  * (prepare_linear_weights), the attention mask bias hoisted out of the layer loop,
  * and attention computed via fused scaled_dot_product_attention. Verified: exact 578
- * findings, embedding cosine diff 4.94e-13 vs the PyTorch reference.
+ * findings (pairs identical to the frozen baseline), embedding cosine diff ~4e-12 vs the
+ * PyTorch reference on mlx-c 0.6.0 / MLX 0.31.1.
  *
  * Memory: every mlx op returns an OWNED mlx_array via an out-param; the `Arr`
  * RAII type default-constructs an empty handle, passes &a to the op (which
@@ -176,12 +177,11 @@ Arr layer_norm(const Arr& x, const Arr& w, const Arr& b, mlx_stream s) {
 // Fused scaled-dot-product attention: softmax(scale·QKᵀ + mask) · V in one kernel.
 // `mask` is the additive bias [batch,1,1,seq] (broadcast over heads/query positions).
 Arr sdpa(const Arr& q, const Arr& k, const Arr& v, float scale, const Arr& mask, mlx_stream s) {
-    mlx_vector_array masks = mlx_vector_array_new_value(mask.a);
+    mlx_array sinks{}; // null handle (ctx == nullptr): no attention sinks
     Arr r;
-    int rc = mlx_fast_scaled_dot_product_attention(
-        &r.a, q.a, k.a, v.a, scale, "array", masks, s);
-    mlx_vector_array_free(masks);
-    CK(rc, "sdpa");
+    CK(mlx_fast_scaled_dot_product_attention(
+           &r.a, q.a, k.a, v.a, scale, "array", mask.a, sinks, s),
+       "sdpa");
     return r;
 }
 Arr zeros_i32(int batch, int seq, mlx_stream s) {

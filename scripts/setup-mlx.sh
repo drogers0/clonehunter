@@ -9,7 +9,7 @@ set -euo pipefail
 # The only version pairing to keep aligned is the vendored mlx-c release ↔ this
 # prebuilt MLX ABI (vendor/mlx-c is currently 0.2.0, targeting MLX 0.25.x).
 # Re-validate parity before bumping either (see vendor/mlx-c/PROVENANCE.md).
-MLX_VERSION="0.25.2"
+MLX_VERSION="0.31.1"
 INSTALL_DIR="${CLONEHUNTER_MLX_DIR:-$HOME/.local/share/clonehunter/mlx}"
 
 echo "=== CloneHunter MLX Setup ==="

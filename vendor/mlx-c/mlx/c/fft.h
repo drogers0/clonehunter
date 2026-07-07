@@ -27,6 +27,7 @@ extern "C" {
  * \defgroup fft FFT operations
  */
 /**@{*/
+
 int mlx_fft_fft(
     mlx_array* res,
     const mlx_array a,
@@ -49,6 +50,12 @@ int mlx_fft_fftn(
     const int* axes,
     size_t axes_num,
     const mlx_stream s);
+int mlx_fft_fftshift(
+    mlx_array* res,
+    const mlx_array a,
+    const int* axes,
+    size_t axes_num,
+    const mlx_stream s);
 int mlx_fft_ifft(
     mlx_array* res,
     const mlx_array a,
@@ -68,6 +75,12 @@ int mlx_fft_ifftn(
     const mlx_array a,
     const int* n,
     size_t n_num,
+    const int* axes,
+    size_t axes_num,
+    const mlx_stream s);
+int mlx_fft_ifftshift(
+    mlx_array* res,
+    const mlx_array a,
     const int* axes,
     size_t axes_num,
     const mlx_stream s);
@@ -115,6 +128,7 @@ int mlx_fft_rfftn(
     const int* axes,
     size_t axes_num,
     const mlx_stream s);
+
 /**@}*/
 
 #ifdef __cplusplus
