@@ -46,9 +46,9 @@ Two properties shape almost every design decision in the codebase:
 
 - **Determinism.** The same inputs always produce the same set of findings, with
   the same scores. Sorts are stable, tie-breaks are explicit, and the test-only
-  `stub` embedder is fully deterministic. Detection output is frozen against a
-  checked-in baseline (`benchmark/baseline.json`) — a change that moves a score is
-  a deliberate, reviewed event, not an accident.
+  `stub` embedder is fully deterministic. Detection output is pinned by a checked-in
+  regression fixture (`benchmark/baseline.json`) that records the expected findings and
+  scores, so any change that moves a score is caught and must be intentional.
 
 - **Graceful degradation.** Nothing aborts the scan if it can be worked around. A
   GPU that isn't there falls back to CPU; a corrupt cache heals itself; an

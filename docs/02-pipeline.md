@@ -62,8 +62,8 @@ flowchart TD
 [glob layers](06-config-cli-and-reports.md#glob-selection), and de-duplicates by
 canonical path. Each surviving file becomes a `FileRef` whose language is decided by
 extension: `.py` → `Language::Python`, everything else → `Language::Text`. The file's
-bytes are read once here and carried on the `FileRef` (as an `Arc<str>`) so no later
-stage touches the disk again.
+bytes are read once here and carried on the `FileRef` so no later stage touches the
+disk again.
 
 ## Stage 2 — Extract units
 
@@ -101,19 +101,17 @@ concatenates them into one flat list ([`generators.rs`](../src/snippets/generato
 
 Every snippet's **analysis text** is comment-stripped here (that is what will be
 embedded); its **display text** keeps comments. Each snippet also gets a
-`snippet_hash` — a stable key derived from its file path, line span, and a code hash
-(WIN snippets also fold in their analysis text) — used as its identity in the index
-and cache.
+`snippet_hash` — a stable key used as its identity in the index and cache. (What that
+key is built from matters for [self-match filtering](03-detection.md#the-two-gates).)
 
 ## Stage 4 — Embed
 
 Each snippet's analysis text must become a vector. This stage is a cache in front of
 a model ([`src/embedding/`](../src/embedding/) `embed_with_cache`):
 
-1. Compute a cache key per snippet:
-   `sha256("{backend}:{model}:{revision}:{max_tokens}:{snippet_hash}")`. The backend
-   name is part of the key, so switching embedders never reuses another backend's
-   vectors.
+1. Compute a cache key per snippet. The **backend name** is part of the key, so
+   switching embedders never reuses another backend's vectors (exact format in
+   [chapter 4](04-embeddings-and-backends.md#the-embedding-cache)).
 2. Look the keys up in the SQLite cache in one batch.
 3. Embed only the **misses**, in `batch_size` batches, through the chosen backend.
 4. Write the new vectors back, and assemble the full list in the original order.
@@ -188,7 +186,7 @@ Two spots in this stage matter for the determinism invariant:
   run-to-run.
 - `retrieve_candidates` runs under rayon, which is unordered — so the *order* of
   findings can vary between runs, but the *set* of findings and their scores cannot.
-  Any parity check sorts findings before comparing.
+  Any run-to-run comparison sorts findings first.
 
 Next: [Detection internals](03-detection.md) — the exact scoring and rollup logic of
 stage 5.

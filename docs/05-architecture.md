@@ -4,7 +4,7 @@ This chapter maps the code: the module layout, the core data types that flow bet
 modules, and the control path from `main` to a written report. If the earlier
 chapters explained *what* happens, this one says *where* it lives.
 
-CloneHunter is a single Rust crate (edition 2024, MSRV 1.85). The binary is
+CloneHunter is a single Rust crate. The binary is
 [`src/main.rs`](../src/main.rs); the library is [`src/lib.rs`](../src/lib.rs).
 
 ## Module map

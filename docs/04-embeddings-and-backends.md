@@ -42,7 +42,7 @@ flowchart TD
 | **CodeBERT / candle** | `codebert` | default | CPU everywhere; CUDA with `--features cuda`; Accelerate with `--features accelerate` | The reference backend. Single binary, works out of the box. |
 | **Stub** | `stub` | always | CPU | Deterministic 16-dim hash embedding. No model download. Drives every integration test and the fast dev loop. |
 | **ONNX Runtime** | `onnx` | `--features onnx` | CPU | Statically-linked ONNX Runtime, single binary. ~3× faster than candle-CPU. Needs a pre-exported `model.onnx`. |
-| **Apple MLX** | `mlx` | `--features mlx` | Metal GPU | Fastest on Apple Silicon (~47s on the click benchmark). Not a single binary — ships a `libmlx.dylib` + `.metallib` sidecar. |
+| **Apple MLX** | `mlx` | `--features mlx` | Metal GPU | Fastest on Apple Silicon. Not a single binary — ships a `libmlx.dylib` + `.metallib` sidecar. |
 
 All real backends load the same `microsoft/codebert-base` weights (a RoBERTa-base
 model), share the same bundled tokenizer, and mean-pool the model's last hidden state
@@ -67,7 +67,7 @@ Because the key includes the backend, switching `--embedder` re-embeds on first 
 rather than serving another engine's (slightly different) vectors. The cache is a
 graceful-degradation citizen: on a schema-version mismatch or corruption it heals
 itself (rebuilds), skips individual corrupt rows rather than failing, and records a
-degradation. It uses WAL mode and chunked `IN` reads for throughput.
+degradation.
 
 ## Language handoffs
 
@@ -109,9 +109,8 @@ The MLX backend is the one boundary CloneHunter *owns* rather than consumes, so 
 worth walking through. The chain is four layers deep:
 
 1. **`MlxEmbedder` (Rust)** — [`src/embedding/mlx_backend.rs`](../src/embedding/mlx_backend.rs).
-   A thin FFI wrapper. It tokenizes and pads (shared code), casts the token/mask
-   buffers to `i32`, and calls the shim's C ABI (`ch_mlx_ctx_new`, `ch_mlx_embed`).
-   It owns no model logic.
+   A thin FFI wrapper. It tokenizes and pads (shared code) and calls into the shim's C
+   ABI. It owns no model logic.
 2. **`ch_mlx.cpp` (C++)** — [`csrc/ch_mlx.cpp`](../csrc/ch_mlx.cpp), exposing the tiny
    C header [`csrc/ch_mlx.h`](../csrc/ch_mlx.h). **This is where the entire RoBERTa
    forward pass + mean-pool lives**, written against Apple's `mlx-c` API: embeddings,
@@ -125,8 +124,8 @@ worth walking through. The chain is four layers deep:
 The crate-root [`build.rs`](../build.rs) wires this together **only** under
 `--features mlx`: it builds `mlx-c` against the prebuilt `libmlx` (never from source —
 that would need Xcode's Metal toolchain), compiles our shim, and links them in the
-right order (shim → `mlxc` → `mlx`). For every other build it is a no-op and the
-`cc`/`cmake` build-dependencies are compiled out entirely.
+right dependency order. For every other build it is a no-op and the `cc`/`cmake`
+build-dependencies are compiled out entirely.
 
 Two design choices in the shim protect the invariants from the
 [docs index](README.md#the-two-invariants-worth-knowing-up-front):
@@ -137,10 +136,13 @@ Two design choices in the shim protect the invariants from the
 - **Metal→CPU degradation.** If no Metal GPU is available, the backend runs on CPU
   and records a `DeviceFallback` degradation rather than failing.
 
-> **Why vendor `mlx-c` instead of a dependency?** It pins an exact, reviewed version
-> of the C API next to the shim that targets it, keeps the build reproducible without
-> a network fetch of Apple's toolchain, and removes the abandoned `mlx-rs`/`mlx-sys`
-> crates from the tree. The provenance and bump procedure are documented in
+> **Why a self-owned shim over Apple's C API?** The Rust MLX bindings
+> (`mlx-rs`/`mlx-sys`) were evaluated as the obvious alternative. Owning a thin C++
+> shim over Apple's official `mlx-c` C API was chosen instead because it targets a
+> small, stable C ABI we control, pins an exact, known-good version of `mlx-c` beside
+> the shim that uses it, and keeps the build reproducible against a prebuilt `libmlx` —
+> no network fetch of Apple's Metal toolchain, no reliance on a third-party binding's
+> release cadence. The provenance and version-bump procedure are documented in
 > `vendor/mlx-c/PROVENANCE.md`.
 
 ## Choosing a backend
@@ -157,8 +159,8 @@ Practical guidance:
 The [README backend matrix](../README.md#embedding-backend-support-matrix) has the
 measured timings.
 
-> **`--device` has no `mps`.** It is `auto|cpu|cuda` only — candle's Metal path was
-> removed. The Apple GPU is reached exclusively through the `mlx` backend, which
-> selects Metal itself and ignores `--device`.
+> **On Apple Silicon, the GPU is reached through the `mlx` backend, not `--device`.**
+> The `mlx` backend manages Metal itself and ignores `--device`; the candle backend's
+> `--device` accepts `auto|cpu|cuda`.
 
 Next: [Code architecture](05-architecture.md) — where all of this lives in the tree.

@@ -74,11 +74,12 @@ Terms used throughout the manual and the code:
   matches that back it, and the *reasons* it qualified.
 - **Reason** — *why* a finding was emitted: `func_threshold`, `exp_threshold`, or
   `min_window_hits`. A finding needs at least one.
-- **Composite score** — `(1 − lexical_weight)·embedding + lexical_weight·lexical`.
-  The single number a threshold is compared against.
+- **Composite score** — the blend of embedding and lexical similarity that a threshold
+  is compared against (exact formula in [chapter 3](03-detection.md#the-composite-score)).
 - **Degradation** — a recorded fallback (GPU→CPU, cache self-heal, skipped file)
   that is surfaced in the report instead of crashing the scan.
-- **Baseline** — `benchmark/baseline.json`, the frozen expected detection output.
-  The contract that guards against accidental behavioural drift.
+- **Baseline** — `benchmark/baseline.json`, a checked-in record of the expected
+  findings and scores for a set of sample repos; used as a regression fixture to catch
+  accidental changes in detection output.
 
 Next: [the pipeline](02-pipeline.md) that ties all of this together.
