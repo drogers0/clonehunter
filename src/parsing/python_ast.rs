@@ -1,7 +1,8 @@
-use tree_sitter::{Language as TsLanguage, Node, Parser};
+use tree_sitter::Node;
 
 use crate::core::types::{FileRef, FunctionRef};
 use crate::io::fingerprints::hash_text;
+use crate::parsing::make_python_parser;
 
 /// Extract functions from a Python source file via tree-sitter.
 /// Returns empty Vec on any error (parse failure, syntax errors). Never panics.
@@ -12,12 +13,10 @@ use crate::io::fingerprints::hash_text;
 pub(crate) fn extract_functions(file: &FileRef) -> Vec<FunctionRef> {
     let source: &str = &file.content;
 
-    let mut parser = Parser::new();
-    let language: TsLanguage = tree_sitter_python::LANGUAGE.into();
-    if parser.set_language(&language).is_err() {
+    let Some(mut parser) = make_python_parser() else {
         tracing::warn!(path = %file.path, "tree-sitter-python language init failed; skipping");
         return vec![];
-    }
+    };
 
     let tree = match parser.parse(source.as_bytes(), None) {
         Some(t) => t,

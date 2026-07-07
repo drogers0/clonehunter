@@ -54,6 +54,35 @@ pub(super) fn bundled_codebert_tokenizer(max_length: usize) -> Result<Tokenizer,
     configure_codebert_tokenizer(tokenizer, max_length)
 }
 
+/// Tokenize a batch and return row-major padded token ids + attention mask as `u32`.
+///
+/// Returns `(batch, max_len, ids, mask)` where `ids`/`mask` are `batch * max_len` in
+/// row-major order. Because the tokenizer uses `BatchLongest` padding, every encoding is
+/// already padded to `max_len`, so a straight concatenation is exact — each backend then
+/// casts `u32` to its tensor's element type (`u32`/`i64`/`i32`) at construction. This is the
+/// single copy of the per-batch tokenize→pad→flatten step formerly duplicated in each backend.
+pub(super) fn tokenize_padded(
+    tokenizer: &Tokenizer,
+    texts: &[&str],
+) -> Result<(usize, usize, Vec<u32>, Vec<u32>), EmbeddingError> {
+    let encodings = tokenizer
+        .encode_batch(texts.to_vec(), true)
+        .map_err(|e| EmbeddingError::Inference(format!("tokenize: {e}")))?;
+    let batch = texts.len();
+    let max_len = encodings
+        .iter()
+        .map(|e| e.get_ids().len())
+        .max()
+        .unwrap_or(0);
+    let mut ids = Vec::with_capacity(batch * max_len);
+    let mut mask = Vec::with_capacity(batch * max_len);
+    for enc in &encodings {
+        ids.extend_from_slice(enc.get_ids());
+        mask.extend_from_slice(enc.get_attention_mask());
+    }
+    Ok((batch, max_len, ids, mask))
+}
+
 /// Batch a snippet slice by `batch_size` and concatenate per-batch embeddings, in order.
 ///
 /// Each backend supplies only its inner batch inference via the `embed_batch` closure;

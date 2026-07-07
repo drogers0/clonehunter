@@ -28,7 +28,7 @@ use tokenizers::Tokenizer;
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
 use crate::core::types::{Embedding, SnippetRef};
 
-use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
+use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed, tokenize_padded};
 use super::{Embedder, EmbeddingError};
 
 // ── OnnxEmbedder ──────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ pub(crate) struct OnnxEmbedder {
 impl OnnxEmbedder {
     /// Create an OnnxEmbedder with the CPU execution provider.
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
+        tracing::debug!(device = ?config.device, "ONNX backend is CPU-only; --device is ignored");
         let model_path = resolve_model_path()?;
         tracing::info!(path = %model_path.display(), "loading ONNX model");
 
@@ -139,28 +140,10 @@ fn embed_batch_ort(
     tokenizer: &Tokenizer,
     texts: &[&str],
 ) -> Result<Vec<Embedding>, EmbeddingError> {
-    let encodings = tokenizer
-        .encode_batch(texts.to_vec(), true)
-        .map_err(|e| EmbeddingError::Inference(format!("tokenize: {e}")))?;
-
-    let batch = texts.len();
-    let max_len = encodings
-        .iter()
-        .map(|e| e.get_ids().len())
-        .max()
-        .unwrap_or(0);
-
-    // Flatten to row-major i64 arrays. token_type_ids = all zeros (RoBERTa).
-    let mut ids_flat = vec![0i64; batch * max_len];
-    let mut mask_flat = vec![0i64; batch * max_len];
-    for (row, enc) in encodings.iter().enumerate() {
-        let ids = enc.get_ids();
-        let mask = enc.get_attention_mask();
-        for (col, (&id, &m)) in ids.iter().zip(mask.iter()).enumerate() {
-            ids_flat[row * max_len + col] = id as i64;
-            mask_flat[row * max_len + col] = m as i64;
-        }
-    }
+    let (batch, max_len, ids_u32, mask_u32) = tokenize_padded(tokenizer, texts)?;
+    // ORT needs i64 tensors. token_type_ids = all zeros (RoBERTa).
+    let ids_flat: Vec<i64> = ids_u32.iter().map(|&x| x as i64).collect();
+    let mask_flat: Vec<i64> = mask_u32.iter().map(|&x| x as i64).collect();
     let type_ids_flat = vec![0i64; batch * max_len];
 
     // Build tensors from (shape, &[T]) — no ndarray version conflict
@@ -184,8 +167,13 @@ fn embed_batch_ort(
         )
         .map_err(|e| EmbeddingError::Inference(format!("ort run: {e}")))?;
 
-    // Extract last_hidden_state — output named "last_hidden_state" or index 0
-    let (lhs_shape, lhs_data) = outputs["last_hidden_state"]
+    // Extract last_hidden_state — fail gracefully if a re-exported model names it differently.
+    let lhs = outputs.get("last_hidden_state").ok_or_else(|| {
+        EmbeddingError::Inference(
+            "ONNX model has no 'last_hidden_state' output (re-export with that output name)".into(),
+        )
+    })?;
+    let (lhs_shape, lhs_data) = lhs
         .try_extract_raw_tensor::<f32>()
         .map_err(|e| EmbeddingError::Inference(format!("extract last_hidden_state: {e}")))?;
 
@@ -204,6 +192,11 @@ fn embed_batch_ort(
     if b != batch {
         return Err(EmbeddingError::Inference(format!(
             "batch mismatch: expected {batch}, got {b}"
+        )));
+    }
+    if s != max_len {
+        return Err(EmbeddingError::Inference(format!(
+            "sequence length mismatch: expected {max_len}, got {s}"
         )));
     }
 

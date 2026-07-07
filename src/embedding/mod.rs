@@ -123,11 +123,19 @@ pub(crate) fn embed_with_cache(
         return Ok((vec![], 0, 0));
     }
 
-    // 1. Compute cache key for each snippet position
+    // 1. Compute cache key for each snippet position. The backend is keyed so distinct
+    //    backends (not bit-identical) never share cache entries.
+    let backend = match config.name {
+        EmbedderName::Codebert => "codebert",
+        EmbedderName::Stub => "stub",
+        EmbedderName::Onnx => "onnx",
+        EmbedderName::Mlx => "mlx",
+    };
     let keys: Vec<String> = snippets
         .iter()
         .map(|s| {
             embed_cache_key(
+                backend,
                 &config.model_name,
                 &config.revision,
                 config.max_length,

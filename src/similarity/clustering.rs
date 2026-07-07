@@ -49,7 +49,9 @@ pub(crate) fn cluster_findings(findings: &[Finding]) -> Vec<Finding> {
         );
     }
 
-    // Assign cluster IDs in finding-iteration order.
+    // Assign cluster IDs in finding-iteration order. NOTE: the integer `cluster_id` values are
+    // therefore finding-order-dependent — cluster *membership* is deterministic, but the ID
+    // integers are not stable across rayon-unordered runs, so do not snapshot/assert on them.
     let mut clusters: HashMap<String, usize> = HashMap::new();
     let mut next_id = 1usize;
     let mut result = Vec::with_capacity(findings.len());

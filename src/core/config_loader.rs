@@ -2,7 +2,8 @@ use serde::Deserialize;
 use std::path::Path;
 
 use crate::core::config::{
-    CloneHunterConfig, DeviceName, EmbedderName, EngineName, IndexName, embedder_preset,
+    CloneHunterConfig, DeviceName, EmbedderConfig, EmbedderName, EngineName, IndexName,
+    embedder_preset,
 };
 use crate::core::errors::ConfigError;
 
@@ -157,6 +158,23 @@ pub(crate) fn load_config(
 /// For nested sections (thresholds, embedder, etc.), merge is field-level: only `Some` fields
 /// in the override section replace the corresponding base field. This is the type-safe Rust
 /// translation of Python's `if "key" in cfg` / `clean_overrides` pattern (DD3).
+/// Apply only the explicitly-provided embedder override fields (shared by the no-preset and
+/// name-unchanged branches of `apply_overrides`).
+fn patch_explicit_embedder_fields(cfg: &mut EmbedderConfig, e: &EmbedderOverride) {
+    if let Some(ref v) = e.model_name {
+        cfg.model_name = v.clone();
+    }
+    if let Some(ref v) = e.revision {
+        cfg.revision = v.clone();
+    }
+    if let Some(v) = e.max_length {
+        cfg.max_length = v;
+    }
+    if let Some(v) = e.batch_size {
+        cfg.batch_size = v;
+    }
+}
+
 pub(crate) fn apply_overrides(
     mut config: CloneHunterConfig,
     ov: &ConfigOverride,
@@ -265,33 +283,11 @@ pub(crate) fn apply_overrides(
             } else {
                 // Switched to a name without a preset (e.g., stub) —
                 // keep current values, apply only explicit overrides.
-                if let Some(ref v) = e.model_name {
-                    config.embedder.model_name = v.clone();
-                }
-                if let Some(ref v) = e.revision {
-                    config.embedder.revision = v.clone();
-                }
-                if let Some(v) = e.max_length {
-                    config.embedder.max_length = v;
-                }
-                if let Some(v) = e.batch_size {
-                    config.embedder.batch_size = v;
-                }
+                patch_explicit_embedder_fields(&mut config.embedder, e);
             }
         } else {
             // Name not changed — only patch explicitly provided fields.
-            if let Some(ref v) = e.model_name {
-                config.embedder.model_name = v.clone();
-            }
-            if let Some(ref v) = e.revision {
-                config.embedder.revision = v.clone();
-            }
-            if let Some(v) = e.max_length {
-                config.embedder.max_length = v;
-            }
-            if let Some(v) = e.batch_size {
-                config.embedder.batch_size = v;
-            }
+            patch_explicit_embedder_fields(&mut config.embedder, e);
         }
 
         if let Some(v) = e.device {

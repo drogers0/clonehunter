@@ -1,4 +1,6 @@
-use tree_sitter::{Language as TsLanguage, Node, Parser};
+use tree_sitter::Node;
+
+use crate::parsing::make_python_parser;
 
 /// A pending replacement over a byte range in the source string.
 struct Replacement {
@@ -36,9 +38,7 @@ pub(crate) fn normalize_display(source: &str) -> String {
 /// Parse `source` with tree-sitter-python. Returns `None` on parse failure or if the
 /// tree contains error nodes (raw-source fallback triggers in callers).
 fn parse(source: &str) -> Option<(tree_sitter::Tree, &str)> {
-    let mut parser = Parser::new();
-    let language: TsLanguage = tree_sitter_python::LANGUAGE.into();
-    parser.set_language(&language).ok()?;
+    let mut parser = make_python_parser()?;
     let tree = parser.parse(source.as_bytes(), None)?;
     if tree.root_node().has_error() {
         return None;

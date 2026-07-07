@@ -9,6 +9,7 @@ use crate::core::types::{Degradation, DegradationKind, Embedding, SnippetRef};
 
 use super::shared::{
     CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed, configure_codebert_tokenizer,
+    tokenize_padded,
 };
 use super::{Embedder, EmbeddingError};
 
@@ -335,27 +336,7 @@ fn embed_batch(
     device: &Device,
     texts: &[&str],
 ) -> Result<Vec<Embedding>, EmbeddingError> {
-    let encodings = tokenizer
-        .encode_batch(texts.to_vec(), /* add_special_tokens */ true)
-        .map_err(|e| EmbeddingError::Inference(format!("tokenize: {e}")))?;
-
-    let token_ids_vecs: Vec<Vec<u32>> = encodings.iter().map(|e| e.get_ids().to_vec()).collect();
-    let attention_masks: Vec<Vec<u32>> = encodings
-        .iter()
-        .map(|e| e.get_attention_mask().to_vec())
-        .collect();
-
-    let batch = texts.len();
-    let max_len = token_ids_vecs.iter().map(|v| v.len()).max().unwrap_or(0);
-
-    let ids_flat: Vec<u32> = token_ids_vecs
-        .iter()
-        .flat_map(|v| v.iter().copied())
-        .collect();
-    let mask_flat: Vec<u32> = attention_masks
-        .iter()
-        .flat_map(|v| v.iter().copied())
-        .collect();
+    let (batch, max_len, ids_flat, mask_flat) = tokenize_padded(tokenizer, texts)?;
     // RoBERTa uses token_type_ids = all zeros
     let type_ids_flat: Vec<u32> = vec![0u32; batch * max_len];
 

@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use tree_sitter::{Language as TsLanguage, Node, Parser};
+use tree_sitter::{Node, Parser};
 
 use crate::core::config::ExpansionConfig;
 use crate::core::types::{FunctionRef, SnippetKind, SnippetRef};
 use crate::io::fingerprints::hash_text;
+use crate::parsing::make_python_parser;
 use crate::snippets::normalization::{normalize_analysis, normalize_display};
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -212,30 +213,42 @@ fn expand_for_function<'a>(
 
 // ─── Call collection ──────────────────────────────────────────────────────────
 
-fn collect_calls(source: &str) -> HashSet<CallRef> {
+/// Collect calls in **source-encounter order** (deterministic). A `HashSet` is used only for
+/// dedup membership — never iterated for output — because its iteration order is per-process
+/// randomized, which would make the EXP snippet hash and embedded helper order non-deterministic
+/// across runs (a determinism-contract violation).
+fn collect_calls(source: &str) -> Vec<CallRef> {
     let Some(mut parser) = make_parser() else {
-        return HashSet::new();
+        return Vec::new();
     };
     let tree = match parser.parse(source.as_bytes(), None) {
         Some(t) => t,
-        None => return HashSet::new(),
+        None => return Vec::new(),
     };
     let root = tree.root_node();
-    let mut calls = HashSet::new();
-    collect_calls_recursive(root, source, &mut calls);
+    let mut calls = Vec::new();
+    let mut seen = HashSet::new();
+    collect_calls_recursive(root, source, &mut calls, &mut seen);
     calls
 }
 
-fn collect_calls_recursive(node: Node<'_>, source: &str, out: &mut HashSet<CallRef>) {
+fn collect_calls_recursive(
+    node: Node<'_>,
+    source: &str,
+    out: &mut Vec<CallRef>,
+    seen: &mut HashSet<CallRef>,
+) {
     if node.kind() == "call" {
         if let Some(func_node) = node.child_by_field_name("function") {
             if let Some(call_ref) = call_from_node(func_node, source) {
-                out.insert(call_ref);
+                if seen.insert(call_ref.clone()) {
+                    out.push(call_ref);
+                }
             }
         }
     }
     for i in 0..node.child_count() {
-        collect_calls_recursive(node.child(i).unwrap(), source, out);
+        collect_calls_recursive(node.child(i).unwrap(), source, out, seen);
     }
 }
 
@@ -942,10 +955,7 @@ fn class_name_of(function: &FunctionRef) -> Option<String> {
 // ─── Tree-sitter utilities ───────────────────────────────────────────────────
 
 fn make_parser() -> Option<Parser> {
-    let mut parser = Parser::new();
-    let language: TsLanguage = tree_sitter_python::LANGUAGE.into();
-    parser.set_language(&language).ok()?;
-    Some(parser)
+    make_python_parser()
 }
 
 fn ts_text<'s>(node: Node<'_>, source: &'s str) -> &'s str {
@@ -1007,6 +1017,14 @@ mod tests {
             depth: 1,
             max_chars: 10000,
         }
+    }
+
+    #[test]
+    fn collect_calls_is_encounter_ordered_and_deduped() {
+        // Deterministic source-encounter order (not HashSet iteration order), with dedup.
+        let src = "def f():\n    alpha()\n    bravo()\n    charlie()\n    alpha()\n";
+        let names: Vec<String> = collect_calls(src).into_iter().map(|c| c.name).collect();
+        assert_eq!(names, vec!["alpha", "bravo", "charlie"]);
     }
 
     #[test]

@@ -22,11 +22,10 @@ use tokenizers::Tokenizer;
 use crate::core::config::{CODEBERT_REVISION, EmbedderConfig};
 use crate::core::types::{Degradation, DegradationKind, Embedding, SnippetRef};
 
-use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed};
+use super::shared::{CODEBERT_MODEL, bundled_codebert_tokenizer, chunked_embed, tokenize_padded};
 use super::{Embedder, EmbeddingError};
 
 const HIDDEN_SIZE: usize = 768;
-const PAD_TOKEN_ID: i32 = 1;
 
 // ── FFI surface (csrc/ch_mlx.h) ──────────────────────────────────────────────
 
@@ -105,6 +104,7 @@ impl Drop for MlxEmbedder {
 
 impl MlxEmbedder {
     pub(crate) fn new(config: &EmbedderConfig) -> Result<Self, EmbeddingError> {
+        tracing::debug!(device = ?config.device, "MLX backend picks Metal/CPU in the shim; --device is ignored");
         let mut degradations = Vec::new();
         if metal_available() {
             tracing::info!("MLX Metal GPU is available — using GPU");
@@ -174,30 +174,10 @@ fn embed_batch_mlx(
     tokenizer: &Tokenizer,
     texts: &[&str],
 ) -> Result<Vec<Embedding>, EmbeddingError> {
-    let encodings = tokenizer
-        .encode_batch(texts.to_vec(), true)
-        .map_err(|e| EmbeddingError::Inference(format!("tokenize: {e}")))?;
-
-    let batch = texts.len();
-    let max_len = encodings
-        .iter()
-        .map(|e| e.get_ids().len())
-        .max()
-        .unwrap_or(0);
-
-    let mut ids_flat = vec![PAD_TOKEN_ID; batch * max_len];
-    let mut mask_flat = vec![0i32; batch * max_len];
-    for (row, enc) in encodings.iter().enumerate() {
-        for (col, (&id, &m)) in enc
-            .get_ids()
-            .iter()
-            .zip(enc.get_attention_mask().iter())
-            .enumerate()
-        {
-            ids_flat[row * max_len + col] = id as i32;
-            mask_flat[row * max_len + col] = m as i32;
-        }
-    }
+    let (batch, max_len, ids_u32, mask_u32) = tokenize_padded(tokenizer, texts)?;
+    // MLX arrays are built from i32 buffers.
+    let ids_flat: Vec<i32> = ids_u32.iter().map(|&x| x as i32).collect();
+    let mask_flat: Vec<i32> = mask_u32.iter().map(|&x| x as i32).collect();
 
     let mut out = vec![0f32; batch * HIDDEN_SIZE];
     let rc = unsafe {

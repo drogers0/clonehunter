@@ -88,6 +88,8 @@ fn is_canonical_order(a: &SnippetRef, b: &SnippetRef) -> bool {
 }
 
 /// Grouping key: ordered function-identity pair, always (smaller, larger).
+/// The sort is belt-and-suspenders — `normalize_orientation` already canonicalized a/b order
+/// upstream — but keeping it here makes the grouping key robust to callers independent of that.
 fn fn_pair_key(m: &CandidateMatch) -> (String, String) {
     let a = m.snippet_a.function.identity();
     let b = m.snippet_b.function.identity();
