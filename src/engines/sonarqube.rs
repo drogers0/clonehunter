@@ -95,12 +95,16 @@ pub(crate) fn scan_sonarqube(path_override: Option<&str>) -> Result<ScanResult, 
         }
     }
 
+    // sonarqube findings carry no cluster_id → each is its own singleton group (DD5).
+    let (group_count, grouped_function_count) = crate::similarity::group_stats(&findings);
     let stats = ScanStats {
         file_count: 0,
         function_count: 0,
         snippet_count: 0,
         candidate_count: 0,
         finding_count: findings.len(),
+        group_count,
+        grouped_function_count,
         cache_hits: 0,
         cache_misses: 0,
     };

@@ -439,22 +439,25 @@ def parse_metrics(
     def _rel(p: str) -> str:
         return p.removeprefix(prefix) if prefix else p
 
-    # Build sorted list of finding scores and file pairs for stable comparison
+    # Build sorted list of finding scores and file pairs for stable comparison.
+    # Findings are nested under groups (JSON schema #5); flatten groups[].findings[].
+    # Detection output is unchanged, so the extracted pairs/scores match the frozen baseline.
     finding_scores: list[float] = []
     finding_pairs: list[str] = []
-    for finding in warm_data.get("findings", []):
-        finding_scores.append(round(finding["score"], 6))
-        fa = finding["function_a"]
-        fb = finding["function_b"]
-        pair = "::".join(
-            sorted(
-                [
-                    _rel(fa["file"]["path"]) + ":" + fa["qualified_name"],
-                    _rel(fb["file"]["path"]) + ":" + fb["qualified_name"],
-                ]
+    for group in warm_data.get("groups", []):
+        for finding in group.get("findings", []):
+            finding_scores.append(round(finding["score"], 6))
+            fa = finding["function_a"]
+            fb = finding["function_b"]
+            pair = "::".join(
+                sorted(
+                    [
+                        _rel(fa["file"]["path"]) + ":" + fa["qualified_name"],
+                        _rel(fb["file"]["path"]) + ":" + fb["qualified_name"],
+                    ]
+                )
             )
-        )
-        finding_pairs.append(pair)
+            finding_pairs.append(pair)
 
     finding_scores.sort()
     finding_pairs.sort()

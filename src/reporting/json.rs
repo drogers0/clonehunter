@@ -10,10 +10,9 @@ use crate::reporting::compare::select_compare;
 use crate::reporting::schema::SCHEMA_VERSION;
 
 pub(crate) fn write_json(result: &ScanResult, out_path: &str) -> Result<(), ReportError> {
-    let findings: Vec<_> = result.findings.iter().map(serialize_finding).collect();
     let payload = json!({
         "schema_version": SCHEMA_VERSION,
-        "findings": findings,
+        "groups": serialize_groups(&result.findings),
         "stats": serde_json::to_value(&result.stats)?,
         "config": result.config_snapshot,
         "timing": result.timing,
@@ -22,6 +21,29 @@ pub(crate) fn write_json(result: &ScanResult, out_path: &str) -> Result<(), Repo
     let file = File::create(out_path)?;
     serde_json::to_writer_pretty(BufWriter::new(file), &payload)?;
     Ok(())
+}
+
+/// Serialize findings as clone groups (DD4): each group carries its unique member `locations`
+/// and its pairwise `findings`. An unclustered finding is a group with 2 locations and 1 finding;
+/// a clustered N-way duplicate is a group with N locations and its M pairwise findings.
+fn serialize_groups(findings: &[Finding]) -> serde_json::Value {
+    let groups = crate::similarity::build_groups(findings);
+    json!(
+        groups
+            .iter()
+            .map(|g| json!({
+                "id": g.id,
+                "locations": g.locations.iter().map(|f| serialize_function(f)).collect::<Vec<_>>(),
+                "max_score": g.max_score,
+                "max_duplicated_lines": g.max_duplicated_lines,
+                "findings": g
+                    .finding_indices
+                    .iter()
+                    .map(|&i| serialize_finding(&findings[i]))
+                    .collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 fn serialize_finding(finding: &Finding) -> serde_json::Value {
@@ -170,7 +192,11 @@ mod tests {
         let content = std::fs::read_to_string(&out).unwrap();
         let v: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(v.get("schema_version").is_some());
-        assert!(v.get("findings").is_some());
+        assert!(v.get("groups").is_some());
+        assert!(
+            v.get("findings").is_none(),
+            "flat top-level findings must be replaced by groups (DD4)"
+        );
         assert!(v.get("stats").is_some());
         assert!(v.get("config").is_some());
         assert!(v.get("timing").is_some());
@@ -227,7 +253,7 @@ mod tests {
         write_json(&result, &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
         let v: serde_json::Value = serde_json::from_str(&content).unwrap();
-        let compare = &v["findings"][0]["compare"];
+        let compare = &v["groups"][0]["findings"][0]["compare"];
         assert!(compare.is_object(), "compare should be an object");
         assert!(compare.get("diff").is_some(), "compare should have diff");
     }
@@ -245,7 +271,7 @@ mod tests {
         write_json(&result, &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
         let v: serde_json::Value = serde_json::from_str(&content).unwrap();
-        let func = &v["findings"][0]["function_a"];
+        let func = &v["groups"][0]["findings"][0]["function_a"];
         assert!(
             func.get("code").is_none(),
             "serialized function must not include 'code'"
@@ -265,10 +291,84 @@ mod tests {
         write_json(&result, &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
         let v: serde_json::Value = serde_json::from_str(&content).unwrap();
-        let span_a = &v["findings"][0]["compare"]["span_a"];
+        let span_a = &v["groups"][0]["findings"][0]["compare"]["span_a"];
         assert!(span_a.is_object(), "span_a must be an object, not an array");
         assert!(span_a["start_line"].is_number());
         assert!(span_a["end_line"].is_number());
+    }
+
+    #[test]
+    fn json_unclustered_finding_is_singleton_group() {
+        // No cluster_id → one group per finding: 2 locations, 1 nested finding (DD4).
+        let dir = TempDir::new().unwrap();
+        let out = dir
+            .path()
+            .join("report.json")
+            .to_string_lossy()
+            .into_owned();
+        let mut result = make_scan_result_empty();
+        result.findings.push(make_finding());
+        write_json(&result, &out).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        let groups = v["groups"].as_array().unwrap();
+        assert_eq!(groups.len(), 1);
+        let g = &groups[0];
+        assert_eq!(g["id"], 1);
+        assert_eq!(g["locations"].as_array().unwrap().len(), 2);
+        assert_eq!(g["findings"].as_array().unwrap().len(), 1);
+        assert!(g.get("max_score").is_some());
+        assert!(g.get("max_duplicated_lines").is_some());
+    }
+
+    #[test]
+    fn json_clustered_findings_merge_into_one_group() {
+        use crate::similarity::cluster_findings;
+        // Two findings sharing function "foo" → one clustered group of 3 locations, 2 findings.
+        let dir = TempDir::new().unwrap();
+        let out = dir
+            .path()
+            .join("report.json")
+            .to_string_lossy()
+            .into_owned();
+        let foo = make_function("a.py", "foo", 1, 10, "def foo(): pass");
+        let bar = make_function("b.py", "bar", 1, 10, "def bar(): pass");
+        let baz = make_function("c.py", "baz", 1, 10, "def baz(): pass");
+        let f1 = build_finding(
+            foo.clone(),
+            bar,
+            0.95,
+            10,
+            vec![make_match(
+                make_snippet_for(&foo, "x"),
+                make_snippet_for(&foo, "x"),
+                0.95,
+            )],
+            &["func"],
+        );
+        let f2 = build_finding(
+            foo.clone(),
+            baz,
+            0.9,
+            8,
+            vec![make_match(
+                make_snippet_for(&foo, "x"),
+                make_snippet_for(&foo, "x"),
+                0.9,
+            )],
+            &["func"],
+        );
+        let mut result = make_scan_result_empty();
+        result.findings = cluster_findings(&[f1, f2]);
+        write_json(&result, &out).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        let groups = v["groups"].as_array().unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0]["locations"].as_array().unwrap().len(), 3);
+        assert_eq!(groups[0]["findings"].as_array().unwrap().len(), 2);
+        assert_eq!(groups[0]["max_score"], 0.95);
+        assert_eq!(groups[0]["max_duplicated_lines"], 10);
     }
 
     #[test]

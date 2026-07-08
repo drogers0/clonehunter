@@ -123,6 +123,11 @@ pub(crate) struct ScanStats {
     pub snippet_count: usize,
     pub candidate_count: usize,
     pub finding_count: usize,
+    /// Number of clone groups (DD5). Equals `finding_count` on an unclustered run; drops as
+    /// `--cluster` consolidates N-way duplicates.
+    pub group_count: usize,
+    /// De-duplicated count of function identities across all groups (DD5).
+    pub grouped_function_count: usize,
     pub cache_hits: usize,
     pub cache_misses: usize,
 }
@@ -240,11 +245,15 @@ mod tests {
             snippet_count: 200,
             candidate_count: 30,
             finding_count: 5,
+            group_count: 3,
+            grouped_function_count: 8,
             cache_hits: 180,
             cache_misses: 20,
         };
         let json: serde_json::Value = serde_json::to_value(&stats).unwrap();
         assert_eq!(json["file_count"], 10);
         assert_eq!(json["cache_hits"], 180);
+        assert_eq!(json["group_count"], 3);
+        assert_eq!(json["grouped_function_count"], 8);
     }
 }

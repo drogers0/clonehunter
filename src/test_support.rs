@@ -132,6 +132,8 @@ pub(crate) fn make_scan_result(findings: Vec<Finding>) -> ScanResult {
             snippet_count: 0,
             candidate_count: 0,
             finding_count,
+            group_count: 0,
+            grouped_function_count: 0,
             cache_hits: 0,
             cache_misses: 0,
         },

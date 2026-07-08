@@ -301,6 +301,38 @@ clonehunter diff --base HEAD --format json --out examples/clonehunter_diff.json
 clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_report.html
 ```
 
+### Clone groups
+
+When one function is duplicated across N files, detection emits the N·(N−1)/2 *pairwise*
+findings. CloneHunter presents these as **clone groups** so an N-way duplicate reads as a single
+group listing all its locations rather than a scatter of pairs.
+
+**JSON** nests every pairwise finding under a top-level `groups` array (there is no flat
+`findings` array):
+
+```json
+"groups": [
+  { "id": 1,
+    "locations": [ { "file": {...}, "qualified_name": "...", "start_line": 1, "end_line": 10, "code_hash": "..." }, ... ],
+    "max_score": 0.98,
+    "max_duplicated_lines": 42,
+    "findings": [ { "function_a": {...}, "function_b": {...}, "score": 0.98, "duplicated_lines": 42, "compare": {...}, "reasons": [...], "metadata": {...} }, ... ] } ]
+```
+
+`locations` is the group's unique member functions; `findings` carries the pairwise evidence and
+diffs. The shape is uniform: without `--cluster` each finding is its own group (**2 locations, 1
+finding**); with `--cluster`, findings sharing a function merge into one N-location group. Consume
+it as `for g in groups: for f in g["findings"]` — no clustered-vs-flat branching.
+
+`stats` gains **`group_count`** (number of clone groups) and **`grouped_function_count`** (unique
+functions across all groups). On an unclustered run `group_count` equals `finding_count`; with
+`--cluster` it drops as N-way duplicates consolidate.
+
+**HTML** shows the flat per-finding list by default; under `--cluster` it adds a summary line
+(“{group_count} clone groups across {grouped_function_count} functions”) and renders each
+multi-location group as a collapsible section listing all its locations. **SARIF** is unchanged —
+one result per finding, with `cluster_id` in `properties.metadata`.
+
 ---
 
 ## Tuning Tips

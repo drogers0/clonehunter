@@ -7,10 +7,35 @@ use crate::core::types::{CandidateMatch, Degradation, Finding, ScanResult};
 use crate::reporting::ReportError;
 use crate::reporting::compare::{CompareData, select_compare};
 use crate::reporting::schema::SCHEMA_VERSION;
-use crate::similarity::{SelfCloneOccurrences, best_match, is_self_clone};
+use crate::similarity::{
+    CloneGroup, SelfCloneOccurrences, best_match, build_groups, is_self_clone,
+};
 
 pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), ReportError> {
-    let rows: Vec<String> = result.findings.iter().map(render_finding).collect();
+    // Show group chrome only when clustering ran (DD6); otherwise the flat per-finding list,
+    // unchanged. A clustered run gets a summary line and one outer <details> per multi-finding
+    // group; 1-finding groups render as plain cards.
+    let clustered = result
+        .findings
+        .iter()
+        .any(|f| f.metadata.contains_key("cluster_id"));
+    let (rows, summary_html) = if clustered {
+        let groups = build_groups(&result.findings);
+        // Both counts come from stats (populated once via group_stats) so the summary can't drift
+        // between the two numbers; group_count is guaranteed equal to groups.len() here.
+        let summary = format!(
+            r#"  <p>{} clone groups across {} functions</p>"#,
+            result.stats.group_count, result.stats.grouped_function_count
+        );
+        let rows: Vec<String> = groups
+            .iter()
+            .map(|g| render_group(g, &result.findings))
+            .collect();
+        (rows, summary)
+    } else {
+        let rows: Vec<String> = result.findings.iter().map(render_finding).collect();
+        (rows, String::new())
+    };
     let rows_html = rows.join("\n");
     let finding_count = result.findings.len();
     let degradations_html = render_degradations(&result.degradations);
@@ -54,12 +79,15 @@ pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), Repo
     .degradations {{ background: #fff5b1; border: 1px solid #e0c000; border-radius: 6px;
       padding: 8px 12px; margin-bottom: 12px; }}
     .degradations ul {{ margin: 4px 0 0; padding-left: 20px; }}
+    .group-locations {{ margin: 8px 0; padding-left: 20px; color: #444; font-size: 0.9em;
+      word-break: break-all; }}
   </style>
 </head>
 <body>
   <h1>CloneHunter Report</h1>
   <p>Schema: {SCHEMA_VERSION}</p>
   <p>Findings: {finding_count}</p>
+{summary_html}
   {degradations_html}
   <div class="controls">
     <label for="sort-findings">Sort findings:</label>
@@ -81,7 +109,9 @@ pub(crate) fn write_html(result: &ScanResult, out_path: &str) -> Result<(), Repo
       const collator = new Intl.Collator(undefined, {{ sensitivity: "base", numeric: true }});
 
       const sortFindings = () => {{
-        const items = Array.from(list.querySelectorAll("details"));
+        // Reorder only TOP-LEVEL items (group in clustered mode, finding in flat mode); a
+        // descendant selector would rip nested member findings out of their group on first paint.
+        const items = Array.from(list.children).filter((el) => el.tagName === "DETAILS");
         items.sort((a, b) => {{
           const mode = sortSelect.value;
           if (mode === "path_asc") {{
@@ -129,6 +159,58 @@ fn render_degradations(degradations: &[Degradation]) -> String {
         let _ = write!(items, "<li>{:?}: {}</li>", d.kind, html_escape(&d.message));
     }
     format!(r#"<div class="degradations"><strong>⚠ Degradations</strong><ul>{items}</ul></div>"#)
+}
+
+/// Render one clone group (DD6). A 1-finding group renders as a plain card (no wrapper); a
+/// multi-finding group is an outer `<details>` listing every location, with member findings
+/// rendered inside via the existing `render_finding`.
+fn render_group(group: &CloneGroup, findings: &[Finding]) -> String {
+    if group.finding_indices.len() == 1 {
+        return render_finding(&findings[group.finding_indices[0]]);
+    }
+    // Case-insensitive minimum of the group's location paths — the same key `render_finding`
+    // uses per finding, so grouped/flat "File path A→Z" sorting stay consistent.
+    let path_min = group
+        .locations
+        .iter()
+        .map(|f| &f.file.path)
+        .min_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()))
+        .expect("group has at least one location");
+    let mut locations_html = String::new();
+    for f in &group.locations {
+        use std::fmt::Write as _;
+        let _ = write!(
+            locations_html,
+            "<li>{}:{}-{}</li>",
+            html_escape(&f.file.path),
+            f.start_line,
+            f.end_line
+        );
+    }
+    let members_html: String = group
+        .finding_indices
+        .iter()
+        .map(|&i| render_finding(&findings[i]))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        r#"
+<details
+  data-path-min="{path_min_escaped}"
+  data-score="{score}"
+  data-lines="{lines}"
+>
+  <summary>Clone group #{id} — {n} locations</summary>
+  <ul class="group-locations">{locations_html}</ul>
+  {members_html}
+</details>
+"#,
+        path_min_escaped = html_escape(path_min),
+        score = group.max_score,
+        lines = group.max_duplicated_lines,
+        id = group.id,
+        n = group.locations.len(),
+    )
 }
 
 fn render_finding(finding: &Finding) -> String {
@@ -640,6 +722,71 @@ mod tests {
         // Overlapping spans merge into (1-15); displaying (1-10) vs (5-15) leaves
         // 5 hidden-after lines on side A and 4 hidden-before lines on side B.
         assert!(content.contains("lines not shown"));
+    }
+
+    #[test]
+    fn html_clustered_shows_group_chrome() {
+        // Two findings sharing "foo" → one clustered group of 3 locations rendered with chrome.
+        use crate::similarity::{cluster_findings, group_stats};
+        let foo = make_function("a.py", "foo", 1, 10, "def foo(): pass");
+        let bar = make_function("b.py", "bar", 1, 10, "def bar(): pass");
+        let baz = make_function("c.py", "baz", 1, 10, "def baz(): pass");
+        let mk = |x: &FunctionRef, y: &FunctionRef| {
+            make_finding(
+                x.clone(),
+                y.clone(),
+                0.95,
+                10,
+                vec![make_match(
+                    make_snippet_for(x, "def f(): pass"),
+                    make_snippet_for(y, "def f(): pass"),
+                    0.95,
+                )],
+                &["func"],
+            )
+        };
+        let clustered = cluster_findings(&[mk(&foo, &bar), mk(&foo, &baz)]);
+        // Populate stats exactly as the pipeline would, so the summary renders real numbers.
+        let (group_count, grouped_function_count) = group_stats(&clustered);
+        let mut result = make_result(clustered);
+        result.stats.group_count = group_count;
+        result.stats.grouped_function_count = grouped_function_count;
+
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&result, &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        // Exact summary numbers: 1 group across 3 unique functions (not just substring presence).
+        assert!(
+            content.contains("1 clone groups across 3 functions"),
+            "summary must report the real group/function counts"
+        );
+        assert!(content.contains("Clone group #1"), "group header present");
+        assert!(content.contains("3 locations"), "lists all 3 locations");
+        // All three member paths appear in the locations list.
+        assert!(content.contains("a.py:1-10"));
+        assert!(content.contains("b.py:1-10"));
+        assert!(content.contains("c.py:1-10"));
+        // Member diffs still render (each finding is a nested <details>).
+        assert!(content.contains("class=\"diff"));
+    }
+
+    #[test]
+    fn html_unclustered_has_no_group_chrome() {
+        let finding =
+            make_finding_with_code("def foo():\n    return 1", "def bar():\n    return 1");
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("r.html").to_string_lossy().into_owned();
+        write_html(&make_result(vec![finding]), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(
+            !content.contains("clone groups across"),
+            "no summary line without clustering"
+        );
+        assert!(
+            !content.contains("Clone group #"),
+            "no group wrapper without clustering"
+        );
     }
 
     #[test]

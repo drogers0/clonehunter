@@ -11,11 +11,12 @@ use tempfile::TempDir;
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-/// Two Python files with identical functions (same normalized text → same snippet_hash).
-/// The self-hash filter in retrieve_candidates skips snippets matching their own hash,
-/// so identical files produce 0 findings.  The snapshot therefore locks the top-level
-/// schema keys (schema_version, findings, stats, config, timing) with an empty findings
-/// array — still a meaningful contract for schema regression detection.
+/// Two Python files with identical functions. `snippet_hash` folds in the file path, so the
+/// self-hash filter in retrieve_candidates skips only a snippet matching *itself* — byte-identical
+/// code in different files IS reported. The two functions (`compute`, `helper`) therefore yield
+/// two cross-file findings, each an unclustered singleton group (2 locations, 1 finding). The
+/// snapshot locks the top-level schema keys (schema_version, groups, stats, config, timing,
+/// degradations) and the grouped finding shape.
 fn make_dup_fixture() -> TempDir {
     let dir = TempDir::new().unwrap();
     let code = "def compute(x, y):\n    result = x + y\n    result = result * 2\n    result = result - 1\n    return result\n\n\ndef helper(items):\n    output = []\n    for item in items:\n        if item > 0:\n            output.append(item)\n    return output\n";
@@ -55,9 +56,11 @@ fn json_schema_golden() {
     settings.add_redaction(".schema_version", "[VERSION]");
     settings.add_redaction(".timing", "[TIMING]");
     settings.add_redaction(".config.embedder.revision", "[REVISION]");
-    // Temp-dir absolute paths differ per run.
-    settings.add_redaction(".findings[].function_a.file.path", "[PATH]");
-    settings.add_redaction(".findings[].function_b.file.path", "[PATH]");
+    // Temp-dir absolute paths differ per run. Findings are nested under groups (#5), and each
+    // group also carries its member functions under `locations`.
+    settings.add_redaction(".groups[].locations[].file.path", "[PATH]");
+    settings.add_redaction(".groups[].findings[].function_a.file.path", "[PATH]");
+    settings.add_redaction(".groups[].findings[].function_b.file.path", "[PATH]");
     settings.bind(|| {
         insta::assert_json_snapshot!("json_schema_golden", &value);
     });
