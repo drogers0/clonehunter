@@ -107,12 +107,6 @@ struct ScanArgs {
     #[arg(long)]
     cache_path: Option<String>,
 
-    // Clustering
-    #[arg(long)]
-    cluster: bool,
-    #[arg(long)]
-    cluster_min_size: Option<usize>,
-
     // Glob filtering
     /// Repo type preset (repeatable); use "none" to disable presets
     #[arg(long, value_parser = validate_repotype)]
@@ -359,11 +353,6 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
         });
     }
 
-    if args.cluster {
-        ov.cluster_findings = Some(true);
-    }
-    ov.cluster_min_size = args.cluster_min_size;
-
     ov
 }
 
@@ -563,8 +552,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -605,8 +592,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -645,8 +630,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -683,8 +666,6 @@ mod tests {
             expand_depth: Some(3), // depth set without --expand-calls
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -730,8 +711,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -770,8 +749,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],

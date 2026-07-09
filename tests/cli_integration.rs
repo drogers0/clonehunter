@@ -61,13 +61,12 @@ fn make_triple_fixture() -> TempDir {
 }
 
 #[test]
-fn test_scan_cluster_produces_one_group_json() {
+fn test_scan_produces_one_group_json_for_shared_function_family() {
     let fixture = make_triple_fixture();
     let out = fixture.path().join("report.json");
     ch().args([
         "scan",
         fixture.path().to_str().unwrap(),
-        "--cluster",
         "--format",
         "json",
         "--out",
@@ -89,13 +88,12 @@ fn test_scan_cluster_produces_one_group_json() {
 }
 
 #[test]
-fn test_scan_cluster_produces_group_chrome_html() {
+fn test_scan_produces_group_chrome_html_for_shared_function_family() {
     let fixture = make_triple_fixture();
     let out = fixture.path().join("report.html");
     ch().args([
         "scan",
         fixture.path().to_str().unwrap(),
-        "--cluster",
         "--format",
         "html",
         "--out",
@@ -105,7 +103,7 @@ fn test_scan_cluster_produces_group_chrome_html() {
     .success();
     let content = fs::read_to_string(&out).unwrap();
     assert!(
-        content.contains("clone groups across"),
+        content.contains("clone group across"),
         "summary line present"
     );
     assert!(content.contains("Clone group #1"), "group header present");

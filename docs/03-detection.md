@@ -127,13 +127,12 @@ The `duplicated_lines` on a finding answers "how much code is actually shared."
 
 Both are order-independent — feed the same spans in any order, get the same count.
 
-## Clustering (optional)
+## Clone families
 
-With `--cluster`, `cluster_findings` ([`clustering.rs`](../src/similarity/clustering.rs))
-runs a union-find over function identities: every finding links its two functions,
-and the connected components are the clusters. Clusters smaller than
-`cluster_min_size` (default 2) are filtered out. Clustering only groups existing
-findings for presentation — it never creates or removes a duplicate relationship.
+`build_groups` ([`clustering.rs`](../src/similarity/clustering.rs)) runs a union-find
+over function identities: every finding links its two functions, and the connected
+components are the clone families shown in JSON/HTML. This grouping is always on for
+presentation and stats, but it never creates or removes a duplicate relationship.
 
 ## Where the knobs live
 

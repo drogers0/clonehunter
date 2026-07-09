@@ -10,9 +10,7 @@ use crate::index::create_index;
 use crate::io::fs::collect_files;
 use crate::parsing::python_ast::extract_functions;
 use crate::parsing::text_units::extract_file_unit;
-use crate::similarity::{
-    cluster_findings, filter_clusters, group_stats, retrieve_candidates, rollup_findings,
-};
+use crate::similarity::{group_stats, retrieve_candidates, rollup_findings};
 use crate::snippets::{
     expansion::expand_calls,
     generators::{generate_function_snippets, generate_window_snippets},
@@ -114,11 +112,7 @@ pub(crate) fn run_pipeline(
         config.index.top_k,
     );
     let candidate_count = candidates.len(); // capture BEFORE rollup consumes the vec (DD12)
-    let mut findings = rollup_findings(candidates, &config.thresholds);
-    if config.cluster_findings {
-        findings = cluster_findings(&findings);
-        findings = filter_clusters(&findings, config.cluster_min_size);
-    }
+    let findings = rollup_findings(candidates, &config.thresholds);
     info!(
         "  → {} candidates → {} findings",
         candidate_count,
@@ -127,8 +121,7 @@ pub(crate) fn run_pipeline(
     timing.insert("similarity".into(), t.elapsed().as_secs_f64());
 
     // ── Stage 6: assemble ─────────────────────────────────────────────────────
-    // Group metrics (DD5): unclustered → one group per finding; --cluster consolidates N-way
-    // duplicates so group_count drops below finding_count.
+    // Group metrics derive from the same always-on family grouping used by the reporters.
     let (group_count, grouped_function_count) = group_stats(&findings);
     let stats = ScanStats {
         file_count: files.len(),
@@ -227,44 +220,20 @@ mod tests {
     // ── Test A2: group stats (DD5) ────────────────────────────────────────────
 
     #[test]
-    fn test_pipeline_group_stats_unclustered_equals_finding_count() {
-        let dir = TempDir::new().unwrap();
-        let dup = "def compute(x, y):\n    result = x * 2 + y\n    return result\n";
-        std::fs::write(dir.path().join("a.py"), dup).unwrap();
-        std::fs::write(dir.path().join("b.py"), dup).unwrap();
-
-        let config = stub_config(&dir); // cluster_findings defaults to false
-        let result = run_pipeline(&[dir.path().to_str().unwrap().into()], &config).unwrap();
-
-        assert!(result.stats.finding_count >= 1);
-        assert_eq!(
-            result.stats.group_count, result.stats.finding_count,
-            "unclustered run: each finding is its own group"
-        );
-        assert!(result.stats.grouped_function_count >= 2);
-    }
-
-    #[test]
-    fn test_pipeline_group_stats_clustered_consolidates() {
-        // Same function across three files → 3 pairwise findings that merge into ONE group.
+    fn test_pipeline_group_stats_consolidate_shared_function_family() {
         let dir = TempDir::new().unwrap();
         let dup = "def compute(x, y):\n    result = x * 2 + y\n    return result\n";
         for name in ["a.py", "b.py", "c.py"] {
             std::fs::write(dir.path().join(name), dup).unwrap();
         }
 
-        let mut config = stub_config(&dir);
-        config.cluster_findings = true;
+        let config = stub_config(&dir);
         let result = run_pipeline(&[dir.path().to_str().unwrap().into()], &config).unwrap();
 
         assert_eq!(result.stats.finding_count, 3, "3 cross-file pairs");
         assert_eq!(
             result.stats.group_count, 1,
             "all merge into one clone group"
-        );
-        assert!(
-            result.stats.group_count < result.stats.finding_count,
-            "clustering must consolidate findings below the finding count"
         );
         assert_eq!(
             result.stats.grouped_function_count, 3,

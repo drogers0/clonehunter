@@ -16,9 +16,6 @@ exclude_globs = [
     "**/__pycache__/**",
     "**/site-packages/**",
 ]
-cluster_findings = false
-cluster_min_size = 2
-
 [thresholds]
 func = 0.92
 win = 0.90

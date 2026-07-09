@@ -185,8 +185,6 @@ Place a `clonehunter.toml` file in your repository root to configure CloneHunter
 
 ```toml
 engine = "semantic"
-cluster_findings = false
-cluster_min_size = 2
 
 [thresholds]
 func = 0.92
@@ -250,8 +248,6 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
   --expand-depth INT
   --expand-max-chars INT
   --cache-path PATH
-  --cluster
-  --cluster-min-size INT
   --repotype dotnet|go|java|kotlin|monorepo|node|none|php|python|react|ruby|rust|swift|cpp
                                   # repeatable preset globs
   --include-globs GLOB   # repeatable; merged with config includes
@@ -316,22 +312,20 @@ group listing all its locations rather than a scatter of pairs.
     "locations": [ { "file": {...}, "qualified_name": "...", "start_line": 1, "end_line": 10, "code_hash": "..." }, ... ],
     "max_score": 0.98,
     "max_duplicated_lines": 42,
-    "findings": [ { "function_a": {...}, "function_b": {...}, "score": 0.98, "duplicated_lines": 42, "compare": {...}, "reasons": [...], "metadata": {...} }, ... ] } ]
+    "findings": [ { "function_a": {...}, "function_b": {...}, "score": 0.98, "duplicated_lines": 42, "compare": {...}, "reasons": [...] }, ... ] } ]
 ```
 
 `locations` is the group's unique member functions; `findings` carries the pairwise evidence and
-diffs. The shape is uniform: without `--cluster` each finding is its own group (**2 locations, 1
-finding**); with `--cluster`, findings sharing a function merge into one N-location group. Consume
-it as `for g in groups: for f in g["findings"]` — no clustered-vs-flat branching.
+diffs. The shape is uniform: a 2-location clone is a **2-location, 1-finding** group, and
+findings sharing a function merge into one N-location group. Consume it as
+`for g in groups: for f in g["findings"]`.
 
 `stats` gains **`group_count`** (number of clone groups) and **`grouped_function_count`** (unique
-functions across all groups). On an unclustered run `group_count` equals `finding_count`; with
-`--cluster` it drops as N-way duplicates consolidate.
+functions across all groups).
 
-**HTML** shows the flat per-finding list by default; under `--cluster` it adds a summary line
-(“{group_count} clone groups across {grouped_function_count} functions”) and renders each
-multi-location group as a collapsible section listing all its locations. **SARIF** is unchanged —
-one result per finding, with `cluster_id` in `properties.metadata`.
+**HTML** always renders clone-family cards: single-finding families open directly as pair diffs,
+while larger families collapse behind one outer card that shows the representative source and
+nested member diffs. **SARIF** is unchanged — one result per finding.
 
 ---
 

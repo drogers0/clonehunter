@@ -7,8 +7,6 @@ expression: "&value"
     "cache": {
       "path": "~/.cache/clonehunter"
     },
-    "cluster_findings": false,
-    "cluster_min_size": 2,
     "embedder": {
       "batch_size": 16,
       "device": "auto",
@@ -140,7 +138,6 @@ expression: "&value"
             "qualified_name": "compute",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "func_threshold"
           ],
@@ -215,7 +212,6 @@ expression: "&value"
             "qualified_name": "helper",
             "start_line": 8
           },
-          "metadata": {},
           "reasons": [
             "func_threshold"
           ],

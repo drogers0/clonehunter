@@ -14,9 +14,9 @@ use tempfile::TempDir;
 /// Two Python files with identical functions. `snippet_hash` folds in the file path, so the
 /// self-hash filter in retrieve_candidates skips only a snippet matching *itself* — byte-identical
 /// code in different files IS reported. The two functions (`compute`, `helper`) therefore yield
-/// two cross-file findings, each an unclustered singleton group (2 locations, 1 finding). The
-/// snapshot locks the top-level schema keys (schema_version, groups, stats, config, timing,
-/// degradations) and the grouped finding shape.
+/// two cross-file findings, each a 2-location singleton group. The snapshot locks the top-level
+/// schema keys (schema_version, groups, stats, config, timing, degradations) and the grouped
+/// finding shape.
 fn make_dup_fixture() -> TempDir {
     let dir = TempDir::new().unwrap();
     let code = "def compute(x, y):\n    result = x + y\n    result = result * 2\n    result = result - 1\n    return result\n\n\ndef helper(items):\n    output = []\n    for item in items:\n        if item > 0:\n            output.append(item)\n    return output\n";
@@ -130,8 +130,8 @@ fn html_smoke_test() {
     );
     assert!(content.contains("Schema:"), "HTML must show schema version");
     assert!(
-        content.contains("Findings:"),
-        "HTML must show findings count"
+        content.contains("clone groups across"),
+        "HTML must show the group summary"
     );
     assert!(
         content.contains("sort-findings"),

@@ -52,7 +52,6 @@ pub(crate) fn rollup_findings(
                 duplicated_lines: duplicated_lines(group),
                 evidence: group.clone(),
                 reasons,
-                metadata: std::collections::BTreeMap::new(),
             });
         }
     }

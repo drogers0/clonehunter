@@ -39,14 +39,15 @@
     .degradations ul { margin: 4px 0 0; padding-left: 20px; }
     .group-locations { margin: 8px 0; padding-left: 20px; color: #444; font-size: 0.9em;
       word-break: break-all; }
+    .family-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .pair-note { margin: 0 0 12px; }
   </style>
 </head>
 <body>
   <h1>CloneHunter Report</h1>
   <p>Schema: 2.0.0</p>
-  <p>Findings: 0</p>
+  <p>No clones found.</p>
 
-  
   <div class="controls">
     <label for="sort-findings">Sort findings:</label>
     <select id="sort-findings">
@@ -56,7 +57,7 @@
     </select>
   </div>
   <div class="list">
-    
+
   </div>
   <script>
     (() => {
@@ -67,8 +68,8 @@
       const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
 
       const sortFindings = () => {
-        // Reorder only TOP-LEVEL items (group in clustered mode, finding in flat mode); a
-        // descendant selector would rip nested member findings out of their group on first paint.
+        // Reorder only TOP-LEVEL cards; a descendant selector would rip nested member findings
+        // out of their families on first paint.
         const items = Array.from(list.children).filter((el) => el.tagName === "DETAILS");
         items.sort((a, b) => {
           const mode = sortSelect.value;

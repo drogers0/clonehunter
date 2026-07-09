@@ -3,14 +3,12 @@
     "cache": {
       "path": "~/.cache/clonehunter"
     },
-    "cluster_findings": false,
-    "cluster_min_size": 2,
     "embedder": {
       "batch_size": 16,
       "device": "auto",
       "max_length": 256,
       "model_name": "microsoft/codebert-base",
-      "name": "codebert",
+      "name": "stub",
       "revision": "3b0952feddeffad0063f274080e3c23d75e7eb39"
     },
     "engine": "semantic",
@@ -50,9 +48,9 @@
   "groups": [],
   "schema_version": "2.0.0",
   "stats": {
-    "cache_hits": 514,
-    "cache_misses": 0,
-    "candidate_count": 1077,
+    "cache_hits": 251,
+    "cache_misses": 263,
+    "candidate_count": 144,
     "file_count": 21,
     "finding_count": 0,
     "function_count": 103,
@@ -61,10 +59,10 @@
     "snippet_count": 514
   },
   "timing": {
-    "collect_files": 0.103027708,
-    "embed": 1.201776792,
-    "extract_functions": 0.013257709,
-    "generate_snippets": 0.204394291,
-    "similarity": 0.035393834
+    "collect_files": 0.160465625,
+    "embed": 0.095335208,
+    "extract_functions": 0.014595708,
+    "generate_snippets": 0.210038041,
+    "similarity": 0.031721709
   }
 }

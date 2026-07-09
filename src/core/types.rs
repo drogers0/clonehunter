@@ -111,8 +111,6 @@ pub(crate) struct Finding {
     pub duplicated_lines: usize,
     pub evidence: Vec<CandidateMatch>,
     pub reasons: Vec<String>,
-    /// BTreeMap for deterministic JSON serialization (DD7).
-    pub metadata: BTreeMap<String, String>,
 }
 
 /// Aggregate statistics for a scan run.
@@ -123,8 +121,7 @@ pub(crate) struct ScanStats {
     pub snippet_count: usize,
     pub candidate_count: usize,
     pub finding_count: usize,
-    /// Number of clone groups (DD5). Equals `finding_count` on an unclustered run; drops as
-    /// `--cluster` consolidates N-way duplicates.
+    /// Number of clone groups derived from the findings.
     pub group_count: usize,
     /// De-duplicated count of function identities across all groups (DD5).
     pub grouped_function_count: usize,

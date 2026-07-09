@@ -23,9 +23,8 @@ pub(crate) fn write_json(result: &ScanResult, out_path: &str) -> Result<(), Repo
     Ok(())
 }
 
-/// Serialize findings as clone groups (DD4): each group carries its unique member `locations`
-/// and its pairwise `findings`. An unclustered finding is a group with 2 locations and 1 finding;
-/// a clustered N-way duplicate is a group with N locations and its M pairwise findings.
+/// Serialize findings as clone groups: each group carries its unique member `locations`
+/// and its pairwise `findings`.
 fn serialize_groups(findings: &[Finding]) -> serde_json::Value {
     let groups = crate::similarity::build_groups(findings);
     json!(
@@ -54,7 +53,6 @@ fn serialize_finding(finding: &Finding) -> serde_json::Value {
         "duplicated_lines": finding.duplicated_lines,
         "compare": serialize_compare(finding),
         "reasons": finding.reasons,
-        "metadata": finding.metadata,
     })
 }
 
@@ -299,7 +297,6 @@ mod tests {
 
     #[test]
     fn json_unclustered_finding_is_singleton_group() {
-        // No cluster_id → one group per finding: 2 locations, 1 nested finding (DD4).
         let dir = TempDir::new().unwrap();
         let out = dir
             .path()
@@ -322,9 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn json_clustered_findings_merge_into_one_group() {
-        use crate::similarity::cluster_findings;
-        // Two findings sharing function "foo" → one clustered group of 3 locations, 2 findings.
+    fn json_shared_function_findings_merge_into_one_group() {
         let dir = TempDir::new().unwrap();
         let out = dir
             .path()
@@ -359,7 +354,7 @@ mod tests {
             &["func"],
         );
         let mut result = make_scan_result_empty();
-        result.findings = cluster_findings(&[f1, f2]);
+        result.findings = vec![f1, f2];
         write_json(&result, &out).unwrap();
         let v: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();

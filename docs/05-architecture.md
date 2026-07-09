@@ -37,7 +37,7 @@ flowchart TD
 | [`snippets/`](../src/snippets/) | Comment-strip normalization, FUNC/WIN generators, call-expansion. |
 | [`embedding/`](../src/embedding/) | The `Embedder` trait, four backends, and the SQLite cache. See [chapter 4](04-embeddings-and-backends.md). |
 | [`index/`](../src/index/) | The `VectorIndex` trait and the brute-force cosine implementation. |
-| [`similarity/`](../src/similarity/) | The detection heart: candidates, lexical, scoring, ranking, rollup, occurrences, clustering. See [chapter 3](03-detection.md). |
+| [`similarity/`](../src/similarity/) | The detection heart: candidates, lexical, scoring, ranking, rollup, occurrences, and clone-family grouping. See [chapter 3](03-detection.md). |
 | [`reporting/`](../src/reporting/) | HTML/JSON/SARIF writers + the shared `compare` selector. See [chapter 6](06-config-cli-and-reports.md). |
 | [`engines/`](../src/engines/) | `pipeline.rs` (the semantic implementation), `semantic.rs` (delegate), `sonarqube.rs` (adapter), `get_engine`. |
 | [`cli/`](../src/cli/) | clap-derive arg parsing, config resolution, glob merging, command dispatch. |
@@ -61,7 +61,7 @@ flowchart LR
 - **`FileRef`** — a collected file: path, language, content hash, and the file bytes
   (carried so parsing never re-reads disk; excluded from serialization).
 - **`FunctionRef`** — a unit of code. `identity()` = `"{path}:{qname}:{start}:{end}"`
-  is the stable key used for grouping and clustering.
+  is the stable key used for grouping and family derivation.
 - **`SnippetRef`** — the embedding/matching unit: `kind` (Func/Win/Exp), analysis
   `text`, `display_text`, and `snippet_hash` (its index/cache identity).
 - **`Embedding`** — a vector of `f32`.

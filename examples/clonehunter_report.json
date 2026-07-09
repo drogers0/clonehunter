@@ -3,8 +3,6 @@
     "cache": {
       "path": "~/.cache/clonehunter"
     },
-    "cluster_findings": false,
-    "cluster_min_size": 2,
     "embedder": {
       "batch_size": 16,
       "device": "auto",
@@ -136,7 +134,6 @@
             "qualified_name": "order_form_helpers.ts",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
@@ -211,7 +208,6 @@
             "qualified_name": "build_order_payload",
             "start_line": 19
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
@@ -286,7 +282,6 @@
             "qualified_name": "build_monthly_breakdown",
             "start_line": 88
           },
-          "metadata": {},
           "reasons": [
             "func_threshold",
             "min_window_hits"
@@ -362,7 +357,6 @@
             "qualified_name": "compile_weekly_metrics",
             "start_line": 129
           },
-          "metadata": {},
           "reasons": [
             "func_threshold",
             "min_window_hits"
@@ -438,7 +432,6 @@
             "qualified_name": "normalize_customer_name",
             "start_line": 14
           },
-          "metadata": {},
           "reasons": [
             "func_threshold"
           ],
@@ -513,7 +506,6 @@
             "qualified_name": "summarize_totals",
             "start_line": 76
           },
-          "metadata": {},
           "reasons": [
             "func_threshold",
             "min_window_hits"
@@ -589,7 +581,6 @@
             "qualified_name": "helper_sum",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "func_threshold"
           ],
@@ -628,25 +619,25 @@
       "findings": [
         {
           "compare": {
-            "diff": "--- \n+++ \n@@ -1,3 +1,4 @@\n+                embedder: Some(EmbedderName::Codebert), // explicit\n                 index: None,\n                 device: None,\n             },\n@@ -10,7 +11,7 @@\n             window_lines: None,\n             stride_lines: None,\n             min_nonempty: None,\n-            expand_calls: true,\n+            expand_calls: false,\n             expand_depth: None,\n             expand_max_chars: None,\n             cache_path: None,\n@@ -20,21 +21,20 @@\n             include_globs: vec![],\n             exclude_globs: vec![],\n         };\n+        let ov = build_scan_overrides(&args);\n         // SAFETY: serialized by ENV_LOCK\n         unsafe { std::env::remove_var(\"CLONEHUNTER_EMBEDDER\") };\n-        let ov = build_scan_overrides(&args);\n-        assert_eq!(ov.expansion.unwrap().enabled, Some(true));\n+        assert_eq!(ov.embedder.unwrap().name, Some(EmbedderName::Codebert));\n     }\n \n     #[test]\n-    fn test_build_scan_overrides_expand_depth_alone_does_not_enable() {\n+    fn test_build_overrides_env_stub() {\n         let _guard = ENV_LOCK.lock().unwrap();\n+        // SAFETY: serialized by ENV_LOCK\n+        unsafe { std::env::set_var(\"CLONEHUNTER_EMBEDDER\", \"stub\") };\n         let args = ScanArgs {\n             common: CommonArgs {\n                 path: vec![],\n                 format: \"html\".into(),\n                 out: None,\n                 engine: None,\n-                embedder: None,\n-                index: None,\n-                device: None,",
+            "diff": "--- \n+++ \n@@ -1,8 +1,23 @@\n+        let args = ScanArgs {\n+            common: CommonArgs {\n+                path: vec![],\n+                format: \"html\".into(),\n+                out: None,\n+                engine: None,\n+                embedder: Some(EmbedderName::Codebert), // explicit\n+                index: None,\n+                device: None,\n+            },\n+            threshold_func: None,\n+            threshold_win: None,\n+            threshold_exp: None,\n+            min_window_hits: None,\n+            lexical_min_ratio: None,\n             lexical_weight: None,\n             window_lines: None,\n             stride_lines: None,\n             min_nonempty: None,\n-            expand_calls: true,\n+            expand_calls: false,\n             expand_depth: None,\n             expand_max_chars: None,\n             cache_path: None,\n@@ -10,31 +25,16 @@\n             include_globs: vec![],\n             exclude_globs: vec![],\n         };\n+        let ov = build_scan_overrides(&args);\n         // SAFETY: serialized by ENV_LOCK\n         unsafe { std::env::remove_var(\"CLONEHUNTER_EMBEDDER\") };\n-        let ov = build_scan_overrides(&args);\n-        assert_eq!(ov.expansion.unwrap().enabled, Some(true));\n+        assert_eq!(ov.embedder.unwrap().name, Some(EmbedderName::Codebert));\n     }\n \n     #[test]\n-    fn test_build_scan_overrides_expand_depth_alone_does_not_enable() {\n+    fn test_build_overrides_env_stub() {\n         let _guard = ENV_LOCK.lock().unwrap();\n+        // SAFETY: serialized by ENV_LOCK\n+        unsafe { std::env::set_var(\"CLONEHUNTER_EMBEDDER\", \"stub\") };\n         let args = ScanArgs {\n             common: CommonArgs {\n-                path: vec![],\n-                format: \"html\".into(),\n-                out: None,\n-                engine: None,\n-                embedder: None,\n-                index: None,\n-                device: None,\n-            },\n-            threshold_func: None,\n-            threshold_win: None,\n-            threshold_exp: None,\n-            min_window_hits: None,\n-            lexical_min_ratio: None,\n-            lexical_weight: None,\n-            window_lines: None,\n-            stride_lines: None,\n-            min_nonempty: None,",
             "kind_a": "WIN",
             "kind_b": "WIN",
-            "similarity": 0.9472114205360412,
+            "similarity": 0.9382096809725607,
             "span_a": {
-              "end_line": 676,
-              "start_line": 637
+              "end_line": 664,
+              "start_line": 625
             },
             "span_b": {
-              "end_line": 760,
-              "start_line": 721
+              "end_line": 730,
+              "start_line": 691
             }
           },
           "duplicated_lines": 0,
           "function_a": {
-            "code_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
-            "end_line": 869,
+            "code_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
+            "end_line": 836,
             "file": {
-              "content_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
+              "content_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
               "language": "text",
               "path": "./src/cli/mod.rs"
             },
@@ -654,30 +645,29 @@
             "start_line": 1
           },
           "function_b": {
-            "code_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
-            "end_line": 869,
+            "code_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
+            "end_line": 836,
             "file": {
-              "content_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
+              "content_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
               "language": "text",
               "path": "./src/cli/mod.rs"
             },
             "qualified_name": "mod.rs",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
-          "score": 0.9472114205360412
+          "score": 0.9382096809725607
         }
       ],
       "id": 8,
       "locations": [
         {
-          "code_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
-          "end_line": 869,
+          "code_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
+          "end_line": 836,
           "file": {
-            "content_hash": "74ffb1222959d7559feecd74c14ee521c7f6205423c36559ce89e97063012189",
+            "content_hash": "2d39b8fa529b7f74c9c3d711f2798165c9544a9ea7cc90ab54775df0c2be90c3",
             "language": "text",
             "path": "./src/cli/mod.rs"
           },
@@ -686,7 +676,7 @@
         }
       ],
       "max_duplicated_lines": 0,
-      "max_score": 0.9472114205360412
+      "max_score": 0.9382096809725607
     },
     {
       "findings": [
@@ -728,7 +718,6 @@
             "qualified_name": "onnx_backend.rs",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
@@ -767,92 +756,80 @@
       "findings": [
         {
           "compare": {
-            "diff": "--- \n+++ \n@@ -1,40 +1,40 @@\n+}\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use crate::test_support::{\n-        make_finding as build_finding, make_function, make_match, make_scan_result,\n-        make_snippet_for,\n+        make_finding, make_function, make_match, make_scan_result, make_snippet_for,\n     };\n     use tempfile::TempDir;\n \n-    fn make_scan_result_empty() -> ScanResult {\n-        make_scan_result(vec![])\n-    }\n-\n-    fn make_finding() -> Finding {\n-        let func_a = make_function(\"a.py\", \"foo\", 1, 10, \"def foo(): pass\");\n-        let func_b = make_function(\"a.py\", \"bar\", 20, 30, \"def bar(): pass\");\n+    fn make_scan_result_with_finding() -> ScanResult {\n+        let func_a = make_function(\"src/a.py\", \"foo\", 1, 10, \"def foo(): pass\");\n+        let func_b = make_function(\"src/a.py\", \"bar\", 20, 30, \"def bar(): pass\");\n         let m = make_match(\n-            make_snippet_for(&func_a, \"def foo(): pass\"),\n-            make_snippet_for(&func_b, \"def bar(): pass\"),\n+            make_snippet_for(&func_a, \"t\"),\n+            make_snippet_for(&func_b, \"t\"),\n             0.95,\n         );\n-        build_finding(func_a, func_b, 0.95, 10, vec![m], &[\"high_similarity\"])\n+        make_scan_result(vec![make_finding(\n+            func_a,\n+            func_b,\n+            0.95,\n+            10,\n+            vec![m],\n+            &[\"high_similarity\"],\n+        )])\n     }\n \n     #[test]\n-    fn json_report_schema_keys() {\n+    fn sarif_structure_valid() {\n         let dir = TempDir::new().unwrap();\n-        let out = dir\n-            .path()\n-            .join(\"report.json\")\n-            .to_string_lossy()\n-            .into_owned();\n-        let result = make_scan_result_empty();\n-        write_json(&result, &out).unwrap();\n+        let out = dir.path().join(\"r.sarif\").to_string_lossy().into_owned();\n+        let result = make_scan_result_with_finding();\n+        write_sarif(&result, &out).unwrap();\n         let content = std::fs::read_to_string(&out).unwrap();\n         let v: serde_json::Value = serde_json::from_str(&content).unwrap();\n-        assert!(v.get(\"schema_version\").is_some());\n-        assert!(v.get(\"groups\").is_some());\n-        assert!(\n+        assert_eq!(v[\"version\"], \"2.1.0\");\n+        assert!(v.get(\"$schema\").is_some());\n+        let results = &v[\"runs\"][0][\"results\"];\n+        assert_eq!(results.as_array().unwrap().len(), 1);",
+            "diff": "--- \n+++ \n@@ -1,40 +1,40 @@\n-        );\n-        assert!(!content.contains(\"Other matches in this group\"));\n+        assert!(content.contains(\"Other matches in this group\"));\n     }\n \n     #[test]\n-    fn html_chain_family_uses_middle_node_as_representative() {\n+    fn html_dense_family_renders_each_finding_once() {\n         let a = make_function(\"a.py\", \"a\", 1, 2, \"def a():\\n    return 1\");\n         let b = make_function(\"b.py\", \"b\", 1, 2, \"def b():\\n    return 1\");\n         let c = make_function(\"c.py\", \"c\", 1, 2, \"def c():\\n    return 1\");\n+        let d = make_function(\"d.py\", \"d\", 1, 2, \"def d():\\n    return 1\");\n         let findings = vec![\n             make_finding(\n                 a.clone(),\n                 b.clone(),\n-                0.95,\n+                0.97,\n                 2,\n                 vec![make_match(\n                     make_snippet_for(&a, &a.code),\n                     make_snippet_for(&b, &b.code),\n-                    0.95,\n+                    0.97,\n                 )],\n                 &[\"func\"],\n             ),\n             make_finding(\n-                b.clone(),\n+                a.clone(),\n                 c.clone(),\n-                0.94,\n+                0.96,\n                 2,\n                 vec![make_match(\n-                    make_snippet_for(&b, &b.code),\n+                    make_snippet_for(&a, &a.code),\n                     make_snippet_for(&c, &c.code),\n-                    0.94,\n+                    0.96,\n                 )],\n                 &[\"func\"],\n             ),\n-        ];\n-        let groups = build_groups(&findings);\n-        assert_eq!(\n-            groups[0].locations[groups[0].representative].qualified_name,\n-            \"b\"\n-        );\n+            make_finding(\n+                a.clone(),\n+                d.clone(),\n+                0.95,\n+                2,\n+                vec![make_match(",
             "kind_a": "WIN",
             "kind_b": "WIN",
-            "similarity": 0.9039929807186127,
+            "similarity": 0.9147738200287485,
             "span_a": {
-              "end_line": 196,
-              "start_line": 157
+              "end_line": 1066,
+              "start_line": 1027
             },
             "span_b": {
-              "end_line": 100,
-              "start_line": 61
+              "end_line": 1156,
+              "start_line": 1117
             }
           },
-          "duplicated_lines": 40,
+          "duplicated_lines": 52,
           "function_a": {
-            "code_hash": "792a31689f8af6dcb68a9d6025b2de2ff229a27a3e522e4949a35394e057f0be",
-            "end_line": 441,
+            "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
+            "end_line": 1613,
             "file": {
-              "content_hash": "792a31689f8af6dcb68a9d6025b2de2ff229a27a3e522e4949a35394e057f0be",
+              "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
               "language": "text",
-              "path": "./src/reporting/json.rs"
+              "path": "./src/reporting/html.rs"
             },
-            "qualified_name": "json.rs",
+            "qualified_name": "html.rs",
             "start_line": 1
           },
           "function_b": {
-            "code_hash": "0c5b6aec449438417f9001e747e27111df73141505f4c8eede6a7ea834d34226",
-            "end_line": 128,
+            "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
+            "end_line": 1613,
             "file": {
-              "content_hash": "0c5b6aec449438417f9001e747e27111df73141505f4c8eede6a7ea834d34226",
+              "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
               "language": "text",
-              "path": "./src/reporting/sarif.rs"
+              "path": "./src/reporting/html.rs"
             },
-            "qualified_name": "sarif.rs",
+            "qualified_name": "html.rs",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
-          "score": 0.9039929807186127
+          "score": 0.9147738200287485
         }
       ],
       "id": 10,
       "locations": [
         {
-          "code_hash": "792a31689f8af6dcb68a9d6025b2de2ff229a27a3e522e4949a35394e057f0be",
-          "end_line": 441,
+          "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
+          "end_line": 1613,
           "file": {
-            "content_hash": "792a31689f8af6dcb68a9d6025b2de2ff229a27a3e522e4949a35394e057f0be",
+            "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
             "language": "text",
-            "path": "./src/reporting/json.rs"
+            "path": "./src/reporting/html.rs"
           },
-          "qualified_name": "json.rs",
-          "start_line": 1
-        },
-        {
-          "code_hash": "0c5b6aec449438417f9001e747e27111df73141505f4c8eede6a7ea834d34226",
-          "end_line": 128,
-          "file": {
-            "content_hash": "0c5b6aec449438417f9001e747e27111df73141505f4c8eede6a7ea834d34226",
-            "language": "text",
-            "path": "./src/reporting/sarif.rs"
-          },
-          "qualified_name": "sarif.rs",
+          "qualified_name": "html.rs",
           "start_line": 1
         }
       ],
-      "max_duplicated_lines": 40,
-      "max_score": 0.9039929807186127
+      "max_duplicated_lines": 52,
+      "max_score": 0.9147738200287485
     },
     {
       "findings": [
         {
           "compare": {
-            "diff": "--- \n+++ \n@@ -1,40 +1,39 @@\n \n-    fn make_file() -> FileRef {\n+    fn make_file(path: &str) -> FileRef {\n         FileRef {\n-            path: \"x.py\".into(),\n+            path: path.into(),\n             content_hash: \"h\".into(),\n             language: Language::Python,\n             content: \"\".into(),\n         }\n     }\n \n-    fn make_func(file: &FileRef, qname: &str) -> FunctionRef {\n+    fn make_func(file: &FileRef, qname: &str, start: usize, end: usize) -> FunctionRef {\n         FunctionRef {\n             file: file.clone(),\n             qualified_name: qname.into(),\n-            start_line: 1,\n-            end_line: 5,\n+            start_line: start,\n+            end_line: end,\n             code: \"pass\".into(),\n             code_hash: qname.into(),\n         }\n     }\n \n-    fn make_snip(kind: SnippetKind, func: &FunctionRef, text: &str, hash: &str) -> SnippetRef {\n+    fn make_snip(\n+        kind: SnippetKind,\n+        func: &FunctionRef,\n+        start: usize,\n+        end: usize,\n+        text: &str,\n+        hash: &str,\n+    ) -> SnippetRef {\n         SnippetRef {\n             kind,\n             function: func.clone(),\n-            start_line: 1,\n-            end_line: 5,\n+            start_line: start,\n+            end_line: end,\n             text: text.into(),\n             display_text: text.into(),\n             snippet_hash: hash.into(),\n         }\n     }\n-\n-    fn default_thresholds() -> Thresholds {\n-        Thresholds {\n-            func: 0.5,\n-            win: 0.5,\n-            exp: 0.5,\n-            min_window_hits: 1,\n-            lexical_min_ratio: 0.0,",
+            "diff": "--- \n+++ \n@@ -1,40 +1,40 @@\n-            local_matches\n-        })\n-        .collect()\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use crate::core::config::Thresholds;\n-    use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind, SnippetRef};\n-    use crate::index::BruteIndex;\n-    use crate::test_support::make_embedding as emb;\n+    use crate::core::types::{\n+        CandidateMatch, FileRef, FunctionRef, Language, SnippetKind, SnippetRef,\n+    };\n+\n+    // ── Test helpers ──────────────────────────────────────────────────────────\n \n-    fn make_file() -> FileRef {\n+    fn make_file(path: &str) -> FileRef {\n         FileRef {\n-            path: \"x.py\".into(),\n+            path: path.into(),\n             content_hash: \"h\".into(),\n             language: Language::Python,\n             content: \"\".into(),\n         }\n     }\n \n-    fn make_func(file: &FileRef, qname: &str) -> FunctionRef {\n+    fn make_func(file: &FileRef, qname: &str, start: usize, end: usize) -> FunctionRef {\n         FunctionRef {\n             file: file.clone(),\n             qualified_name: qname.into(),\n-            start_line: 1,\n-            end_line: 5,\n+            start_line: start,\n+            end_line: end,\n             code: \"pass\".into(),\n             code_hash: qname.into(),\n         }\n     }\n \n-    fn make_snip(kind: SnippetKind, func: &FunctionRef, text: &str, hash: &str) -> SnippetRef {\n-        SnippetRef {\n-            kind,\n-            function: func.clone(),\n-            start_line: 1,\n-            end_line: 5,\n-            text: text.into(),\n+    fn make_snip(\n+        kind: SnippetKind,\n+        func: &FunctionRef,\n+        start: usize,\n+        end: usize,\n+        text: &str,\n+        hash: &str,\n+    ) -> SnippetRef {",
             "kind_a": "WIN",
             "kind_b": "WIN",
-            "similarity": 0.9068917891253595,
+            "similarity": 0.9040390931326767,
             "span_a": {
-              "end_line": 178,
-              "start_line": 139
+              "end_line": 166,
+              "start_line": 127
             },
             "span_b": {
-              "end_line": 328,
-              "start_line": 289
+              "end_line": 316,
+              "start_line": 277
             }
           },
           "duplicated_lines": 40,
@@ -868,59 +845,27 @@
             "start_line": 1
           },
           "function_b": {
-            "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "end_line": 691,
+            "code_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+            "end_line": 690,
             "file": {
-              "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
+              "content_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
               "language": "text",
               "path": "./src/similarity/rollup.rs"
             },
             "qualified_name": "rollup.rs",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
-          "score": 0.9068917891253595
-        }
-      ],
-      "id": 11,
-      "locations": [
-        {
-          "code_hash": "1bfe64f7a5e16e126de1b6a1a431a38160b3669a543362292f185f7099dfbe0c",
-          "end_line": 333,
-          "file": {
-            "content_hash": "1bfe64f7a5e16e126de1b6a1a431a38160b3669a543362292f185f7099dfbe0c",
-            "language": "text",
-            "path": "./src/similarity/candidates.rs"
-          },
-          "qualified_name": "candidates.rs",
-          "start_line": 1
+          "score": 0.9040390931326767
         },
         {
-          "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-          "end_line": 691,
-          "file": {
-            "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "language": "text",
-            "path": "./src/similarity/rollup.rs"
-          },
-          "qualified_name": "rollup.rs",
-          "start_line": 1
-        }
-      ],
-      "max_duplicated_lines": 40,
-      "max_score": 0.9068917891253595
-    },
-    {
-      "findings": [
-        {
           "compare": {
-            "diff": "--- \n+++ \n@@ -1,3 +1,6 @@\n+            content: \"\".into(),\n+        }\n+    }\n \n     fn make_func(file: &FileRef, qname: &str, start: usize, end: usize) -> FunctionRef {\n         FunctionRef {\n@@ -15,6 +18,7 @@\n         func: &FunctionRef,\n         start: usize,\n         end: usize,\n+        text: &str,\n         hash: &str,\n     ) -> SnippetRef {\n         SnippetRef {\n@@ -22,8 +26,8 @@\n             function: func.clone(),\n             start_line: start,\n             end_line: end,\n-            text: \"t\".into(),\n-            display_text: \"t\".into(),\n+            text: text.into(),\n+            display_text: text.into(),\n             snippet_hash: hash.into(),\n         }\n     }\n@@ -34,7 +38,3 @@\n             snippet_b: snip_b,\n             similarity: sim,\n             evidence: \"\".into(),\n-        }\n-    }\n-\n-    #[test]",
+            "diff": "--- \n+++ \n@@ -1,3 +1,5 @@\n+        }\n+    }\n \n     fn make_func(file: &FileRef, qname: &str, start: usize, end: usize) -> FunctionRef {\n         FunctionRef {\n@@ -15,6 +17,7 @@\n         func: &FunctionRef,\n         start: usize,\n         end: usize,\n+        text: &str,\n         hash: &str,\n     ) -> SnippetRef {\n         SnippetRef {\n@@ -22,8 +25,8 @@\n             function: func.clone(),\n             start_line: start,\n             end_line: end,\n-            text: \"t\".into(),\n-            display_text: \"t\".into(),\n+            text: text.into(),\n+            display_text: text.into(),\n             snippet_hash: hash.into(),\n         }\n     }\n@@ -35,6 +38,3 @@\n             similarity: sim,\n             evidence: \"\".into(),\n         }\n-    }\n-\n-    #[test]",
             "kind_a": "WIN",
             "kind_b": "WIN",
-            "similarity": 0.9767560272682003,
+            "similarity": 0.9847237503528594,
             "span_a": {
               "end_line": 124,
               "start_line": 85
@@ -943,25 +888,78 @@
             "start_line": 1
           },
           "function_b": {
-            "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "end_line": 691,
+            "code_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+            "end_line": 690,
             "file": {
-              "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
+              "content_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
               "language": "text",
               "path": "./src/similarity/rollup.rs"
             },
             "qualified_name": "rollup.rs",
             "start_line": 1
           },
-          "metadata": {},
           "reasons": [
             "min_window_hits"
           ],
-          "score": 0.9767560272682003
+          "score": 0.9847237503528594
+        },
+        {
+          "compare": {
+            "diff": "--- \n+++ \n@@ -1,19 +1,23 @@\n+        );\n+    }\n+\n+    #[test]\n+    fn test_exp_threshold_edge() {\n         let file = make_file(\"x.py\");\n         let fn_a = make_func(&file, \"a\", 1, 2);\n         let fn_b = make_func(&file, \"b\", 10, 12);\n-        let sa = make_snip(SnippetKind::Func, &fn_a, 1, 2, \"a\", \"a1\");\n-        let sb = make_snip(SnippetKind::Func, &fn_b, 10, 12, \"b\", \"b10\");\n+        let sa = make_snip(SnippetKind::Exp, &fn_a, 1, 2, \"a\", \"a1\");\n+        let sb = make_snip(SnippetKind::Exp, &fn_b, 10, 12, \"b\", \"b10\");\n         let t = thresholds(0.95, 0.9, 0.9, 2, 0.0);\n-        let at = rollup_findings(vec![make_match(sa.clone(), sb.clone(), 0.95)], &t);\n-        let below = rollup_findings(vec![make_match(sa, sb, 0.9499)], &t);\n+        let at = rollup_findings(vec![make_match(sa.clone(), sb.clone(), 0.9)], &t);\n+        let below = rollup_findings(vec![make_match(sa, sb, 0.8999)], &t);\n         assert!(!at.is_empty());\n         assert!(below.is_empty());\n     }\n \n     #[test]\n-    fn test_win_threshold_edge() {\n-        // Two WIN matches meeting min_window_hits=2 → finding emitted even when score < win threshold.\n-        // min_window_hits is a COUNT gate, not a score gate (DD7).\n+    fn test_min_window_hits_below_count() {\n+        // 2 WIN matches with min_window_hits=3 → count(2) < 3 → no finding.\n         let file = make_file(\"x.py\");\n         let fn_a = make_func(&file, \"a\", 1, 20);\n         let fn_b = make_func(&file, \"b\", 30, 50);\n@@ -21,20 +25,12 @@\n         let b1 = make_snip(SnippetKind::Win, &fn_b, 30, 32, \"b1\", \"b1\");\n         let a2 = make_snip(SnippetKind::Win, &fn_a, 4, 6, \"a2\", \"a2\");\n         let b2 = make_snip(SnippetKind::Win, &fn_b, 33, 35, \"b2\", \"b2\");\n-        let t = thresholds(0.95, 0.9, 0.9, 2, 0.0);\n-        let at = rollup_findings(\n-            vec![\n-                make_match(a1.clone(), b1.clone(), 0.9),\n-                make_match(a2.clone(), b2.clone(), 0.9),\n-            ],\n-            &t,\n-        );\n-        let below = rollup_findings(\n-            vec![make_match(a1, b1, 0.8999), make_match(a2, b2, 0.8999)],\n-            &t,\n-        );\n+        let t = thresholds(0.95, 0.9, 0.9, 3, 0.0);\n+        let findings =\n+            rollup_findings(vec![make_match(a1, b1, 0.95), make_match(a2, b2, 0.95)], &t);\n         assert!(\n-            !at.is_empty(),\n-            \"at-threshold WIN count gate must produce a finding\"\n+            findings.is_empty(),\n+            \"count 2 < min_window_hits 3 must not emit a finding\"\n         );\n-        assert!(\n+    }\n+}",
+            "kind_a": "WIN",
+            "kind_b": "WIN",
+            "similarity": 0.9150835212908293,
+            "span_a": {
+              "end_line": 652,
+              "start_line": 613
+            },
+            "span_b": {
+              "end_line": 690,
+              "start_line": 655
+            }
+          },
+          "duplicated_lines": 0,
+          "function_a": {
+            "code_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+            "end_line": 690,
+            "file": {
+              "content_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+              "language": "text",
+              "path": "./src/similarity/rollup.rs"
+            },
+            "qualified_name": "rollup.rs",
+            "start_line": 1
+          },
+          "function_b": {
+            "code_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+            "end_line": 690,
+            "file": {
+              "content_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+              "language": "text",
+              "path": "./src/similarity/rollup.rs"
+            },
+            "qualified_name": "rollup.rs",
+            "start_line": 1
+          },
+          "reasons": [
+            "min_window_hits"
+          ],
+          "score": 0.9193938028812407
         }
       ],
-      "id": 12,
+      "id": 11,
       "locations": [
+        {
+          "code_hash": "1bfe64f7a5e16e126de1b6a1a431a38160b3669a543362292f185f7099dfbe0c",
+          "end_line": 333,
+          "file": {
+            "content_hash": "1bfe64f7a5e16e126de1b6a1a431a38160b3669a543362292f185f7099dfbe0c",
+            "language": "text",
+            "path": "./src/similarity/candidates.rs"
+          },
+          "qualified_name": "candidates.rs",
+          "start_line": 1
+        },
         {
           "code_hash": "addbfc8560e53ea6710363deb824de72461250d49b3c1211f403a59293d2dde7",
           "end_line": 201,
@@ -974,10 +972,10 @@
           "start_line": 1
         },
         {
-          "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-          "end_line": 691,
+          "code_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
+          "end_line": 690,
           "file": {
-            "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
+            "content_hash": "d2f0f3f000c3e28bd783d260c825ef1bcd2c06ba5e8f4410bb5c6732a77ba916",
             "language": "text",
             "path": "./src/similarity/rollup.rs"
           },
@@ -986,90 +984,26 @@
         }
       ],
       "max_duplicated_lines": 58,
-      "max_score": 0.9767560272682003
-    },
-    {
-      "findings": [
-        {
-          "compare": {
-            "diff": "--- \n+++ \n@@ -1,26 +1,24 @@\n+            \"below-threshold WIN count gate still produces finding (count-only gate)\"\n+        );\n     }\n \n-    // ── Threshold edge cases ──────────────────────────────────────────────────\n-\n     #[test]\n-    fn test_func_threshold_edge() {\n-        // FUNC at exactly threshold → emitted; 1 ULP below → not emitted.\n+    fn test_exp_threshold_edge() {\n         let file = make_file(\"x.py\");\n         let fn_a = make_func(&file, \"a\", 1, 2);\n         let fn_b = make_func(&file, \"b\", 10, 12);\n-        let sa = make_snip(SnippetKind::Func, &fn_a, 1, 2, \"a\", \"a1\");\n-        let sb = make_snip(SnippetKind::Func, &fn_b, 10, 12, \"b\", \"b10\");\n+        let sa = make_snip(SnippetKind::Exp, &fn_a, 1, 2, \"a\", \"a1\");\n+        let sb = make_snip(SnippetKind::Exp, &fn_b, 10, 12, \"b\", \"b10\");\n         let t = thresholds(0.95, 0.9, 0.9, 2, 0.0);\n-        let at = rollup_findings(vec![make_match(sa.clone(), sb.clone(), 0.95)], &t);\n-        let below = rollup_findings(vec![make_match(sa, sb, 0.9499)], &t);\n+        let at = rollup_findings(vec![make_match(sa.clone(), sb.clone(), 0.9)], &t);\n+        let below = rollup_findings(vec![make_match(sa, sb, 0.8999)], &t);\n         assert!(!at.is_empty());\n         assert!(below.is_empty());\n     }\n \n     #[test]\n-    fn test_win_threshold_edge() {\n-        // Two WIN matches meeting min_window_hits=2 → finding emitted even when score < win threshold.\n-        // min_window_hits is a COUNT gate, not a score gate (DD7).\n+    fn test_min_window_hits_below_count() {\n+        // 2 WIN matches with min_window_hits=3 → count(2) < 3 → no finding.\n         let file = make_file(\"x.py\");\n         let fn_a = make_func(&file, \"a\", 1, 20);\n         let fn_b = make_func(&file, \"b\", 30, 50);\n@@ -28,13 +26,12 @@\n         let b1 = make_snip(SnippetKind::Win, &fn_b, 30, 32, \"b1\", \"b1\");\n         let a2 = make_snip(SnippetKind::Win, &fn_a, 4, 6, \"a2\", \"a2\");\n         let b2 = make_snip(SnippetKind::Win, &fn_b, 33, 35, \"b2\", \"b2\");\n-        let t = thresholds(0.95, 0.9, 0.9, 2, 0.0);\n-        let at = rollup_findings(\n-            vec![\n-                make_match(a1.clone(), b1.clone(), 0.9),\n-                make_match(a2.clone(), b2.clone(), 0.9),\n-            ],\n-            &t,\n+        let t = thresholds(0.95, 0.9, 0.9, 3, 0.0);\n+        let findings =\n+            rollup_findings(vec![make_match(a1, b1, 0.95), make_match(a2, b2, 0.95)], &t);\n+        assert!(\n+            findings.is_empty(),\n+            \"count 2 < min_window_hits 3 must not emit a finding\"\n         );\n-        let below = rollup_findings(\n-            vec![make_match(a1, b1, 0.8999), make_match(a2, b2, 0.8999)],\n+    }\n+}",
-            "kind_a": "WIN",
-            "kind_b": "WIN",
-            "similarity": 0.9010237173143638,
-            "span_a": {
-              "end_line": 646,
-              "start_line": 607
-            },
-            "span_b": {
-              "end_line": 691,
-              "start_line": 655
-            }
-          },
-          "duplicated_lines": 0,
-          "function_a": {
-            "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "end_line": 691,
-            "file": {
-              "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-              "language": "text",
-              "path": "./src/similarity/rollup.rs"
-            },
-            "qualified_name": "rollup.rs",
-            "start_line": 1
-          },
-          "function_b": {
-            "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "end_line": 691,
-            "file": {
-              "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-              "language": "text",
-              "path": "./src/similarity/rollup.rs"
-            },
-            "qualified_name": "rollup.rs",
-            "start_line": 1
-          },
-          "metadata": {},
-          "reasons": [
-            "min_window_hits"
-          ],
-          "score": 0.9136674591473171
-        }
-      ],
-      "id": 13,
-      "locations": [
-        {
-          "code_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-          "end_line": 691,
-          "file": {
-            "content_hash": "61033fe4125e396f4d4a9e982f116dd76b10a25cb381b8ed8818fd568639bf79",
-            "language": "text",
-            "path": "./src/similarity/rollup.rs"
-          },
-          "qualified_name": "rollup.rs",
-          "start_line": 1
-        }
-      ],
-      "max_duplicated_lines": 0,
-      "max_score": 0.9136674591473171
+      "max_score": 0.9847237503528594
     }
   ],
   "schema_version": "2.0.0",
   "stats": {
-    "cache_hits": 2703,
-    "cache_misses": 0,
-    "candidate_count": 4464,
+    "cache_hits": 1620,
+    "cache_misses": 1127,
+    "candidate_count": 4541,
     "file_count": 67,
     "finding_count": 13,
     "function_count": 62,
-    "group_count": 13,
-    "grouped_function_count": 22,
-    "snippet_count": 2703
+    "group_count": 11,
+    "grouped_function_count": 21,
+    "snippet_count": 2747
   },
   "timing": {
-    "collect_files": 0.019791167,
-    "embed": 0.18604725,
-    "extract_functions": 0.008031958,
-    "generate_snippets": 5.351078375,
-    "similarity": 0.3482075
+    "collect_files": 0.017652666,
+    "embed": 436.264036667,
+    "extract_functions": 0.01003025,
+    "generate_snippets": 5.426736917,
+    "similarity": 0.386160375
   }
 }
