@@ -90,17 +90,20 @@ pub(crate) fn scan_sonarqube(path_override: Option<&str>) -> Result<ScanResult, 
                 duplicated_lines: dup_lines,
                 evidence: vec![evidence],
                 reasons: vec!["sonarqube".into()],
-                metadata: BTreeMap::new(),
             });
         }
     }
 
+    // SonarQube findings flow through the same unconditional grouping/stats path as semantic runs.
+    let (group_count, grouped_function_count) = crate::similarity::group_stats(&findings);
     let stats = ScanStats {
         file_count: 0,
         function_count: 0,
         snippet_count: 0,
         candidate_count: 0,
         finding_count: findings.len(),
+        group_count,
+        grouped_function_count,
         cache_hits: 0,
         cache_misses: 0,
     };

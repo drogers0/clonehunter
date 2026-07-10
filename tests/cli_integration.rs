@@ -42,12 +42,71 @@ fn test_scan_produces_json_report() {
     assert!(out.exists(), "report.json must exist");
     let content = fs::read_to_string(&out).unwrap();
     let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
-    assert!(v.get("findings").is_some(), "JSON must have 'findings' key");
+    assert!(v.get("groups").is_some(), "JSON must have 'groups' key");
     assert!(
         v.get("schema_version").is_some(),
         "JSON must have 'schema_version'"
     );
     assert!(v.get("stats").is_some(), "JSON must have 'stats'");
+}
+
+/// The same function duplicated across three files → one clone group of 3 locations.
+fn make_triple_fixture() -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let code = "def compute(x, y):\n    result = x + y\n    result = result * 2\n    result = result - 1\n    return result\n";
+    for name in ["file_a.py", "file_b.py", "file_c.py"] {
+        fs::write(dir.path().join(name), code).unwrap();
+    }
+    dir
+}
+
+#[test]
+fn test_scan_produces_one_group_json_for_shared_function_family() {
+    let fixture = make_triple_fixture();
+    let out = fixture.path().join("report.json");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "json",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    let v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&out).unwrap()).expect("valid JSON");
+    assert_eq!(v["stats"]["group_count"], 1, "3 files → 1 clone group");
+    assert_eq!(
+        v["stats"]["grouped_function_count"], 3,
+        "3 unique duplicated functions"
+    );
+    let groups = v["groups"].as_array().unwrap();
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0]["locations"].as_array().unwrap().len(), 3);
+    assert_eq!(groups[0]["findings"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn test_scan_produces_group_chrome_html_for_shared_function_family() {
+    let fixture = make_triple_fixture();
+    let out = fixture.path().join("report.html");
+    ch().args([
+        "scan",
+        fixture.path().to_str().unwrap(),
+        "--format",
+        "html",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success();
+    let content = fs::read_to_string(&out).unwrap();
+    assert!(
+        content.contains("clone group across"),
+        "summary line present"
+    );
+    assert!(content.contains("Clone group #1"), "group header present");
 }
 
 // ── HTML output ───────────────────────────────────────────────────────────────
@@ -266,8 +325,8 @@ fn test_diff_end_to_end() {
     let content = fs::read_to_string(&out).unwrap();
     let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
     assert!(
-        v.get("findings").is_some(),
-        "diff report must have findings key"
+        v.get("groups").is_some(),
+        "diff report must have groups key"
     );
 }
 

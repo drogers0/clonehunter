@@ -13,7 +13,7 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]   # default 
     --engine semantic|sonarqube   --embedder codebert|stub|onnx|mlx   --index brute|faiss   --device auto|cpu|cuda
     --threshold-func/-win/-exp FLOAT   --min-window-hits INT   --lexical-min-ratio/-weight FLOAT
     --window-lines/-stride-lines/-min-nonempty INT   --expand-calls [--expand-depth/-max-chars INT]
-    --cache-path PATH   --cluster [--cluster-min-size INT]
+    --cache-path PATH
     --repotype <lang>...   --include-globs GLOB...   --exclude-globs GLOB...     # repeatable; layered (see below)
 
 clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-index/-device ...]
@@ -29,7 +29,7 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
 2. **extract units** — python files → `extract_functions` (tree-sitter CST walk) go into *both* `python_functions` and `window_units`; every other file → one whole-file unit into `window_units` only.
 3. **generate snippets** — FUNC (one per function) + WIN (sliding windows over every unit) + EXP (call-expansion, only if `expansion.enabled`), concatenated into one list. Each snippet's `text` is **tree-sitter comment-stripped** (analysis text); `display_text` keeps comments.
 4. **embed** — `StubEmbedder` if `embedder.name==stub` else `CodeBertEmbedder` (candle XLMRobertaModel), `OnnxEmbedder` (`--features onnx`), or `MlxEmbedder` (`--features mlx`); results memoized in SQLite [src/embedding/cache.rs](src/embedding/cache.rs). Only cache-misses are embedded, in `batch_size` batches.
-5. **similarity** — build the brute index, `retrieve_candidates` → `rollup_findings` → optional clustering.
+5. **similarity** — build the brute index, `retrieve_candidates` → `rollup_findings`.
 6. **assemble** — `ScanResult { findings, stats, config_snapshot, timing, degradations }` → the matching reporter.
 
 ## Repo layout
@@ -51,8 +51,8 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
   - `ranking.rs` (`kind_rank`, `best_match` — deterministic tie-break via `to_bits()`).
   - `rollup.rs` (`rollup_findings`: filter-overlap → filter-lexical → dedupe → normalize a/b orientation → group by function pair → emit only if ≥1 reason; `_duplicated_lines`).
   - `occurrences.rs` (`SelfCloneOccurrences` — union-find over overlapping spans; `covered_lines` uses adjacency; `occurrence_for` is `&self`).
-  - `clustering.rs` (union-find over `function.identity`; only runs when `cluster_findings` is on).
-- [src/reporting/](src/reporting/) — `schema.rs` (`SCHEMA_VERSION = env!("CARGO_PKG_VERSION")`). `compare.rs` (`select_compare` → `best_match` for rendering). `json.rs` (`write_json`: `{schema_version, findings, stats, config, timing}`, each finding with a `similar`-crate unified diff). `sarif.rs` (`write_sarif`: SARIF 2.1.0, `note`-level results). `html.rs` (`write_html`: self-contained inline CSS/JS, `DiffOp` side-by-side diff, client-side sort; self-clone aware via `SelfCloneOccurrences`).
+  - `clustering.rs` — `build_groups` (always-on union-find over `function.identity`; derives stable, re-numbered `CloneGroup`s — `locations` identity-sorted, `finding_indices` sorted by pair identity — for reporters/stats).
+- [src/reporting/](src/reporting/) — `schema.rs` (`SCHEMA_VERSION = env!("CARGO_PKG_VERSION")`). `compare.rs` (`select_compare` → `best_match` for rendering). `json.rs` (`write_json`: `{schema_version, groups, stats, config, timing, degradations}`; findings nest under `groups[].findings[]` via `build_groups`, each with a `similar`-crate unified diff). `sarif.rs` (`write_sarif`: SARIF 2.1.0, `note`-level results; still one result per finding, unaffected by grouping). `html.rs` (`write_html`: self-contained inline CSS/JS, `DiffOp` side-by-side diff, client-side sort; self-clone aware via `SelfCloneOccurrences`; always renders clone-family cards — a single-finding family is one open pair card, a multi-finding family collapses behind an outer card listing member locations then every finding as an equal diff card, self-clones labeled).
 - [src/engines/](src/engines/) — `pipeline.rs` (`run_pipeline`: the 6-stage impl). `semantic.rs` (one-line delegate). `sonarqube.rs` (adapter: reads `CLONEHUNTER_SONAR_REPORT` env var, maps `duplications[]` → `Finding`s with `score=1.0`; no embedding/index). `mod.rs` (`get_engine`, `PipelineError`).
 - [src/cli/](src/cli/) — `mod.rs` (clap derive; `Commands::Scan(Box<ScanArgs>)` boxed to avoid large-enum-variant; `run_scan` = build overrides → `resolve_config_root` walk-up → `load_config` → two-pass glob merge → engine.scan → reporter; `run_diff` = `changed_files` → full scan → filter findings to changed paths → reporter). `glob_merge.rs` (`REPO_TYPE_PRESETS`, `effective_repotypes`, `resolve_repotype_globs`, `merge_globs`, `validate_repotype`).
 - [src/main.rs](src/main.rs), [src/lib.rs](src/lib.rs).
@@ -61,7 +61,7 @@ clonehunter diff --base REF [--format ...] [--out FILE] [--engine/-embedder/-ind
 
 **Composite score** ([src/similarity/candidates.rs](src/similarity/candidates.rs)): `composite = (1 − lexical_weight)·embedding + lexical_weight·lexical`. A candidate is kept when `lexical ≥ lexical_min_ratio` **and** `composite ≥` the per-kind threshold (Func→`func`, Win→`win`, else→`exp`).
 
-**Config defaults** ([src/core/config.rs](src/core/config.rs)): `engine="semantic"`; thresholds `func=0.92, win=0.90, exp=0.90, min_window_hits=1, lexical_min_ratio=0.5, lexical_weight=0.3`; windows `window_lines=40, stride=6, min_nonempty=4`; expansion `enabled=false, depth=1, max_chars=4000`; index `name="brute", top_k=25`; embedder `name="codebert", model="microsoft/codebert-base", revision=<pinned SHA>, max_length=256, batch_size=16, device="auto"`; cache `~/.cache/clonehunter`; `include_globs=["**/*.py"]`; `cluster_findings=false, cluster_min_size=2`.
+**Config defaults** ([src/core/config.rs](src/core/config.rs)): `engine="semantic"`; thresholds `func=0.92, win=0.90, exp=0.90, min_window_hits=1, lexical_min_ratio=0.5, lexical_weight=0.3`; windows `window_lines=40, stride=6, min_nonempty=4`; expansion `enabled=false, depth=1, max_chars=4000`; index `name="brute", top_k=25`; embedder `name="codebert", model="microsoft/codebert-base", revision=<pinned SHA>, max_length=256, batch_size=16, device="auto"`; cache `~/.cache/clonehunter`; `include_globs=["**/*.py"]`.
 
 **Glob layering** (`scan` only, applied after `load_config` in [src/cli/mod.rs](src/cli/mod.rs)): when `--repotype` is explicitly passed, the repotype preset **replaces** the config's include_globs entirely; when `--repotype` is omitted, the `monorepo` expansion is merged on top of config globs. Then `--include/--exclude-globs` are merged as the final CLI layer, with conflicts resolved in favour of the CLI layer. `--repotype none` produces empty include_globs → 0 files collected.
 

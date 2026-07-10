@@ -100,7 +100,7 @@ pub(crate) fn make_embedding(vector: Vec<f32>) -> Embedding {
     Embedding { vector }
 }
 
-/// A `Finding` with empty metadata; `reasons` are string-copied from the slice.
+/// A `Finding`; `reasons` are string-copied from the slice.
 pub(crate) fn make_finding(
     function_a: FunctionRef,
     function_b: FunctionRef,
@@ -116,7 +116,6 @@ pub(crate) fn make_finding(
         duplicated_lines,
         evidence,
         reasons: reasons.iter().map(|s| s.to_string()).collect(),
-        metadata: BTreeMap::new(),
     }
 }
 
@@ -132,6 +131,8 @@ pub(crate) fn make_scan_result(findings: Vec<Finding>) -> ScanResult {
             snippet_count: 0,
             candidate_count: 0,
             finding_count,
+            group_count: 0,
+            grouped_function_count: 0,
             cache_hits: 0,
             cache_misses: 0,
         },

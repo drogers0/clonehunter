@@ -107,12 +107,6 @@ struct ScanArgs {
     #[arg(long)]
     cache_path: Option<String>,
 
-    // Clustering
-    #[arg(long)]
-    cluster: bool,
-    #[arg(long)]
-    cluster_min_size: Option<usize>,
-
     // Glob filtering
     /// Repo type preset (repeatable); use "none" to disable presets
     #[arg(long, value_parser = validate_repotype)]
@@ -250,8 +244,13 @@ fn run_diff(args: DiffArgs) -> Result<()> {
         })
         .collect();
 
+    // Filtering findings changes the group partition too — recompute group stats so the report
+    // stays internally consistent (group_count must equal the emitted `groups` array length).
+    let (group_count, grouped_function_count) = crate::similarity::group_stats(&filtered);
     let mut stats = result.stats;
     stats.finding_count = filtered.len();
+    stats.group_count = group_count;
+    stats.grouped_function_count = grouped_function_count;
 
     let filtered_result = ScanResult {
         findings: filtered,
@@ -353,11 +352,6 @@ fn build_scan_overrides(args: &ScanArgs) -> ConfigOverride {
             path: Some(path.clone()),
         });
     }
-
-    if args.cluster {
-        ov.cluster_findings = Some(true);
-    }
-    ov.cluster_min_size = args.cluster_min_size;
 
     ov
 }
@@ -558,8 +552,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -600,8 +592,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -640,8 +630,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -678,8 +666,6 @@ mod tests {
             expand_depth: Some(3), // depth set without --expand-calls
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -725,8 +711,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -765,8 +749,6 @@ mod tests {
             expand_depth: None,
             expand_max_chars: None,
             cache_path: None,
-            cluster: false,
-            cluster_min_size: None,
             repotype: vec![],
             include_globs: vec![],
             exclude_globs: vec![],
@@ -824,17 +806,31 @@ mod tests {
             "only finding touching src/a.py must survive"
         );
 
-        // Verify stats update mirrors run_diff logic
+        // Verify stats update mirrors run_diff logic — including the group stats, which must be
+        // recomputed from the filtered findings so the report stays internally consistent.
+        let (group_count, grouped_function_count) = crate::similarity::group_stats(&filtered);
         let mut stats = ScanStats {
             file_count: 2,
             function_count: 4,
             snippet_count: 4,
             candidate_count: 2,
             finding_count: 2,
+            group_count: 2,
+            grouped_function_count: 2,
             cache_hits: 0,
             cache_misses: 0,
         };
         stats.finding_count = filtered.len();
+        stats.group_count = group_count;
+        stats.grouped_function_count = grouped_function_count;
         assert_eq!(stats.finding_count, 1);
+        assert_eq!(
+            stats.group_count, 1,
+            "group_count must track filtered findings"
+        );
+        assert_eq!(
+            stats.grouped_function_count, 2,
+            "one surviving finding spans 2 functions"
+        );
     }
 }

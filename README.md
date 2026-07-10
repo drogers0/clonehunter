@@ -185,8 +185,6 @@ Place a `clonehunter.toml` file in your repository root to configure CloneHunter
 
 ```toml
 engine = "semantic"
-cluster_findings = false
-cluster_min_size = 2
 
 [thresholds]
 func = 0.92
@@ -250,8 +248,6 @@ clonehunter scan [PATHS...] [--format json|html|sarif] [--out FILE]
   --expand-depth INT
   --expand-max-chars INT
   --cache-path PATH
-  --cluster
-  --cluster-min-size INT
   --repotype dotnet|go|java|kotlin|monorepo|node|none|php|python|react|ruby|rust|swift|cpp
                                   # repeatable preset globs
   --include-globs GLOB   # repeatable; merged with config includes
@@ -300,6 +296,37 @@ clonehunter scan . --format sarif --out examples/clonehunter_report.sarif
 clonehunter diff --base HEAD --format json --out examples/clonehunter_diff.json
 clonehunter diff --base HEAD --format html --out examples/clonehunter_diff_report.html
 ```
+
+### Clone groups
+
+When one function is duplicated across N files, detection emits the N·(N−1)/2 *pairwise*
+findings. CloneHunter presents these as **clone groups** so an N-way duplicate reads as a single
+group listing all its locations rather than a scatter of pairs.
+
+**JSON** nests every pairwise finding under a top-level `groups` array (there is no flat
+`findings` array):
+
+```json
+"groups": [
+  { "id": 1,
+    "locations": [ { "file": {...}, "qualified_name": "...", "start_line": 1, "end_line": 10, "code_hash": "..." }, ... ],
+    "max_score": 0.98,
+    "max_duplicated_lines": 42,
+    "findings": [ { "function_a": {...}, "function_b": {...}, "score": 0.98, "duplicated_lines": 42, "compare": {...}, "reasons": [...] }, ... ] } ]
+```
+
+`locations` is the group's unique member functions; `findings` carries the pairwise evidence and
+diffs. The shape is uniform: a 2-location clone is a **2-location, 1-finding** group, and
+findings sharing a function merge into one N-location group. Consume it as
+`for g in groups: for f in g["findings"]`.
+
+`stats` gains **`group_count`** (number of clone groups) and **`grouped_function_count`** (unique
+functions across all groups).
+
+**HTML** always renders clone-family cards: a single-finding family opens directly as a pair diff,
+while a larger family collapses behind one outer card that lists its member locations and renders
+each finding as an equal side-by-side diff (self-clones labeled as internal duplication).
+**SARIF** is unchanged — one result per finding.
 
 ---
 

@@ -1,105 +1,127 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::core::types::Finding;
+use crate::core::types::{Finding, FunctionRef};
 
-/// Assign `cluster_id` metadata to each finding via union-find over function identities.
+/// A clone group derived from findings. Groups are the single presentation/source-of-truth view:
+/// findings sharing any function identity merge into one family via union-find.
+pub(crate) struct CloneGroup<'a> {
+    /// Stable, re-numbered group id.
+    pub id: usize,
+    /// Unique member functions, sorted by `identity()`; always non-empty.
+    pub locations: Vec<&'a FunctionRef>,
+    /// Indices into the input slice for this group's pairwise findings.
+    pub finding_indices: Vec<usize>,
+    pub max_score: f64,
+    pub max_duplicated_lines: usize,
+}
+
+fn find(parent: &mut HashMap<String, String>, x: &str) -> String {
+    let mut x = x.to_string();
+    loop {
+        let px = parent.get(&x).cloned().unwrap_or_else(|| x.clone());
+        if px == x {
+            return x;
+        }
+        let ppx = parent.get(&px).cloned().unwrap_or_else(|| px.clone());
+        parent.insert(x.clone(), ppx.clone());
+        x = ppx;
+    }
+}
+
+fn union(parent: &mut HashMap<String, String>, a: &str, b: &str) {
+    let ra = find(parent, a);
+    let rb = find(parent, b);
+    if ra != rb {
+        parent.insert(rb, ra);
+    }
+}
+
+/// Derive stable clone groups from findings via unconditional union-find over function identity.
 ///
-/// Two findings that share a function identity end up in the same cluster.
-/// Cluster IDs are assigned in finding-iteration order (first finding's cluster gets id=1).
-/// Path halving is used in the `find` inner function (matches Python's implementation).
-pub(crate) fn cluster_findings(findings: &[Finding]) -> Vec<Finding> {
+/// Membership, ordering, ids, and per-group finding ordering are all deterministic run-to-run.
+/// Groups sort by their full sorted location-identity vector and are re-numbered sequentially `1..`.
+pub(crate) fn build_groups(findings: &[Finding]) -> Vec<CloneGroup<'_>> {
     if findings.is_empty() {
-        return vec![];
+        return Vec::new();
     }
 
     let mut parent: HashMap<String, String> = HashMap::new();
-
-    // Path-halving union-find over function identity strings (DD12).
-    fn find(parent: &mut HashMap<String, String>, x: &str) -> String {
-        let mut x = x.to_string();
-        loop {
-            let px = parent.get(&x).cloned().unwrap_or_else(|| x.clone());
-            if px == x {
-                return x;
-            }
-            let ppx = parent.get(&px).cloned().unwrap_or_else(|| px.clone());
-            parent.insert(x.clone(), ppx.clone());
-            x = ppx;
-        }
-    }
-
-    fn union(parent: &mut HashMap<String, String>, a: &str, b: &str) {
-        let ra = find(parent, a);
-        let rb = find(parent, b);
-        if ra != rb {
-            parent.insert(rb, ra);
-        }
-    }
-
-    // Initialise all function identities, then union each finding's pair.
     for finding in findings {
         let a = finding.function_a.identity();
         let b = finding.function_b.identity();
-        parent.entry(a.clone()).or_insert(a.clone());
-        parent.entry(b.clone()).or_insert(b.clone());
-        union(
-            &mut parent,
-            &finding.function_a.identity(),
-            &finding.function_b.identity(),
-        );
+        parent.entry(a.clone()).or_insert_with(|| a.clone());
+        parent.entry(b.clone()).or_insert_with(|| b.clone());
+        union(&mut parent, &a, &b);
     }
 
-    // Assign cluster IDs in finding-iteration order. NOTE: the integer `cluster_id` values are
-    // therefore finding-order-dependent — cluster *membership* is deterministic, but the ID
-    // integers are not stable across rayon-unordered runs, so do not snapshot/assert on them.
-    let mut clusters: HashMap<String, usize> = HashMap::new();
-    let mut next_id = 1usize;
-    let mut result = Vec::with_capacity(findings.len());
-
-    for finding in findings {
+    let mut partitions: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (idx, finding) in findings.iter().enumerate() {
         let root = find(&mut parent, &finding.function_a.identity());
-        let cluster_id = *clusters.entry(root).or_insert_with(|| {
-            let id = next_id;
-            next_id += 1;
-            id
-        });
-        let mut meta: BTreeMap<String, String> = finding.metadata.clone();
-        meta.insert("cluster_id".into(), cluster_id.to_string());
-        result.push(Finding {
-            function_a: finding.function_a.clone(),
-            function_b: finding.function_b.clone(),
-            score: finding.score,
-            duplicated_lines: finding.duplicated_lines,
-            evidence: finding.evidence.clone(),
-            reasons: finding.reasons.clone(),
-            metadata: meta,
-        });
+        partitions.entry(root).or_default().push(idx);
     }
-    result
+
+    let mut groups: Vec<CloneGroup<'_>> = partitions
+        .into_values()
+        .map(|mut finding_indices| {
+            finding_indices.sort_by_key(|&idx| {
+                (
+                    findings[idx].function_a.identity(),
+                    findings[idx].function_b.identity(),
+                )
+            });
+
+            let mut seen = HashSet::new();
+            let mut locations = Vec::new();
+            for &idx in &finding_indices {
+                for func in [&findings[idx].function_a, &findings[idx].function_b] {
+                    let identity = func.identity();
+                    if seen.insert(identity) {
+                        locations.push(func);
+                    }
+                }
+            }
+            locations.sort_by_key(|func| func.identity());
+
+            CloneGroup {
+                id: 0,
+                max_score: finding_indices
+                    .iter()
+                    .map(|&idx| findings[idx].score)
+                    .fold(0.0, f64::max),
+                max_duplicated_lines: finding_indices
+                    .iter()
+                    .map(|&idx| findings[idx].duplicated_lines)
+                    .max()
+                    .unwrap_or(0),
+                locations,
+                finding_indices,
+            }
+        })
+        .collect();
+
+    groups.sort_by_cached_key(|group| {
+        group
+            .locations
+            .iter()
+            .map(|func| func.identity())
+            .collect::<Vec<_>>()
+    });
+    for (idx, group) in groups.iter_mut().enumerate() {
+        group.id = idx + 1;
+    }
+    groups
 }
 
-/// Keep only findings belonging to clusters with at least `min_size` findings.
-/// Returns a clone of `findings` unchanged when `min_size <= 1`.
-pub(crate) fn filter_clusters(findings: &[Finding], min_size: usize) -> Vec<Finding> {
-    if min_size <= 1 {
-        return findings.to_vec();
-    }
-    let mut counts: HashMap<String, usize> = HashMap::new();
-    for f in findings {
-        if let Some(cid) = f.metadata.get("cluster_id") {
-            *counts.entry(cid.clone()).or_insert(0) += 1;
-        }
-    }
-    findings
+/// Derive the two `ScanStats` group metrics from findings: `(group_count, grouped_function_count)`.
+/// The function count is de-duplicated across groups.
+pub(crate) fn group_stats(findings: &[Finding]) -> (usize, usize) {
+    let groups = build_groups(findings);
+    let grouped_function_count = groups
         .iter()
-        .filter(|f| {
-            f.metadata
-                .get("cluster_id")
-                .and_then(|cid| counts.get(cid))
-                .is_some_and(|&c| c >= min_size)
-        })
-        .cloned()
-        .collect()
+        .flat_map(|group| group.locations.iter().map(|func| func.identity()))
+        .collect::<HashSet<_>>()
+        .len();
+    (groups.len(), grouped_function_count)
 }
 
 #[cfg(test)]
@@ -110,63 +132,163 @@ mod tests {
     };
 
     fn make_finding(a_name: &str, b_name: &str) -> Finding {
+        make_finding_with_score(a_name, b_name, 1.0, 2)
+    }
+
+    fn make_finding_with_score(
+        a_name: &str,
+        b_name: &str,
+        score: f64,
+        duplicated_lines: usize,
+    ) -> Finding {
         let fn_a = make_function(&format!("{a_name}.py"), a_name, 1, 2, "pass");
         let fn_b = make_function(&format!("{b_name}.py"), b_name, 1, 2, "pass");
-        let snip = make_snippet_for(&fn_a, "pass");
-        let m = make_match(snip.clone(), snip, 1.0);
-        build_finding(fn_a, fn_b, 1.0, 2, vec![m], &["func_threshold"])
+        let snip_a = make_snippet_for(&fn_a, "pass");
+        let snip_b = make_snippet_for(&fn_b, "pass");
+        let m = make_match(snip_a, snip_b, score);
+        build_finding(
+            fn_a,
+            fn_b,
+            score,
+            duplicated_lines,
+            vec![m],
+            &["func_threshold"],
+        )
     }
 
     #[test]
-    fn test_cluster_empty() {
-        assert!(cluster_findings(&[]).is_empty());
+    fn build_groups_empty() {
+        assert!(build_groups(&[]).is_empty());
     }
 
     #[test]
-    fn test_cluster_assigns_ids() {
-        // Two findings sharing function "a" → same cluster.
-        let findings = vec![make_finding("a", "b"), make_finding("a", "c")];
-        let clustered = cluster_findings(&findings);
-        assert_eq!(clustered.len(), 2);
-        let cid0 = clustered[0].metadata.get("cluster_id").unwrap();
-        let cid1 = clustered[1].metadata.get("cluster_id").unwrap();
+    fn build_groups_shared_function_findings_merge_into_one_family() {
+        let findings = vec![
+            make_finding_with_score("hub", "leaf_b", 0.8, 5),
+            make_finding_with_score("hub", "leaf_a", 0.95, 9),
+            make_finding_with_score("hub", "leaf_c", 0.9, 7),
+        ];
+
+        let groups = build_groups(&findings);
+        assert_eq!(groups.len(), 1);
+        let group = &groups[0];
+        assert_eq!(group.locations.len(), 4);
+        assert_eq!(group.max_score, 0.95);
+        assert_eq!(group.max_duplicated_lines, 9);
+        // finding_indices sorted by (function_a.identity(), function_b.identity()).
+        assert_eq!(group.finding_indices, vec![1, 0, 2]);
+    }
+
+    #[test]
+    fn build_groups_two_disjoint_findings_make_two_families() {
+        let findings = [make_finding("a", "b"), make_finding("x", "y")];
+        let groups = build_groups(&findings);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].id, 1);
         assert_eq!(
-            cid0, cid1,
-            "findings sharing function 'a' must be in the same cluster"
+            groups[0]
+                .locations
+                .iter()
+                .map(|func| func.qualified_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        assert_eq!(groups[1].id, 2);
+        assert_eq!(
+            groups[1]
+                .locations
+                .iter()
+                .map(|func| func.qualified_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["x", "y"]
         );
     }
 
     #[test]
-    fn test_cluster_min_size_filter_keeps_cluster_of_two() {
-        let findings = vec![make_finding("a", "b"), make_finding("a", "b")];
-        let clustered = cluster_findings(&findings);
-        let filtered = filter_clusters(&clustered, 2);
-        assert_eq!(filtered.len(), 2);
+    fn build_groups_deterministic_under_shuffle() {
+        let ordered = vec![
+            make_finding_with_score("hub", "leaf_b", 0.8, 5),
+            make_finding_with_score("hub", "leaf_a", 0.95, 9),
+            make_finding_with_score("x", "y", 0.7, 4),
+        ];
+        let shuffled = vec![
+            make_finding_with_score("x", "y", 0.7, 4),
+            make_finding_with_score("hub", "leaf_a", 0.95, 9),
+            make_finding_with_score("hub", "leaf_b", 0.8, 5),
+        ];
+
+        let g1 = build_groups(&ordered);
+        let g2 = build_groups(&shuffled);
+
+        let normalize = |groups: &[CloneGroup<'_>], findings: &[Finding]| {
+            groups
+                .iter()
+                .map(|group| {
+                    (
+                        group.id,
+                        group
+                            .locations
+                            .iter()
+                            .map(|func| func.identity())
+                            .collect::<Vec<_>>(),
+                        group
+                            .finding_indices
+                            .iter()
+                            .map(|&idx| {
+                                (
+                                    findings[idx].function_a.identity(),
+                                    findings[idx].function_b.identity(),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                        group.max_score,
+                        group.max_duplicated_lines,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(normalize(&g1, &ordered), normalize(&g2, &shuffled));
     }
 
     #[test]
-    fn test_cluster_min_size_filter_drops_singleton() {
-        // Two different clusters: (a,b) with 2 findings, (x,y) with 1 finding.
+    fn build_groups_triangle_merges_into_one_family() {
         let findings = vec![
             make_finding("a", "b"),
-            make_finding("a", "b"),
-            make_finding("x", "y"),
+            make_finding("a", "c"),
+            make_finding("b", "c"),
         ];
-        let clustered = cluster_findings(&findings);
-        let filtered = filter_clusters(&clustered, 2);
-        assert_eq!(filtered.len(), 2, "singleton cluster must be dropped");
-        assert!(
-            filtered
+        let groups = build_groups(&findings);
+        assert_eq!(groups.len(), 1);
+        let group = &groups[0];
+        assert_eq!(group.finding_indices.len(), 3);
+        assert_eq!(
+            group
+                .locations
                 .iter()
-                .all(|f| f.function_a.qualified_name == "a" || f.function_b.qualified_name == "a")
+                .map(|func| func.qualified_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
         );
     }
 
     #[test]
-    fn test_filter_min_size_one_returns_all() {
-        let findings = vec![make_finding("a", "b")];
-        let clustered = cluster_findings(&findings);
-        let filtered = filter_clusters(&clustered, 1);
-        assert_eq!(filtered.len(), 1);
+    fn build_groups_self_clone_single_location_family() {
+        let func = make_function("s.py", "self_clone", 10, 20, "pass");
+        let snip_a = make_snippet_for(&func, "pass");
+        let snip_b = make_snippet_for(&func, "pass");
+        let finding = build_finding(
+            func.clone(),
+            func,
+            1.0,
+            2,
+            vec![make_match(snip_a, snip_b, 1.0)],
+            &["self_clone"],
+        );
+
+        let findings = [finding];
+        let groups = build_groups(&findings);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].locations.len(), 1);
     }
 }

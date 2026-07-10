@@ -204,8 +204,6 @@ pub(crate) struct CloneHunterConfig {
     pub index: IndexConfig,
     pub cache: CacheConfig,
     pub embedder: EmbedderConfig,
-    pub cluster_findings: bool,
-    pub cluster_min_size: usize,
 }
 
 impl Default for CloneHunterConfig {
@@ -225,8 +223,6 @@ impl Default for CloneHunterConfig {
             index: IndexConfig::default(),
             cache: CacheConfig::default(),
             embedder: EmbedderConfig::default(),
-            cluster_findings: false,
-            cluster_min_size: 2,
         }
     }
 }
@@ -261,8 +257,6 @@ mod tests {
         assert_eq!(c.embedder.device, DeviceName::Auto);
         assert_eq!(c.cache.path, "~/.cache/clonehunter");
         assert_eq!(c.include_globs, vec!["**/*.py"]);
-        assert!(!c.cluster_findings);
-        assert_eq!(c.cluster_min_size, 2);
     }
 
     #[test]

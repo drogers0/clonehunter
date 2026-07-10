@@ -7,8 +7,6 @@ expression: "&value"
     "cache": {
       "path": "~/.cache/clonehunter"
     },
-    "cluster_findings": false,
-    "cluster_min_size": 2,
     "embedder": {
       "batch_size": 16,
       "device": "auto",
@@ -99,94 +97,154 @@ expression: "&value"
     }
   },
   "degradations": [],
-  "findings": [
+  "groups": [
     {
-      "compare": {
-        "diff": "",
-        "kind_a": "FUNC",
-        "kind_b": "FUNC",
-        "similarity": 1.0,
-        "span_a": {
+      "findings": [
+        {
+          "compare": {
+            "diff": "",
+            "kind_a": "FUNC",
+            "kind_b": "FUNC",
+            "similarity": 1.0,
+            "span_a": {
+              "end_line": 5,
+              "start_line": 1
+            },
+            "span_b": {
+              "end_line": 5,
+              "start_line": 1
+            }
+          },
+          "duplicated_lines": 5,
+          "function_a": {
+            "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
+            "end_line": 5,
+            "file": {
+              "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+              "language": "python",
+              "path": "[PATH]"
+            },
+            "qualified_name": "compute",
+            "start_line": 1
+          },
+          "function_b": {
+            "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
+            "end_line": 5,
+            "file": {
+              "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+              "language": "python",
+              "path": "[PATH]"
+            },
+            "qualified_name": "compute",
+            "start_line": 1
+          },
+          "reasons": [
+            "func_threshold"
+          ],
+          "score": 1.0
+        }
+      ],
+      "id": 1,
+      "locations": [
+        {
+          "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
           "end_line": 5,
+          "file": {
+            "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+            "language": "python",
+            "path": "[PATH]"
+          },
+          "qualified_name": "compute",
           "start_line": 1
         },
-        "span_b": {
+        {
+          "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
           "end_line": 5,
+          "file": {
+            "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+            "language": "python",
+            "path": "[PATH]"
+          },
+          "qualified_name": "compute",
           "start_line": 1
         }
-      },
-      "duplicated_lines": 5,
-      "function_a": {
-        "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
-        "end_line": 5,
-        "file": {
-          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
-          "language": "python",
-          "path": "[PATH]"
-        },
-        "qualified_name": "compute",
-        "start_line": 1
-      },
-      "function_b": {
-        "code_hash": "694f08169eb6b8e5e4451d2f7db967175cc95d5a7041b9d88a39d10558c81c80",
-        "end_line": 5,
-        "file": {
-          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
-          "language": "python",
-          "path": "[PATH]"
-        },
-        "qualified_name": "compute",
-        "start_line": 1
-      },
-      "metadata": {},
-      "reasons": [
-        "func_threshold"
       ],
-      "score": 1.0
+      "max_duplicated_lines": 5,
+      "max_score": 1.0
     },
     {
-      "compare": {
-        "diff": "",
-        "kind_a": "FUNC",
-        "kind_b": "FUNC",
-        "similarity": 1.0,
-        "span_a": {
+      "findings": [
+        {
+          "compare": {
+            "diff": "",
+            "kind_a": "FUNC",
+            "kind_b": "FUNC",
+            "similarity": 1.0,
+            "span_a": {
+              "end_line": 13,
+              "start_line": 8
+            },
+            "span_b": {
+              "end_line": 13,
+              "start_line": 8
+            }
+          },
+          "duplicated_lines": 6,
+          "function_a": {
+            "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
+            "end_line": 13,
+            "file": {
+              "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+              "language": "python",
+              "path": "[PATH]"
+            },
+            "qualified_name": "helper",
+            "start_line": 8
+          },
+          "function_b": {
+            "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
+            "end_line": 13,
+            "file": {
+              "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+              "language": "python",
+              "path": "[PATH]"
+            },
+            "qualified_name": "helper",
+            "start_line": 8
+          },
+          "reasons": [
+            "func_threshold"
+          ],
+          "score": 1.0
+        }
+      ],
+      "id": 2,
+      "locations": [
+        {
+          "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
           "end_line": 13,
+          "file": {
+            "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+            "language": "python",
+            "path": "[PATH]"
+          },
+          "qualified_name": "helper",
           "start_line": 8
         },
-        "span_b": {
+        {
+          "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
           "end_line": 13,
+          "file": {
+            "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
+            "language": "python",
+            "path": "[PATH]"
+          },
+          "qualified_name": "helper",
           "start_line": 8
         }
-      },
-      "duplicated_lines": 6,
-      "function_a": {
-        "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
-        "end_line": 13,
-        "file": {
-          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
-          "language": "python",
-          "path": "[PATH]"
-        },
-        "qualified_name": "helper",
-        "start_line": 8
-      },
-      "function_b": {
-        "code_hash": "2e3c84586df86e2778d18ba35c1948b5ea46e5a86562a4842af0a6da5bb231c7",
-        "end_line": 13,
-        "file": {
-          "content_hash": "bac4243f43f8b1954df1ccb54a32db94ba19b6c36b5434ea3887e84c5325094a",
-          "language": "python",
-          "path": "[PATH]"
-        },
-        "qualified_name": "helper",
-        "start_line": 8
-      },
-      "metadata": {},
-      "reasons": [
-        "func_threshold"
       ],
-      "score": 1.0
+      "max_duplicated_lines": 6,
+      "max_score": 1.0
     }
   ],
   "schema_version": "[VERSION]",
@@ -197,6 +255,8 @@ expression: "&value"
     "file_count": 2,
     "finding_count": 2,
     "function_count": 4,
+    "group_count": 2,
+    "grouped_function_count": 4,
     "snippet_count": 8
   },
   "timing": "[TIMING]"

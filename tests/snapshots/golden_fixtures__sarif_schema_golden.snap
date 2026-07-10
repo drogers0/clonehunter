@@ -41,7 +41,6 @@ expression: "&value"
           },
           "properties": {
             "duplicated_lines": 5,
-            "metadata": {},
             "reasons": [
               "func_threshold"
             ],
@@ -80,7 +79,6 @@ expression: "&value"
           },
           "properties": {
             "duplicated_lines": 6,
-            "metadata": {},
             "reasons": [
               "func_threshold"
             ],

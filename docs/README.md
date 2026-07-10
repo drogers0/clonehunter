@@ -35,7 +35,7 @@ Start at the top and stop when you know enough. Each doc is self-contained.
 |---|-----|------------------------|
 | 1 | [Concepts & glossary](01-concepts.md) | What a "clone" means here, and the vocabulary (snippet, FUNC/WIN/EXP, composite score) used everywhere else. Start here if you're new. |
 | 2 | [The detection pipeline](02-pipeline.md) | The end-to-end flow: how source files become findings, stage by stage. **The core of the system.** |
-| 3 | [Detection internals](03-detection.md) | How a candidate becomes a finding: composite scoring, the two retrieval gates (lexical floor + per-kind threshold), rollup, self-clones, clustering. |
+| 3 | [Detection internals](03-detection.md) | How a candidate becomes a finding: composite scoring, the two retrieval gates (lexical floor + per-kind threshold), rollup, self-clones, and clone families. |
 | 4 | [Embeddings & backends](04-embeddings-and-backends.md) | How code becomes a vector, the four interchangeable backends, the embedding cache, and the **Rust → C++ → C → Metal language handoffs**. |
 | 5 | [Code architecture](05-architecture.md) | The module map, the core data types, and the control flow from `main` to the reporter. |
 | 6 | [Config, CLI & reports](06-config-cli-and-reports.md) | How configuration is layered, the CLI surface, glob/repotype selection, `scan` vs `diff`, and the three report formats. |

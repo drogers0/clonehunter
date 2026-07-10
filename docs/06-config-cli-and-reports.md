@@ -12,7 +12,7 @@ share a common set of flags (paths, `--format`, `--out`, `--engine`, `--embedder
 `--index`, `--device`):
 
 - **`scan [PATHS…]`** carries the full tuning surface — thresholds, windows,
-  expansion, cache path, clustering, and glob/repotype selection.
+  expansion, cache path, and glob/repotype selection.
 - **`diff --base REF`** carries only the common flags plus `--base`. It scans, then
   keeps only findings touching a git-changed file.
 
@@ -104,13 +104,22 @@ flowchart TD
     S -. does NOT use .-> CMP
 ```
 
-- **JSON** ([`json.rs`](../src/reporting/json.rs)) — the richest. Full findings with
-  both functions, the best-match `compare` block (kind, span, similarity, unified
-  diff), duplicated-line count, reasons, plus top-level `stats`, `config`, `timing`,
-  and `degradations`. Schema-locked by golden snapshot tests.
+- **JSON** ([`json.rs`](../src/reporting/json.rs)) — the richest. Findings are nested
+  under a top-level **`groups`** array (there is no flat `findings` array): each group
+  carries its unique member `locations`, `max_score`/`max_duplicated_lines`, and its
+  pairwise `findings` (both functions, the best-match `compare` block — kind, span,
+  similarity, unified diff — duplicated-line count, reasons). A 2-location clone is a
+  group with 2 locations and 1 finding; findings sharing a function merge into one
+  N-location group. Plus top-level `stats` (now including `group_count` and the
+  de-duplicated `grouped_function_count`), `config`, `timing`, and `degradations`.
+  Schema-locked by golden snapshot tests. Groups are derived at serialization time by
+  `similarity::build_groups` and are stable/re-numbered — detection output is unchanged.
 - **HTML** ([`html.rs`](../src/reporting/html.rs)) — the same findings rendered for a
   human: self-contained page (inline CSS/JS), side-by-side diff, self-clone-aware
-  display, client-side sorting, and a degradation banner.
+  display, client-side sorting, and a degradation banner. It always renders clone-family
+  cards: single-finding families open directly as pair diffs, while larger families
+  collapse behind an outer card that lists the member locations and renders every finding
+  as an equal side-by-side diff (self-clones labeled as internal duplication).
 - **SARIF** ([`sarif.rs`](../src/reporting/sarif.rs)) — a lean SARIF 2.1.0 document of
   `note`-level results with rule id, message, and physical location per finding. For
   code-scanning integrations (e.g. GitHub Code Scanning); it deliberately carries **no

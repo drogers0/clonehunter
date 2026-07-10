@@ -43,7 +43,6 @@ flowchart TD
     subgraph S5 ["Stage 5 · Similarity"]
         BLD["build vector index"] --> RET["retrieve_candidates<br/>(top-k neighbours + gates)"]
         RET --> ROL["rollup_findings<br/>(group by function pair)"]
-        ROL --> CLU["cluster (optional)"]
     end
 
     S5 --> S6
@@ -135,9 +134,6 @@ This is where duplicates are actually found ([`src/similarity/`](../src/similari
 3. **Roll up.** `rollup_findings` filters overlaps, applies the lexical gate a second
    time, de-duplicates, normalizes each pair's orientation, groups matches by function
    pair, and emits a `Finding` for each group that earns at least one reason.
-4. **Cluster (optional).** If `--cluster` is set, findings are grouped into
-   connected components of related functions and small clusters are dropped.
-
 The exact scoring and gate arithmetic is the subject of the
 [next chapter](03-detection.md).
 

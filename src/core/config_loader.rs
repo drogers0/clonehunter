@@ -73,8 +73,6 @@ pub(crate) struct ConfigOverride {
     pub include_globs: Option<Vec<String>>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec_opt")]
     pub exclude_globs: Option<Vec<String>>,
-    pub cluster_findings: Option<bool>,
-    pub cluster_min_size: Option<usize>,
     pub windows: Option<WindowOverride>,
     pub expansion: Option<ExpansionOverride>,
     pub thresholds: Option<ThresholdsOverride>,
@@ -187,12 +185,6 @@ pub(crate) fn apply_overrides(
     }
     if let Some(ref globs) = ov.exclude_globs {
         config.exclude_globs = globs.clone();
-    }
-    if let Some(v) = ov.cluster_findings {
-        config.cluster_findings = v;
-    }
-    if let Some(v) = ov.cluster_min_size {
-        config.cluster_min_size = v;
     }
 
     if let Some(ref w) = ov.windows {
@@ -360,9 +352,6 @@ pub(crate) fn validate_config(config: &CloneHunterConfig) -> Result<(), ConfigEr
         config.thresholds.min_window_hits,
         1,
     )?;
-
-    // Cluster
-    at_least("cluster_min_size", config.cluster_min_size, 1)?;
 
     // Expansion
     // expansion.depth >= 0 is guaranteed by usize
@@ -582,13 +571,6 @@ name = "brute"
                     ..Default::default()
                 },
                 "thresholds.min_window_hits",
-            ),
-            (
-                ConfigOverride {
-                    cluster_min_size: Some(0),
-                    ..Default::default()
-                },
-                "cluster_min_size",
             ),
             (
                 ConfigOverride {

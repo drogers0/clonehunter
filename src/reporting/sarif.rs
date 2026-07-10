@@ -46,7 +46,6 @@ fn to_sarif_result(finding: &Finding) -> serde_json::Value {
             "score": finding.score,
             "duplicated_lines": finding.duplicated_lines,
             "reasons": finding.reasons,
-            "metadata": finding.metadata,
         },
     })
 }
