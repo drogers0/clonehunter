@@ -204,6 +204,7 @@ fn render_family(group: &CloneGroup<'_>, findings: &[Finding]) -> String {
   data-path-min="{path_min_escaped}"
   data-score="{score}"
   data-lines="{lines}"
+  open
 >
   <summary>Clone group #{id} — {n} location{suffix}</summary>
   <ul class="group-locations">{locations_html}</ul>
@@ -819,12 +820,12 @@ mod tests {
         write_html(&make_result(findings), &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
 
-        // The family card is collapsed; it lists every member location and renders each finding
-        // as a pair card, with the first pre-opened. No representative source block.
+        // The family card is expanded by default; it lists every member location and renders each
+        // finding as a pair card, with the first pre-opened. No representative source block.
         let family_tag = details_opening_tag(&content, "class=\"family-card\"");
         assert!(
-            !family_tag.contains("open"),
-            "outer family card stays collapsed"
+            family_tag.contains("open"),
+            "outer family card is expanded by default"
         );
         assert!(content.contains("Clone group #1"));
         assert!(content.contains("hub.py:1-3"));
