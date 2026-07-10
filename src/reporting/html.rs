@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write as IoWrite};
 
 use similar::TextDiff;
 
-use crate::core::types::{CandidateMatch, Degradation, Finding, FunctionRef, ScanResult};
+use crate::core::types::{CandidateMatch, Degradation, Finding, ScanResult};
 use crate::reporting::ReportError;
 use crate::reporting::compare::{CompareData, select_compare};
 use crate::reporting::schema::SCHEMA_VERSION;
@@ -154,22 +154,21 @@ fn render_degradations(degradations: &[Degradation]) -> String {
 }
 
 fn render_family(group: &CloneGroup<'_>, findings: &[Finding]) -> String {
-    let representative = group.locations[group.representative];
+    // Single-finding family (a plain 2-location clone) → one open pair card, no group chrome.
+    if group.finding_indices.len() == 1 {
+        let finding = &findings[group.finding_indices[0]];
+        return render_pair(finding, self_clone_note(finding), true);
+    }
+
+    // Multi-finding family → a collapsed card listing every member location, then each finding
+    // rendered as an equal diff card (first pre-open). Cross-location and self-clone findings get
+    // the same treatment; self-clones just carry a label. No representative, no member/other split.
     let path_min = group
         .locations
         .iter()
         .map(|func| &func.file.path)
         .min_by(|left, right| left.to_lowercase().cmp(&right.to_lowercase()))
         .expect("group has at least one location");
-
-    if group.finding_indices.len() == 1 {
-        return render_pair(
-            &findings[group.finding_indices[0]],
-            Some(representative),
-            None,
-            true,
-        );
-    }
 
     let mut locations_html = String::new();
     for func in &group.locations {
@@ -183,22 +182,20 @@ fn render_family(group: &CloneGroup<'_>, findings: &[Finding]) -> String {
         );
     }
 
-    let (member_html, consumed) = render_member_rows(group, findings, representative);
-    let other_matches: Vec<String> = group
+    let mut first_open = true;
+    let cards: String = group
         .finding_indices
         .iter()
-        .copied()
-        .filter(|idx| !consumed.contains(idx))
-        .map(|idx| render_pair(&findings[idx], None, None, false))
-        .collect();
-    let other_matches_html = if other_matches.is_empty() {
-        String::new()
-    } else {
-        format!(
-            r#"<details><summary>Other matches in this group</summary><div class="family-stack">{}</div></details>"#,
-            other_matches.join("\n")
-        )
-    };
+        .map(|&idx| {
+            let finding = &findings[idx];
+            render_pair(
+                finding,
+                self_clone_note(finding),
+                std::mem::take(&mut first_open),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
 
     format!(
         r#"
@@ -211,9 +208,7 @@ fn render_family(group: &CloneGroup<'_>, findings: &[Finding]) -> String {
   <summary>Clone group #{id} — {n} location{suffix}</summary>
   <ul class="group-locations">{locations_html}</ul>
   <div class="family-stack">
-    {rep_html}
-    {member_html}
-    {other_matches_html}
+    {cards}
   </div>
 </details>
 "#,
@@ -223,151 +218,20 @@ fn render_family(group: &CloneGroup<'_>, findings: &[Finding]) -> String {
         id = group.id,
         n = group.locations.len(),
         suffix = plural_suffix(group.locations.len()),
-        rep_html = render_code_block(representative, 60),
     )
 }
 
-fn render_member_rows(
-    group: &CloneGroup<'_>,
-    findings: &[Finding],
-    representative: &FunctionRef,
-) -> (String, std::collections::HashSet<usize>) {
-    let representative_id = representative.identity();
-    let mut consumed = std::collections::HashSet::new();
-    let mut rows = Vec::new();
-    let mut first_open = true;
-
-    for member in group
-        .locations
-        .iter()
-        .copied()
-        .filter(|func| func.identity() != representative_id)
-    {
-        let member_id = member.identity();
-        let candidates: Vec<usize> = group
-            .finding_indices
-            .iter()
-            .copied()
-            .filter(|idx| {
-                let finding = &findings[*idx];
-                let id_a = finding.function_a.identity();
-                let id_b = finding.function_b.identity();
-                id_a != id_b && (id_a == member_id || id_b == member_id)
-            })
-            .collect();
-
-        let available: Vec<usize> = candidates
-            .iter()
-            .copied()
-            .filter(|idx| !consumed.contains(idx))
-            .collect();
-        let direct: Vec<usize> = available
-            .iter()
-            .copied()
-            .filter(|idx| {
-                let finding = &findings[*idx];
-                finding.function_a.identity() == representative_id
-                    || finding.function_b.identity() == representative_id
-            })
-            .collect();
-
-        if let Some(selected) = pick_best_finding(
-            if direct.is_empty() {
-                &available
-            } else {
-                &direct
-            },
-            findings,
-            &member_id,
-        ) {
-            consumed.insert(selected);
-            let finding = &findings[selected];
-            let partner = partner_label(finding, &member_id);
-            let note = if direct.contains(&selected) {
-                None
-            } else {
-                Some(format!("Indirect match via {partner}"))
-            };
-            let left = if direct.contains(&selected) {
-                Some(representative)
-            } else {
-                Some(member)
-            };
-            rows.push(render_pair(
-                finding,
-                left,
-                note.as_deref(),
-                std::mem::take(&mut first_open),
-            ));
-            continue;
-        }
-
-        let shown_via = pick_best_finding(&candidates, findings, &member_id)
-            .map(|idx| partner_label(&findings[idx], &member_id))
-            .unwrap_or_else(|| location_label(representative));
-        rows.push(render_member_placeholder(
-            member,
-            &format!("shown above (via {shown_via})"),
-            std::mem::take(&mut first_open),
-        ));
-    }
-
-    (rows.join("\n"), consumed)
-}
-
-fn pick_best_finding(indices: &[usize], findings: &[Finding], member_id: &str) -> Option<usize> {
-    indices.iter().copied().max_by(|left_idx, right_idx| {
-        let left = &findings[*left_idx];
-        let right = &findings[*right_idx];
-        left.score
-            .partial_cmp(&right.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| {
-                partner_identity(right, member_id).cmp(&partner_identity(left, member_id))
-            })
-    })
-}
-
-fn partner_identity(finding: &Finding, member_id: &str) -> String {
-    let id_a = finding.function_a.identity();
-    let id_b = finding.function_b.identity();
-    if id_a == member_id { id_b } else { id_a }
-}
-
-fn partner_label(finding: &Finding, member_id: &str) -> String {
-    if finding.function_a.identity() == member_id {
-        location_label(&finding.function_b)
-    } else {
-        location_label(&finding.function_a)
-    }
-}
-
-fn render_member_placeholder(func: &FunctionRef, note: &str, open: bool) -> String {
-    let open_attr = if open { " open" } else { "" };
-    format!(
-        r#"<details{open_attr}><summary><div class="summary-grid"><div><div>{qname}</div><div class="path">{path}:{start}-{end}</div></div><div></div><div></div><div>{note}</div></div></summary></details>"#,
-        qname = html_escape(&func.qualified_name),
-        path = html_escape(&func.file.path),
-        start = func.start_line,
-        end = func.end_line,
-        note = html_escape(note),
-    )
-}
-
-fn render_pair(
-    finding: &Finding,
-    left: Option<&FunctionRef>,
-    note: Option<&str>,
-    open: bool,
-) -> String {
-    let (func_a, func_b, matches) = orient_finding(finding, left);
-    let occ = if is_self_clone(&matches) {
-        Some(SelfCloneOccurrences::new(&matches))
+fn render_pair(finding: &Finding, note: Option<&str>, open: bool) -> String {
+    let func_a = &finding.function_a;
+    let func_b = &finding.function_b;
+    let matches = &finding.evidence;
+    let occ = if is_self_clone(matches) {
+        Some(SelfCloneOccurrences::new(matches))
     } else {
         None
     };
-    let (span_a, span_b) = evidence_bounds(&matches, occ.as_ref());
-    let html_compare = build_html_compare(&matches, occ.as_ref());
+    let (span_a, span_b) = evidence_bounds(matches, occ.as_ref());
+    let html_compare = build_html_compare(matches, occ.as_ref());
     let diff_html = render_diff(html_compare.as_ref());
     let open_attr = if open { " open" } else { "" };
 
@@ -427,68 +291,14 @@ fn render_pair(
     )
 }
 
-fn orient_finding<'a>(
-    finding: &'a Finding,
-    left: Option<&FunctionRef>,
-) -> (&'a FunctionRef, &'a FunctionRef, Vec<CandidateMatch>) {
-    let swap = left.is_some_and(|target| {
-        let target_id = target.identity();
-        target_id == finding.function_b.identity() && target_id != finding.function_a.identity()
-    });
-    if !swap {
-        return (
-            &finding.function_a,
-            &finding.function_b,
-            finding.evidence.clone(),
-        );
-    }
-    let matches = finding
-        .evidence
-        .iter()
-        .cloned()
-        .map(|candidate| CandidateMatch {
-            snippet_a: candidate.snippet_b,
-            snippet_b: candidate.snippet_a,
-            similarity: candidate.similarity,
-            evidence: candidate.evidence,
-        })
-        .collect();
-    (&finding.function_b, &finding.function_a, matches)
-}
-
-fn render_code_block(func: &FunctionRef, cap: usize) -> String {
-    let lines = strip_blank_lines(&func.code, func.start_line);
-    let shown = lines.len().min(cap);
-    let rows = lines
-        .iter()
-        .take(shown)
-        .map(|(line_no, line)| {
-            format!(
-                "<tr><td class=\"line-no\">{}</td><td class=\"code\">{}</td></tr>",
-                line_no,
-                html_escape(line)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    let hidden = if lines.len() > cap {
-        format!(
-            "<tr><td class=\"line-no\"></td><td class=\"meta\">{}</td></tr>",
-            html_escape(&format!("<{} more lines not shown>", lines.len() - cap))
-        )
+/// Label for a self-clone finding (`function_a` and `function_b` are the same unit — internal
+/// duplication at disjoint line ranges), or `None` for a normal cross-location finding.
+fn self_clone_note(finding: &Finding) -> Option<&'static str> {
+    if finding.function_a.identity() == finding.function_b.identity() {
+        Some("Self-clone — duplicated within the same file/function")
     } else {
-        String::new()
-    };
-    format!(
-        r#"<div class="diff-wrap"><table class="diff"><colgroup><col style="width:3.5em" /><col style="width:calc(100% - 3.5em)" /></colgroup><thead><tr><th class="line-no"></th><th>{label}</th></tr></thead><tbody>{rows}{hidden}</tbody></table></div>"#,
-        label = html_escape(&location_label(func)),
-        rows = rows,
-        hidden = hidden,
-    )
-}
-
-fn location_label(func: &FunctionRef) -> String {
-    format!("{}:{}", func.file.path, func.qualified_name)
+        None
+    }
 }
 
 fn plural_suffix(count: usize) -> &'static str {
@@ -955,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn html_star_family_renders_representative_and_expands_first_member() {
+    fn html_multi_finding_family_renders_all_findings_first_open() {
         let hub = make_function(
             "hub.py",
             "hub",
@@ -1009,27 +819,29 @@ mod tests {
         write_html(&make_result(findings), &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
 
+        // The family card is collapsed; it lists every member location and renders each finding
+        // as a pair card, with the first pre-opened. No representative source block.
         let family_tag = details_opening_tag(&content, "class=\"family-card\"");
         assert!(
             !family_tag.contains("open"),
             "outer family card stays collapsed"
         );
         assert!(content.contains("Clone group #1"));
-        assert!(content.contains("hub.py:hub"));
+        assert!(content.contains("hub.py:1-3"));
         assert!(content.contains("leaf_a.py:1-3"));
         assert!(content.contains("leaf_b.py:1-3"));
         let pair_open_count = content.matches("class=\"pair-card\"").count();
-        assert_eq!(pair_open_count, 2, "two member diffs should render");
+        assert_eq!(pair_open_count, 2, "both findings render as pair cards");
         let first_pair_tag = details_opening_tag(&content, "class=\"pair-card\"");
         assert!(
             first_pair_tag.contains("open"),
-            "first member row is pre-opened"
+            "first finding card is pre-opened"
         );
-        assert!(!content.contains("Other matches in this group"));
     }
 
     #[test]
-    fn html_chain_family_uses_middle_node_as_representative() {
+    fn html_chain_family_merges_and_renders_both_findings() {
+        // A–B and B–C share function B → one family of three locations, both findings shown.
         let a = make_function("a.py", "a", 1, 2, "def a():\n    return 1");
         let b = make_function("b.py", "b", 1, 2, "def b():\n    return 1");
         let c = make_function("c.py", "c", 1, 2, "def c():\n    return 1");
@@ -1060,22 +872,23 @@ mod tests {
             ),
         ];
         let groups = build_groups(&findings);
-        assert_eq!(
-            groups[0].locations[groups[0].representative].qualified_name,
-            "b"
-        );
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].locations.len(), 3);
 
         let dir = TempDir::new().unwrap();
         let out = dir.path().join("chain.html").to_string_lossy().into_owned();
         write_html(&make_result(findings), &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
-        assert!(content.contains("b.py:b"));
+        assert!(content.contains("a.py:1-2"));
+        assert!(content.contains("c.py:1-2"));
         assert_eq!(content.matches("class=\"pair-card\"").count(), 2);
-        assert!(!content.contains("Indirect match via"));
     }
 
     #[test]
-    fn html_self_clone_falls_into_other_matches() {
+    fn html_self_clone_in_family_renders_as_first_class_row() {
+        // Family {a, b} where b also duplicates itself. b's self-clone must render inline as a
+        // first-class row (same prominence as the a↔b member diff), NOT demoted to a collapsed
+        // "Other matches" section — the same treatment a standalone self-clone gets.
         let a = make_function("a.py", "a", 1, 2, "def a():\n    return 1");
         let b = make_function("b.py", "b", 1, 2, "def b():\n    return 1");
         let self_match = make_match(
@@ -1114,11 +927,44 @@ mod tests {
             .into_owned();
         write_html(&make_result(findings), &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
-        assert!(content.contains("Other matches in this group"));
+        // The self-clone renders inline with its label, not in a collapsed catch-all.
+        assert!(content.contains("Self-clone — duplicated within the same file/function"));
+        assert!(!content.contains("Other matches in this group"));
+        // Two first-class pair cards: the a↔b member diff and the b↔b self-clone.
+        assert_eq!(content.matches("class=\"pair-card\"").count(), 2);
     }
 
     #[test]
-    fn html_dense_family_renders_each_finding_once() {
+    fn html_standalone_self_clone_is_labeled() {
+        // A location that only duplicates itself is a single-finding family → open pair card,
+        // and now carries the same self-clone label as an in-family one.
+        let f = make_function("s.py", "s", 1, 2, "def s():\n    return 1");
+        let finding = make_finding(
+            f.clone(),
+            f.clone(),
+            0.9,
+            2,
+            vec![make_match(
+                make_snippet_for(&f, &f.code),
+                make_snippet_for(&f, &f.code),
+                0.9,
+            )],
+            &["self_clone"],
+        );
+        let dir = TempDir::new().unwrap();
+        let out = dir
+            .path()
+            .join("standalone-self.html")
+            .to_string_lossy()
+            .into_owned();
+        write_html(&make_result(vec![finding]), &out).unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("Self-clone — duplicated within the same file/function"));
+        assert!(!content.contains("Clone group #"));
+    }
+
+    #[test]
+    fn html_dense_family_renders_every_finding_as_a_card() {
         let a = make_function("a.py", "a", 1, 2, "def a():\n    return 1");
         let b = make_function("b.py", "b", 1, 2, "def b():\n    return 1");
         let c = make_function("c.py", "c", 1, 2, "def c():\n    return 1");
@@ -1178,8 +1024,9 @@ mod tests {
         let out = dir.path().join("dense.html").to_string_lossy().into_owned();
         write_html(&make_result(findings), &out).unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
+        // Every finding in the family renders as its own equal card — no "Other matches" bucket.
         assert_eq!(content.matches("class=\"pair-card\"").count(), 4);
-        assert!(content.contains("Other matches in this group"));
+        assert!(!content.contains("Other matches in this group"));
     }
 
     #[test]

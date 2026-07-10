@@ -118,7 +118,8 @@ flowchart TD
   human: self-contained page (inline CSS/JS), side-by-side diff, self-clone-aware
   display, client-side sorting, and a degradation banner. It always renders clone-family
   cards: single-finding families open directly as pair diffs, while larger families
-  collapse behind a representative source block plus nested member diffs.
+  collapse behind an outer card that lists the member locations and renders every finding
+  as an equal side-by-side diff (self-clones labeled as internal duplication).
 - **SARIF** ([`sarif.rs`](../src/reporting/sarif.rs)) — a lean SARIF 2.1.0 document of
   `note`-level results with rule id, message, and physical location per finding. For
   code-scanning integrations (e.g. GitHub Code Scanning); it deliberately carries **no

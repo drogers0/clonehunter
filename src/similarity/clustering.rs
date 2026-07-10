@@ -3,15 +3,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::core::types::{Finding, FunctionRef};
 
 /// A clone group derived from findings. Groups are the single presentation/source-of-truth view:
-/// findings sharing any function identity merge into one family via union-find, and the
-/// representative is the most-connected location within that family.
+/// findings sharing any function identity merge into one family via union-find.
 pub(crate) struct CloneGroup<'a> {
     /// Stable, re-numbered group id.
     pub id: usize,
     /// Unique member functions, sorted by `identity()`; always non-empty.
     pub locations: Vec<&'a FunctionRef>,
-    /// Index into `locations` for the representative function.
-    pub representative: usize,
     /// Indices into the input slice for this group's pairwise findings.
     pub finding_indices: Vec<usize>,
     pub max_score: f64,
@@ -41,9 +38,8 @@ fn union(parent: &mut HashMap<String, String>, a: &str, b: &str) {
 
 /// Derive stable clone groups from findings via unconditional union-find over function identity.
 ///
-/// Membership, ordering, ids, representative selection, and per-group finding ordering are all
-/// deterministic run-to-run. Groups sort by their full sorted location-identity vector and are
-/// re-numbered sequentially `1..`.
+/// Membership, ordering, ids, and per-group finding ordering are all deterministic run-to-run.
+/// Groups sort by their full sorted location-identity vector and are re-numbered sequentially `1..`.
 pub(crate) fn build_groups(findings: &[Finding]) -> Vec<CloneGroup<'_>> {
     if findings.is_empty() {
         return Vec::new();
@@ -86,37 +82,8 @@ pub(crate) fn build_groups(findings: &[Finding]) -> Vec<CloneGroup<'_>> {
             }
             locations.sort_by_key(|func| func.identity());
 
-            let mut incident_counts: HashMap<String, usize> = locations
-                .iter()
-                .map(|func| (func.identity(), 0usize))
-                .collect();
-            for &idx in &finding_indices {
-                let finding = &findings[idx];
-                let id_a = finding.function_a.identity();
-                let id_b = finding.function_b.identity();
-                if id_a == id_b {
-                    continue;
-                }
-                *incident_counts.entry(id_a).or_insert(0) += 1;
-                *incident_counts.entry(id_b).or_insert(0) += 1;
-            }
-
-            let representative = locations
-                .iter()
-                .enumerate()
-                .max_by(|(_, left), (_, right)| {
-                    let left_id = left.identity();
-                    let right_id = right.identity();
-                    incident_counts[&left_id]
-                        .cmp(&incident_counts[&right_id])
-                        .then_with(|| right_id.cmp(&left_id))
-                })
-                .map(|(idx, _)| idx)
-                .expect("group has at least one location");
-
             CloneGroup {
                 id: 0,
-                representative,
                 max_score: finding_indices
                     .iter()
                     .map(|&idx| findings[idx].score)
@@ -195,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn build_groups_star_family_uses_hub_representative() {
+    fn build_groups_shared_function_findings_merge_into_one_family() {
         let findings = vec![
             make_finding_with_score("hub", "leaf_b", 0.8, 5),
             make_finding_with_score("hub", "leaf_a", 0.95, 9),
@@ -206,9 +173,9 @@ mod tests {
         assert_eq!(groups.len(), 1);
         let group = &groups[0];
         assert_eq!(group.locations.len(), 4);
-        assert_eq!(group.locations[group.representative].qualified_name, "hub");
         assert_eq!(group.max_score, 0.95);
         assert_eq!(group.max_duplicated_lines, 9);
+        // finding_indices sorted by (function_a.identity(), function_b.identity()).
         assert_eq!(group.finding_indices, vec![1, 0, 2]);
     }
 
@@ -264,7 +231,6 @@ mod tests {
                             .iter()
                             .map(|func| func.identity())
                             .collect::<Vec<_>>(),
-                        group.representative,
                         group
                             .finding_indices
                             .iter()
@@ -286,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn build_groups_representative_tiebreaks_by_identity() {
+    fn build_groups_triangle_merges_into_one_family() {
         let findings = vec![
             make_finding("a", "b"),
             make_finding("a", "c"),
@@ -295,7 +261,15 @@ mod tests {
         let groups = build_groups(&findings);
         assert_eq!(groups.len(), 1);
         let group = &groups[0];
-        assert_eq!(group.locations[group.representative].qualified_name, "a");
+        assert_eq!(group.finding_indices.len(), 3);
+        assert_eq!(
+            group
+                .locations
+                .iter()
+                .map(|func| func.qualified_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
     }
 
     #[test]
@@ -316,6 +290,5 @@ mod tests {
         let groups = build_groups(&findings);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].locations.len(), 1);
-        assert_eq!(groups[0].representative, 0);
     }
 }

@@ -756,69 +756,6 @@
       "findings": [
         {
           "compare": {
-            "diff": "--- \n+++ \n@@ -1,40 +1,40 @@\n-        );\n-        assert!(!content.contains(\"Other matches in this group\"));\n+        assert!(content.contains(\"Other matches in this group\"));\n     }\n \n     #[test]\n-    fn html_chain_family_uses_middle_node_as_representative() {\n+    fn html_dense_family_renders_each_finding_once() {\n         let a = make_function(\"a.py\", \"a\", 1, 2, \"def a():\\n    return 1\");\n         let b = make_function(\"b.py\", \"b\", 1, 2, \"def b():\\n    return 1\");\n         let c = make_function(\"c.py\", \"c\", 1, 2, \"def c():\\n    return 1\");\n+        let d = make_function(\"d.py\", \"d\", 1, 2, \"def d():\\n    return 1\");\n         let findings = vec![\n             make_finding(\n                 a.clone(),\n                 b.clone(),\n-                0.95,\n+                0.97,\n                 2,\n                 vec![make_match(\n                     make_snippet_for(&a, &a.code),\n                     make_snippet_for(&b, &b.code),\n-                    0.95,\n+                    0.97,\n                 )],\n                 &[\"func\"],\n             ),\n             make_finding(\n-                b.clone(),\n+                a.clone(),\n                 c.clone(),\n-                0.94,\n+                0.96,\n                 2,\n                 vec![make_match(\n-                    make_snippet_for(&b, &b.code),\n+                    make_snippet_for(&a, &a.code),\n                     make_snippet_for(&c, &c.code),\n-                    0.94,\n+                    0.96,\n                 )],\n                 &[\"func\"],\n             ),\n-        ];\n-        let groups = build_groups(&findings);\n-        assert_eq!(\n-            groups[0].locations[groups[0].representative].qualified_name,\n-            \"b\"\n-        );\n+            make_finding(\n+                a.clone(),\n+                d.clone(),\n+                0.95,\n+                2,\n+                vec![make_match(",
-            "kind_a": "WIN",
-            "kind_b": "WIN",
-            "similarity": 0.9147738200287485,
-            "span_a": {
-              "end_line": 1066,
-              "start_line": 1027
-            },
-            "span_b": {
-              "end_line": 1156,
-              "start_line": 1117
-            }
-          },
-          "duplicated_lines": 52,
-          "function_a": {
-            "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-            "end_line": 1613,
-            "file": {
-              "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-              "language": "text",
-              "path": "./src/reporting/html.rs"
-            },
-            "qualified_name": "html.rs",
-            "start_line": 1
-          },
-          "function_b": {
-            "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-            "end_line": 1613,
-            "file": {
-              "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-              "language": "text",
-              "path": "./src/reporting/html.rs"
-            },
-            "qualified_name": "html.rs",
-            "start_line": 1
-          },
-          "reasons": [
-            "min_window_hits"
-          ],
-          "score": 0.9147738200287485
-        }
-      ],
-      "id": 10,
-      "locations": [
-        {
-          "code_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-          "end_line": 1613,
-          "file": {
-            "content_hash": "42276a1c043ede7713c3a17cf246bd8efbf7cc41fbddd4096192f19a22d5bb7b",
-            "language": "text",
-            "path": "./src/reporting/html.rs"
-          },
-          "qualified_name": "html.rs",
-          "start_line": 1
-        }
-      ],
-      "max_duplicated_lines": 52,
-      "max_score": 0.9147738200287485
-    },
-    {
-      "findings": [
-        {
-          "compare": {
             "diff": "--- \n+++ \n@@ -1,40 +1,40 @@\n-            local_matches\n-        })\n-        .collect()\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use crate::core::config::Thresholds;\n-    use crate::core::types::{FileRef, FunctionRef, Language, SnippetKind, SnippetRef};\n-    use crate::index::BruteIndex;\n-    use crate::test_support::make_embedding as emb;\n+    use crate::core::types::{\n+        CandidateMatch, FileRef, FunctionRef, Language, SnippetKind, SnippetRef,\n+    };\n+\n+    // ── Test helpers ──────────────────────────────────────────────────────────\n \n-    fn make_file() -> FileRef {\n+    fn make_file(path: &str) -> FileRef {\n         FileRef {\n-            path: \"x.py\".into(),\n+            path: path.into(),\n             content_hash: \"h\".into(),\n             language: Language::Python,\n             content: \"\".into(),\n         }\n     }\n \n-    fn make_func(file: &FileRef, qname: &str) -> FunctionRef {\n+    fn make_func(file: &FileRef, qname: &str, start: usize, end: usize) -> FunctionRef {\n         FunctionRef {\n             file: file.clone(),\n             qualified_name: qname.into(),\n-            start_line: 1,\n-            end_line: 5,\n+            start_line: start,\n+            end_line: end,\n             code: \"pass\".into(),\n             code_hash: qname.into(),\n         }\n     }\n \n-    fn make_snip(kind: SnippetKind, func: &FunctionRef, text: &str, hash: &str) -> SnippetRef {\n-        SnippetRef {\n-            kind,\n-            function: func.clone(),\n-            start_line: 1,\n-            end_line: 5,\n-            text: text.into(),\n+    fn make_snip(\n+        kind: SnippetKind,\n+        func: &FunctionRef,\n+        start: usize,\n+        end: usize,\n+        text: &str,\n+        hash: &str,\n+    ) -> SnippetRef {",
             "kind_a": "WIN",
             "kind_b": "WIN",
@@ -947,7 +884,7 @@
           "score": 0.9193938028812407
         }
       ],
-      "id": 11,
+      "id": 10,
       "locations": [
         {
           "code_hash": "1bfe64f7a5e16e126de1b6a1a431a38160b3669a543362292f185f7099dfbe0c",
@@ -989,21 +926,21 @@
   ],
   "schema_version": "2.0.0",
   "stats": {
-    "cache_hits": 1620,
-    "cache_misses": 1127,
-    "candidate_count": 4541,
+    "cache_hits": 2717,
+    "cache_misses": 0,
+    "candidate_count": 4468,
     "file_count": 67,
-    "finding_count": 13,
+    "finding_count": 12,
     "function_count": 62,
-    "group_count": 11,
-    "grouped_function_count": 21,
-    "snippet_count": 2747
+    "group_count": 10,
+    "grouped_function_count": 20,
+    "snippet_count": 2717
   },
   "timing": {
-    "collect_files": 0.017652666,
-    "embed": 436.264036667,
-    "extract_functions": 0.01003025,
-    "generate_snippets": 5.426736917,
-    "similarity": 0.386160375
+    "collect_files": 0.015722667,
+    "embed": 1.163079375,
+    "extract_functions": 0.010219,
+    "generate_snippets": 5.359490584,
+    "similarity": 0.431610959
   }
 }

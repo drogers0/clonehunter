@@ -357,44 +357,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "./src/reporting/html.rs"
-                },
-                "region": {
-                  "endLine": 1613,
-                  "startLine": 1
-                }
-              }
-            },
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "./src/reporting/html.rs"
-                },
-                "region": {
-                  "endLine": 1613,
-                  "startLine": 1
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Potential semantic clone"
-          },
-          "properties": {
-            "duplicated_lines": 52,
-            "reasons": [
-              "min_window_hits"
-            ],
-            "score": 0.9147738200287485
-          },
-          "ruleId": "clonehunter"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "./src/similarity/candidates.rs"
                 },
                 "region": {

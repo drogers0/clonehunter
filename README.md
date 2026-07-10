@@ -323,9 +323,10 @@ findings sharing a function merge into one N-location group. Consume it as
 `stats` gains **`group_count`** (number of clone groups) and **`grouped_function_count`** (unique
 functions across all groups).
 
-**HTML** always renders clone-family cards: single-finding families open directly as pair diffs,
-while larger families collapse behind one outer card that shows the representative source and
-nested member diffs. **SARIF** is unchanged — one result per finding.
+**HTML** always renders clone-family cards: a single-finding family opens directly as a pair diff,
+while a larger family collapses behind one outer card that lists its member locations and renders
+each finding as an equal side-by-side diff (self-clones labeled as internal duplication).
+**SARIF** is unchanged — one result per finding.
 
 ---
 
